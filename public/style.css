@@ -38,6 +38,8 @@
   --heat-4: #a83c42;
   --heat-text: #e2ebe7;
   --heat-bad-text: #ffffff;
+  --scrollbar: rgba(255, 255, 255, .16);
+  --scrollbar-hover: rgba(255, 255, 255, .3);
   --card-shadow: 0 22px 48px -20px rgba(0, 0, 0, .75), 0 1px 0 rgba(255, 255, 255, .05) inset;
   --login-glow-1: rgba(117, 184, 166, .10);
   --login-glow-2: rgba(216, 185, 111, .06);
@@ -84,6 +86,8 @@
   --heat-4: #e05252;
   --heat-text: #1f2a26;
   --heat-bad-text: #ffffff;
+  --scrollbar: rgba(17, 24, 39, .18);
+  --scrollbar-hover: rgba(17, 24, 39, .32);
   --card-shadow: 0 16px 36px -26px rgba(16, 24, 40, .35);
   --login-glow-1: rgba(14, 116, 102, .09);
   --login-glow-2: rgba(154, 103, 0, .05);
@@ -125,6 +129,8 @@
     --heat-4: #e05252;
     --heat-text: #1f2a26;
     --heat-bad-text: #ffffff;
+    --scrollbar: rgba(17, 24, 39, .18);
+    --scrollbar-hover: rgba(17, 24, 39, .32);
     --card-shadow: 0 16px 36px -26px rgba(16, 24, 40, .35);
     --login-glow-1: rgba(14, 116, 102, .09);
     --login-glow-2: rgba(154, 103, 0, .05);
@@ -141,6 +147,15 @@ html, body { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--text); overflow: hidden; transition: background .18s ease, color .18s ease; }
 
 .layout { display: grid; grid-template-columns: 264px minmax(0, 1fr); height: 100vh; }
+/* 滚动条统一改成「占位式」细条。macOS 默认是悬浮滚动条，不占布局空间，
+   会直接压在内容右侧 —— 侧边栏节点行末的数量角标就是这么被盖住的。
+   给 ::-webkit-scrollbar 指定宽度会让 WebKit 退出悬浮模式，真正让出空间。 */
+html { scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); }
+::-webkit-scrollbar-corner { background: transparent; }
 .sidebar {
   border-right: 1px solid var(--border);
   padding: 16px;
@@ -214,7 +229,10 @@ input:focus, select:focus { outline: 1px solid var(--teal); }
 .row-form input[type=url] { flex: 1; min-width: 260px; }
 .row-form select { min-width: 190px; }
 
-.node-list { overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 4px; margin-top: 4px; min-height: 0; flex: 1; }
+/* padding-right 是给滚动条留位的关键：macOS 的悬浮滚动条不占布局空间，
+   scrollbar-gutter 对它无效（规范只对经典滚动条生效），只能自己留出这条空隙，
+   否则滚动条会压在行末的数量角标上。 */
+.node-list { overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 8px; display: flex; flex-direction: column; gap: 4px; margin-top: 4px; min-height: 0; flex: 1; }
 .node-group {
   display: flex;
   align-items: center;
@@ -240,7 +258,9 @@ input:focus, select:focus { outline: 1px solid var(--teal); }
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
-  padding: 8px 10px;
+  padding: 7px 10px;
+  /* 不能留空继承 body 的 16px：那样会比 12px 的分组标题大出一截，层级全乱 */
+  font-size: 13px;
   cursor: pointer;
   display: flex;
   justify-content: space-between;
@@ -408,6 +428,7 @@ tbody tr:hover td { background: var(--panel-2); }
 .hm-cell.l3 { background: var(--heat-3); color: var(--heat-text); }
 .hm-cell.l4 { background: var(--heat-4); color: var(--heat-bad-text); }
 .hm-cell.text { background: transparent; color: var(--text); font-variant-numeric: tabular-nums; }
+.hm-cell.na { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--border); }
 .hm-legend { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 12px; color: var(--muted); }
 .hm-legend .sw { width: 26px; height: 10px; padding: 0; }
 

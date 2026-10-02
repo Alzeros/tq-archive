@@ -64,7 +64,7 @@ test('延迟基准按机房区域选档：同一延迟在不同区域得到不�
   assert.equal(gradeOf('HK').level, 'bad', '200ms 对香港机房属异常');
   assert.equal(gradeOf('de').level, 'fair', 'region 大小写不敏感');
   assert.equal(gradeOf('').level, 'fair', '未给区域时退回兜底档，不报错');
-  assert.equal(gradeOf('DE').basis, '德国基准：≤175 好，≤230 一般');
+  assert.equal(gradeOf('DE').basis, '德国基准：≤175 好，≤225 一般');
   assert.equal(gradeOf('').basis, '未知区域基准：≤160 好，≤215 一般');
 });
 

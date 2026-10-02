@@ -130,9 +130,22 @@ function selectNode(nodeId) {
   renderNodes();
   renderHistory();
   showView('history');
+  // 收起详情后主区会留下大片空白，把视图拉回历史列表
+  document.querySelector('.content').scrollTop = 0;
+}
+// 切换节点必须丢掉上一个节点的详情卡片：否则右侧继续显示别的节点的报告，
+// 而标题与归属已经换成新节点，看起来就像"这份报告属于新节点"。
+function dropForeignDetail() {
+  if (!state.detail || state.detail.nodeId === state.selectedNodeId) return;
+  state.detail = null;
+  state.insight = null;
+  bindPicker = null;
+  el('detailCard').classList.add('hidden');
+  el('bindPanel').classList.add('hidden');
 }
 function renderHistory() {
   const list = el('historyList');
+  dropForeignDetail();
   if (!state.selectedNodeId) {
     el('historyTitle').textContent = '请选择节点';
     list.innerHTML = '<p class="empty">从左侧选择一个节点，查看它历次的 TQ 报告。</p>';
@@ -249,7 +262,9 @@ function drawHeatmap() {
       if (metric.text) return `<span class="hm-cell text" title="去程线路">${escapeHtml(route || '—')}</span>`;
       const cell = metric.cells[rowIndex][columnIndex];
       const text = cell && cell.v !== null ? `${cell.v}${metric.unit}` : '—';
-      return `<span class="hm-cell l${cell ? cell.l : 0}" title="${escapeHtml(`${row}·${column} ${text}｜去程 ${route || '未知'}`)}">${escapeHtml(text)}</span>`;
+      // l=null 表示缺失或测量失败，画成中性样式，不能冒充"最优"
+      const tone = cell && cell.l !== null ? `l${cell.l}` : 'na';
+      return `<span class="hm-cell ${tone}" title="${escapeHtml(`${row}·${column} ${text}｜去程 ${route || '未知'}`)}">${escapeHtml(text)}</span>`;
     }).join('');
     return `<span class="hm-row-name">${escapeHtml(row)}</span>${cells}`;
   }).join('');
