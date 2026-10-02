@@ -19,9 +19,9 @@ function setBusy(busy) {
 toggle.addEventListener('click', () => {
   const revealed = password.type === 'text';
   password.type = revealed ? 'password' : 'text';
-  // 两个图标用 hidden 属性切换，避免 CSS 依赖导致的显示错乱
-  toggle.querySelector('.eye-open').hidden = !revealed;
-  toggle.querySelector('.eye-closed').hidden = revealed;
+  // 两个图标用 hidden 属性切换（svg 无 hidden IDL 反射，必须操作 attribute）
+  toggle.querySelector('.eye-open').toggleAttribute('hidden', !revealed);
+  toggle.querySelector('.eye-closed').toggleAttribute('hidden', revealed);
   toggle.setAttribute('aria-pressed', String(!revealed));
   const label = revealed ? '显示密码' : '隐藏密码';
   toggle.setAttribute('aria-label', label);

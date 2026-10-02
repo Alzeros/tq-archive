@@ -18,10 +18,12 @@ function apply(theme) {
   else delete document.documentElement.dataset.theme;
 }
 function paintToggle(button, theme) {
-  // 图标显示"点击后将切换到"的目标模式：当前亮 → 显示月亮
+  // 图标显示"点击后将切换到"的目标模式：当前亮 → 显示月亮。
+  // 注意 svg 是 SVGElement，没有 hidden IDL 反射，必须用 attribute 操作，
+  // 否则 .hidden=false 只是 expando，CSS [hidden] 规则纹丝不动。
   const toDark = theme === 'light';
-  button.querySelector('.icon-sun').hidden = toDark;
-  button.querySelector('.icon-moon').hidden = !toDark;
+  button.querySelector('.icon-sun').toggleAttribute('hidden', toDark);
+  button.querySelector('.icon-moon').toggleAttribute('hidden', !toDark);
   const label = toDark ? '切换到深色模式' : '切换到浅色模式';
   button.title = label;
   button.setAttribute('aria-label', label);

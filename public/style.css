@@ -113,18 +113,19 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 .hidden { display: none !important; }
-body { margin: 0; background: var(--bg); color: var(--text); transition: background .18s ease, color .18s ease; }
+/* 应用式布局：页面自身不滚动，侧边栏与主内容各为独立滚动区，互不影响 */
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); overflow: hidden; transition: background .18s ease, color .18s ease; }
 
-.layout { display: grid; grid-template-columns: 264px minmax(0, 1fr); min-height: 100vh; }
+.layout { display: grid; grid-template-columns: 264px minmax(0, 1fr); height: 100vh; }
 .sidebar {
   border-right: 1px solid var(--border);
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  position: sticky;
-  top: 0;
   height: 100vh;
+  min-height: 0;
 }
 .brand { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .brand-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -132,7 +133,7 @@ body { margin: 0; background: var(--bg); color: var(--text); transition: backgro
 .brand span { color: var(--muted); font-size: 12px; }
 .sidebar-foot { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); }
 
-.content { padding: 20px 24px 60px; min-width: 0; }
+.content { padding: 20px 24px 60px; min-width: 0; height: 100vh; overflow-y: auto; overscroll-behavior: contain; }
 .view .card { max-width: 1100px; }
 
 button, .button { font: inherit; cursor: pointer; border-radius: 6px; border: 1px solid var(--border); }
@@ -147,17 +148,18 @@ button.danger:disabled { opacity: .5; cursor: not-allowed; }
 .theme-toggle {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   flex: none;
   padding: 0;
-  color: var(--muted);
+  /* 图标用正文色而非 muted：这个按钮承担模式切换，淡到看不见等于不存在 */
+  color: var(--text);
   background: var(--panel-2);
   border-radius: 8px;
-  transition: color .15s ease, background .15s ease;
+  transition: color .15s ease, border-color .15s ease;
 }
-.theme-toggle:hover { color: var(--text); }
-.theme-toggle svg { width: 17px; height: 17px; }
+.theme-toggle:hover { color: var(--teal); border-color: var(--teal); }
+.theme-toggle svg { width: 18px; height: 18px; }
 
 input, select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
 input:focus, select:focus { outline: 1px solid var(--teal); }
@@ -189,8 +191,28 @@ input:focus, select:focus { outline: 1px solid var(--teal); }
 .row-form input[type=url] { flex: 1; min-width: 260px; }
 .row-form select { min-width: 190px; }
 
-.node-list { overflow-y: auto; display: flex; flex-direction: column; gap: 4px; margin-top: 4px; min-height: 0; }
-.node-group { color: var(--muted); font-size: 12px; margin: 10px 0 2px; letter-spacing: .04em; }
+.node-list { overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 4px; margin-top: 4px; min-height: 0; flex: 1; }
+.node-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 5px 6px;
+  margin: 8px 0 2px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: .04em;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  user-select: none;
+  text-align: left;
+}
+.node-group:hover { background: var(--panel-2); color: var(--text); }
+.node-group .caret { display: inline-block; transition: transform .16s ease; flex: none; }
+.node-group.collapsed .caret { transform: rotate(-90deg); }
+.node-group .group-count { margin-left: auto; font-variant-numeric: tabular-nums; }
 .node {
   background: transparent;
   border: 1px solid transparent;
@@ -340,7 +362,10 @@ tbody tr:hover td { background: var(--panel-2); }
 .toast.show { opacity: 1; transform: translateY(0); }
 .toast.error { color: var(--red); border-color: var(--warn-border); }
 @media (max-width: 860px) {
-  .layout { grid-template-columns: 1fr; }
-  .sidebar { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
-  .node-list { max-height: 220px; }
+  /* 窄屏改为整页滚动：侧边栏与主内容上下堆叠，各自独立滚动反而不好用 */
+  body { overflow: auto; }
+  .layout { grid-template-columns: 1fr; height: auto; min-height: 100vh; }
+  .sidebar { height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+  .content { height: auto; overflow: visible; }
+  .node-list { flex: none; max-height: 260px; }
 }

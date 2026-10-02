@@ -31,6 +31,20 @@ const metricText = measurement => {
 };
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 
+const COLLAPSED_KEY = 'tq_collapsed_groups';
+const collapsedGroups = new Set(readCollapsed());
+function readCollapsed() {
+  try { return JSON.parse(localStorage.getItem(COLLAPSED_KEY) || '[]'); } catch { return []; }
+}
+function persistCollapsed() {
+  try { localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsedGroups])); } catch { /* 隐私模式下忽略 */ }
+}
+function toggleGroup(city) {
+  collapsedGroups.has(city) ? collapsedGroups.delete(city) : collapsedGroups.add(city);
+  persistCollapsed();
+  renderNodes();
+}
+
 function renderNodes() {
   const filter = el('nodeFilter').value.trim().toLowerCase();
   const visible = state.nodes.filter(node => !filter || node.name.toLowerCase().includes(filter) || (node.region || '').toLowerCase().includes(filter));
@@ -43,11 +57,18 @@ function renderNodes() {
   const list = el('nodeList');
   list.innerHTML = '';
   if (!state.nodes.length) { list.innerHTML = '<p class="empty">先同步探针节点。</p>'; return; }
+  if (!visible.length) { list.innerHTML = '<p class="empty">没有匹配的节点。</p>'; return; }
   for (const [city, nodes] of groups) {
-    const label = document.createElement('div');
-    label.className = 'node-group';
-    label.textContent = `${city} · ${nodes.length}`;
+    // 搜索时强制展开，否则命中的节点被折叠藏起来会很困惑
+    const collapsed = !filter && collapsedGroups.has(city);
+    const label = document.createElement('button');
+    label.type = 'button';
+    label.className = 'node-group' + (collapsed ? ' collapsed' : '');
+    label.setAttribute('aria-expanded', String(!collapsed));
+    label.innerHTML = `<span class="caret">▾</span><span>${escapeHtml(city)}</span><span class="group-count">${nodes.length}</span>`;
+    label.addEventListener('click', () => toggleGroup(city));
     list.append(label);
+    if (collapsed) continue;
     for (const node of nodes) {
       const count = state.reports.filter(report => report.nodeId === node.id).length;
       const button = document.createElement('button');
