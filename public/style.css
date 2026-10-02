@@ -29,6 +29,12 @@
   --ok-border: rgba(135, 216, 141, .35);
   --ok-text: var(--green);
   --danger-border: rgba(220, 100, 109, .4);
+  --heat-0: #2a2426;
+  --heat-1: #4a2b2e;
+  --heat-2: #7a3438;
+  --heat-3: #a84449;
+  --heat-4: #d1585d;
+  --heat-text: #f0e2e2;
   --card-shadow: 0 22px 48px -20px rgba(0, 0, 0, .75), 0 1px 0 rgba(255, 255, 255, .05) inset;
   --login-glow-1: rgba(117, 184, 166, .10);
   --login-glow-2: rgba(216, 185, 111, .06);
@@ -68,6 +74,12 @@
   --ok-border: #b7dfc2;
   --ok-text: #116329;
   --danger-border: #f0b8bb;
+  --heat-0: #fbe9e9;
+  --heat-1: #f6c4c4;
+  --heat-2: #ef9b9b;
+  --heat-3: #e04b4b;
+  --heat-4: #a32d2d;
+  --heat-text: #4a1a1a;
   --card-shadow: 0 16px 36px -26px rgba(16, 24, 40, .35);
   --login-glow-1: rgba(14, 116, 102, .09);
   --login-glow-2: rgba(154, 103, 0, .05);
@@ -102,6 +114,12 @@
     --ok-border: #b7dfc2;
     --ok-text: #116329;
     --danger-border: #f0b8bb;
+    --heat-0: #fbe9e9;
+    --heat-1: #f6c4c4;
+    --heat-2: #ef9b9b;
+    --heat-3: #e04b4b;
+    --heat-4: #a32d2d;
+    --heat-text: #4a1a1a;
     --card-shadow: 0 16px 36px -26px rgba(16, 24, 40, .35);
     --login-glow-1: rgba(14, 116, 102, .09);
     --login-glow-2: rgba(154, 103, 0, .05);
@@ -333,6 +351,71 @@ tbody tr:hover td { background: var(--panel-2); }
 .inline { color: var(--muted); font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
 .detail-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .detail-head .actions { display: flex; gap: 8px; }
+
+/* ============ 洞察视图 ============ */
+/* 把 278 行表格压成结论：指标卡给客观数字，异常清单给相对离群，热力图给分布对比 */
+.insight-block { margin: 14px 0 18px; }
+.insight-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.icard { background: var(--panel-2); border: 1px solid var(--border); border-left-width: 3px; border-radius: 8px; padding: 10px 12px; }
+.icard .label { color: var(--muted); font-size: 12px; }
+.icard .value { font-size: 22px; margin-top: 3px; line-height: 1.2; }
+.icard .unit { font-size: 12px; color: var(--muted); margin-left: 3px; }
+.icard .note { color: var(--muted); font-size: 12px; margin-top: 3px; }
+.icard.good { border-left-color: var(--green); }
+.icard.fair { border-left-color: var(--yellow); }
+.icard.bad { border-left-color: var(--red); }
+.icard .value { color: var(--text); }
+.icard.good .value { color: var(--green); }
+.icard.fair .value { color: var(--yellow); }
+.icard.bad .value { color: var(--red); }
+
+.anomaly { display: flex; gap: 10px; align-items: flex-start; border-radius: 8px; padding: 8px 11px; font-size: 13px; margin-bottom: 6px; }
+.anomaly .tag { flex: none; font-size: 12px; }
+.anomaly.danger { background: var(--warn-bg); }
+.anomaly.danger .tag { color: var(--red); }
+.anomaly.warn { background: var(--warn-bg); opacity: .85; }
+.anomaly.warn .tag { color: var(--yellow); }
+.anomaly.info { background: var(--panel-2); }
+.anomaly.info .tag { color: var(--muted); }
+
+.hm-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+.hm-tab {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.hm-tab:hover { color: var(--text); }
+.hm-tab.active { color: var(--teal); border-color: var(--teal); background: var(--panel-2); }
+.hm-grid { display: grid; gap: 2px; margin-top: 10px; font-size: 12px; }
+.hm-grid.cols-1 { grid-template-columns: 56px minmax(0, 1fr); }
+.hm-grid.cols-2 { grid-template-columns: 56px repeat(2, minmax(0, 1fr)); }
+.hm-grid.cols-3 { grid-template-columns: 56px repeat(3, minmax(0, 1fr)); }
+.hm-row-name { color: var(--muted); padding: 3px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hm-col { color: var(--muted); text-align: center; padding: 3px 0; font-weight: 600; }
+.hm-cell { padding: 3px 4px; text-align: center; border-radius: 3px; overflow: hidden; white-space: nowrap; }
+.hm-cell.l0 { background: var(--heat-0); color: var(--heat-text); }
+.hm-cell.l1 { background: var(--heat-1); color: var(--heat-text); }
+.hm-cell.l2 { background: var(--heat-2); color: var(--heat-text); }
+.hm-cell.l3 { background: var(--heat-3); color: #fff; }
+.hm-cell.l4 { background: var(--heat-4); color: #fff; }
+.hm-cell.text { background: transparent; color: var(--text); font-variant-numeric: tabular-nums; }
+.hm-legend { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.hm-legend .sw { width: 26px; height: 10px; padding: 0; }
+
+.region-row, .svc-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.region, .svc { display: inline-flex; align-items: center; gap: 6px; background: var(--panel-2); border-radius: 6px; padding: 4px 8px; font-size: 12px; }
+.region .name, .svc .name { color: var(--muted); }
+.region .hm-cell { min-width: 52px; }
+.svc .lat { color: var(--text); font-variant-numeric: tabular-nums; }
+
+.raw-wrap { margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 10px; }
+.raw-wrap summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 4px 0; }
+.raw-wrap summary:hover { color: var(--text); }
+.raw-wrap[open] .table-wrap { margin-top: 10px; }
 
 /* ============ 登录页 ============ */
 .login-body {

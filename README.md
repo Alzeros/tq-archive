@@ -33,11 +33,13 @@ npm start
 | --- | --- |
 | `server.mjs` | 本地 HTTP 服务与 API |
 | `lib/auth.mjs` | 账号校验与会话 Cookie |
+| `lib/insight.mjs` | 单份报告洞察：指标卡、相对离群异常、省份×运营商热力图 |
 | `lib/parser.mjs` | 报告 HTML 转结构化记录、两次报告对比 |
 | `lib/probe.mjs` | 探针节点同步 |
 | `lib/store.mjs` | 本地 JSON 与原始报告存储 |
+| `lib/thresholds.mjs` | 主观评级阈值（可调），异常检测不依赖它 |
 | `public/` | 前端界面 |
-| `test/` | 解析器、存储与认证测试（`npm test`） |
+| `test/` | 解析器、存储、认证与洞察测试（`npm test`） |
 
 `database.json` 只保留列表与去重所需的元数据，明细按报告拆分到 `data/reports/{id}.json`，
 避免写入耗时随报告数线性增长。v1 库在启动时自动迁移。

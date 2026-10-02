@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { parseReport, compareReports, metricNames } from './lib/parser.mjs';
 import { loadProbeNodes } from './lib/probe.mjs';
 import { createStore } from './lib/store.mjs';
+import { summarize } from './lib/insight.mjs';
 import { createAuth } from './lib/auth.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -154,7 +155,8 @@ const server = http.createServer(async (request, response) => {
       if (!report) return send(response, 404, { error: '报告不存在' });
       if (reportMatch[3]) response.setHeader('Content-Disposition', `attachment; filename="tq-${id}.${reportMatch[3] === 'raw' ? 'html' : 'json'}"`);
       if (reportMatch[3] === 'raw') { response.writeHead(200, { 'Content-Type': 'application/octet-stream' }); return response.end(store.raw(id)); }
-      return send(response, 200, report);
+      // 洞察在服务端算：parser 依赖 node:crypto，浏览器端跑不了
+      return send(response, 200, { ...report, insight: summarize(report) });
     }
     if (request.method !== 'GET') return send(response, 404, { error: '接口不存在' });
     const assets = {

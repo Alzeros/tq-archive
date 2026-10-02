@@ -1,7 +1,7 @@
 import { setupThemeToggle } from '/theme.js';
 import { nodePicker } from '/picker.js';
 
-const state = { nodes: [], reports: [], metricNames: {}, selectedNodeId: null, detail: null, compare: { node: '', result: null } };
+const state = { nodes: [], reports: [], metricNames: {}, selectedNodeId: null, detail: null, insight: null, heatmap: { matrixId: null, metricId: null }, compare: { node: '', result: null } };
 // 选择器实例：预览导入的归属选择与详情页改绑各持一个，避免互相覆盖
 let previewPicker = null;
 let bindPicker = null;
@@ -178,6 +178,77 @@ function renderHistory() {
     list.append(item);
   }
 }
+// ============ 洞察视图：把 278 行表格压缩成「结论」 ============
+// 指标卡给客观数字，异常清单靠相对离群（不受机房地理位置影响），热力图按报告内分位着色（不设绝对阈值）
+function renderInsight(insight) {
+  if (!insight) { el('detailSummary').innerHTML = ''; return; }
+  state.insight = insight;
+  const cards = insight.cards.map(card => `<div class="icard ${card.level || ''}">
+    <div class="label">${escapeHtml(card.label)}</div>
+    <div class="value">${escapeHtml(card.value ?? '—')}<span class="unit">${escapeHtml(card.unit || '')}</span></div>
+    <div class="note">${escapeHtml(card.note || '')}</div>
+  </div>`).join('');
+  const levels = { danger: '异常', warn: '注意', info: '提示' };
+  const anomalies = insight.anomalies.length
+    ? `<div class="insight-block"><h3 class="section-title">需要关注的点 · ${insight.anomalies.length} 条</h3>
+        ${insight.anomalies.map(item => `<div class="anomaly ${item.level}"><span class="tag">${levels[item.level] || '提示'}</span><span>${escapeHtml(item.text)}</span></div>`).join('')}</div>`
+    : '<div class="insight-block"><div class="ok">未检出丢包、重传、速度离群或骨干异常。</div></div>';
+  const regions = insight.regions.length
+    ? `<div class="insight-block"><h3 class="section-title">大区聚合 · 看是区域性劣化还是个别省份</h3>
+        <div class="region-row">${insight.regions.map(region => `<span class="region"><span class="name">${escapeHtml(region.name)}</span><span class="hm-cell l${levelOf(region.p50, insight.regions.map(item => item.p50))}">${region.p50}ms</span></span>`).join('')}</div></div>`
+    : '';
+  const services = insight.services
+    ? `<div class="insight-block"><h3 class="section-title">常用网站 / CDN 响应最慢的 5 个 · 共 ${insight.services.total} 个${insight.services.unreachable ? `，${insight.services.unreachable} 个不可达` : ''}</h3>
+        <div class="svc-row">${insight.services.slowest.map(item => `<span class="svc"><span class="name">${escapeHtml(item.name)}</span><span class="lat">${item.latency ?? '—'}ms</span></span>`).join('')}</div></div>`
+    : '';
+  const tabs = insight.matrices.map((matrix, index) => `<button class="hm-tab${index === 0 ? ' active' : ''}" type="button" data-matrix="${matrix.id}">${escapeHtml(matrix.name)}</button>`).join('');
+  el('detailSummary').innerHTML = `<div class="insight-block">
+      <div class="card-grid">${cards}</div>
+      <p class="hint">等级只看粗分档，阈值集中在 lib/thresholds.mjs，可按经验调整；异常判定一律用相对离群，不依赖这些阈值。</p>
+    </div>
+    ${anomalies}${regions}
+    <div class="insight-block">
+      <div class="insight-head"><h3 class="section-title">省份 × 运营商</h3><div class="hm-tabs">${tabs}</div></div>
+      <div id="heatmap"></div>
+      <p class="hint">颜色按本报告内部的分位着色，越深越差 —— 不判断"多少毫秒算慢"，因此机房在美西还是香港都能直接对比。悬停查看去程线路。</p>
+    </div>${services}`;
+  state.heatmap = { matrixId: insight.matrices[0]?.id || null, metricId: null };
+  for (const button of el('detailSummary').querySelectorAll('.hm-tab[data-matrix]')) {
+    button.addEventListener('click', () => { state.heatmap = { matrixId: button.dataset.matrix, metricId: null }; syncMatrixTabs(); drawHeatmap(); });
+  }
+  drawHeatmap();
+}
+function syncMatrixTabs() {
+  for (const button of el('detailSummary').querySelectorAll('.hm-tab[data-matrix]')) button.classList.toggle('active', button.dataset.matrix === state.heatmap.matrixId);
+}
+function levelOf(value, pool) {
+  const sorted = pool.filter(item => typeof item === 'number').sort((left, right) => left - right);
+  if (typeof value !== 'number' || sorted.length < 2) return 0;
+  return Math.min(4, Math.floor(sorted.filter(item => item < value).length / (sorted.length - 1) * 5));
+}
+function drawHeatmap() {
+  const matrices = state.insight?.matrices;
+  if (!matrices?.length) return;
+  const matrix = matrices.find(item => item.id === state.heatmap.matrixId) || matrices[0];
+  const metric = matrix.metrics.find(item => item.id === state.heatmap.metricId) || matrix.metrics[0];
+  const tabs = matrix.metrics.map(item => `<button class="hm-tab${item.id === metric.id ? ' active' : ''}" type="button" data-metric="${item.id}">${escapeHtml(item.name)}</button>`).join('');
+  const legend = metric.text ? '' : `<div class="hm-legend"><span>低</span>${[0, 1, 2, 3, 4].map(level => `<span class="hm-cell l${level} sw"></span>`).join('')}<span>高</span></div>`;
+  const body = matrix.rows.map((row, rowIndex) => {
+    const cells = matrix.columns.map((column, columnIndex) => {
+      const route = matrix.routes[rowIndex][columnIndex];
+      if (metric.text) return `<span class="hm-cell text" title="去程线路">${escapeHtml(route || '—')}</span>`;
+      const cell = metric.cells[rowIndex][columnIndex];
+      const text = cell && cell.v !== null ? `${cell.v}${metric.unit}` : '—';
+      return `<span class="hm-cell l${cell ? cell.l : 0}" title="${escapeHtml(`${row}·${column} ${text}｜去程 ${route || '未知'}`)}">${escapeHtml(text)}</span>`;
+    }).join('');
+    return `<span class="hm-row-name">${escapeHtml(row)}</span>${cells}`;
+  }).join('');
+  const head = `<span class="hm-row-name"></span>${matrix.columns.map(column => `<span class="hm-col">${escapeHtml(column)}</span>`).join('')}`;
+  el('heatmap').innerHTML = `<div class="hm-tabs">${tabs}</div><div class="hm-grid cols-${Math.min(3, matrix.columns.length)}">${head}${body}</div>${legend}`;
+  for (const button of el('heatmap').querySelectorAll('.hm-tab[data-metric]')) {
+    button.addEventListener('click', () => { state.heatmap.metricId = button.dataset.metric; drawHeatmap(); });
+  }
+}
 async function openDetail(reportId) {
   const report = await api(`/api/reports/${reportId}`);
   state.detail = report;
@@ -204,6 +275,9 @@ async function openDetail(reportId) {
       <table><thead><tr>${head.map(cell => `<th>${escapeHtml(cell)}</th>`).join('')}</tr></thead><tbody>${body.join('')}</tbody></table>`);
   }
   el('detailBody').innerHTML = parts.join('');
+  el('rawCount').textContent = report.records.length;
+  el('detailRaw').open = false;
+  renderInsight(report.insight);
   el('bindCurrent').textContent = nodeName(report.nodeId);
   el('bindPanel').classList.add('hidden');
   bindPicker = null;
