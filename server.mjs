@@ -11,15 +11,26 @@ const root = dirname(fileURLToPath(import.meta.url));
 const store = createStore(process.env.DATA_DIR || join(root, 'data'));
 const previews = new Map();
 const port = Number(process.env.PORT || 4173);
-const allowedOrigins = new Set((process.env.ALLOWED_ORIGINS ?? `http://127.0.0.1:${port},http://localhost:${port}`).split(',').map(value => value.trim()).filter(Boolean));
-const allowedHosts = new Set((process.env.ALLOWED_HOSTS ?? `127.0.0.1:${port},localhost:${port}`).split(',').map(value => value.trim()).filter(Boolean));
+// 反代后浏览器发送的 Host 不含端口（标准 443/80），而本机直连带端口。
+// 两种写法都接受，避免健康检查与反代互相拒绝。
+function hostSet(value, fallback) {
+  const result = new Set();
+  for (const item of (value ?? fallback).split(',').map(entry => entry.trim()).filter(Boolean)) {
+    result.add(item);
+    result.add(item.replace(/:\d+$/, ''));
+  }
+  return result;
+}
+const allowedOrigins = hostSet(process.env.ALLOWED_ORIGINS, `http://127.0.0.1:${port},http://localhost:${port}`);
+const allowedHosts = hostSet(process.env.ALLOWED_HOSTS, `127.0.0.1:${port},localhost:${port}`);
 let importing = false;
 let syncing = false;
 function summary(report) {
   const { records, rawRows, ...metadata } = report;
   const sectionCounts = Object.fromEntries(report.sections.map(section => [section.id, records.filter(record => record.section === section.id).length]));
   return { ...metadata, recordCount: records.length, sectionCounts };
-}function send(response, status, data) {
+}
+function send(response, status, data) {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   response.end(JSON.stringify(data));
 }

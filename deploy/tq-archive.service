@@ -9,7 +9,8 @@ WorkingDirectory=/opt/tq-archive
 ExecStart=/usr/bin/node server.mjs
 Environment=PORT=4173
 Environment=DATA_DIR=/opt/tq-archive/data
-# 反代到域名后，把下面两行改成对应域名，否则 Host 校验会拒绝请求
+# 反代到域名后，把下面两行改成对应域名，否则 Host 校验会拒绝请求。
+# 端口可省略：带端口与不带端口的形式都会被接受。
 # Environment=ALLOWED_HOSTS=127.0.0.1:4173,tq.example.com
 # Environment=ALLOWED_ORIGINS=https://tq.example.com
 Restart=always
@@ -20,6 +21,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
+# data/ 下含 database.json、reports/ 与 raw/，整目录放行
 ReadWritePaths=/opt/tq-archive/data
 
 [Install]

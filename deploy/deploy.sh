@@ -15,7 +15,22 @@ if [ "$LOCAL" = "$REMOTE" ]; then
 fi
 
 git merge --ff-only "origin/$BRANCH"
-npm ci --omit=dev --silent 2>/dev/null || true
+# 本项目零运行时依赖，lockfile 仅用于让 npm ci 可用；缺失时退化为 npm install。
+if [ -f package-lock.json ]; then
+  npm ci --omit=dev --silent
+else
+  echo "无 package-lock.json，改用 npm install"
+  npm install --omit=dev --no-audit --no-fund --silent
+fi
 systemctl restart tq-archive
-sleep 1
-curl -fsS "http://127.0.0.1:${PORT:-4173}/api/state" > /dev/null && echo "已重启，服务正常" || echo "警告：服务未通过健康检查，请查看 journalctl -u tq-archive"
+# 服务启动后立刻探测可能过早，systemd 重启到监听成功通常需要 1-2 秒。
+for attempt in 1 2 3 4 5 6 7 8 9 10; do
+  sleep 1
+  if curl -fsS "http://127.0.0.1:${PORT:-4173}/api/state" > /dev/null 2>&1; then
+    echo "已重启，服务正常"
+    exit 0
+  fi
+done
+echo "警告：服务未通过健康检查，请查看 journalctl -u tq-archive"
+systemctl status tq-archive --no-pager --lines=20 || true
+exit 1
