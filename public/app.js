@@ -1,3 +1,5 @@
+import { setupThemeToggle } from '/theme.js';
+
 const state = { nodes: [], reports: [], metricNames: {}, selectedNodeId: null, detail: null, compare: { node: '', result: null } };
 const el = id => document.getElementById(id);
 const sectionNames = { ipv4: 'IPv4 回程', large4: 'IPv4 大包回程', ipv6: 'IPv6 回程', cernet: '教育网回程', intl: '国际互联', speedtest: '单线程测速' };
@@ -227,6 +229,8 @@ async function refresh() {
   state.nodes = data.nodes;
   state.reports = data.reports;
   state.metricNames = data.metricNames;
+  // 未启用认证时没有"登录"概念，退出按钮不应出现（否则登出会被登录页立即送回）
+  el('logoutButton').hidden = !data.authEnabled;
   el('syncState').textContent = data.syncedAt ? `已同步 ${data.nodes.filter(node => !node.archived).length} 个节点 · ${fmtTime(data.syncedAt)}` : '未同步节点';
   renderNodes();
   renderHistory();
@@ -264,4 +268,5 @@ for (const id of ['changeFilter', 'changeDirection', 'onlyChanged']) el(id).addE
 el('logoutButton').addEventListener('click', async () => {
   try { await api('/api/logout', { method: 'POST' }); } finally { location.replace('/login'); }
 });
+setupThemeToggle(el('themeToggle'));
 refresh().catch(error => toast(error.message, true));

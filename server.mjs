@@ -66,7 +66,7 @@ const server = http.createServer(async (request, response) => {
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
   // 登录页与静态资源必须可匿名访问，否则未登录时前端根本加载不出来
-  const publicPaths = new Set(['/login', '/login.js', '/style.css']);
+  const publicPaths = new Set(['/login', '/login.js', '/theme.js', '/style.css']);
   try {
     if (!allowedHosts.has(request.headers.host)) return send(response, 403, { error: '仅允许本机访问' });
     if (request.method === 'POST' && request.headers.origin && !allowedOrigins.has(request.headers.origin)) return send(response, 403, { error: '不允许跨站请求' });
@@ -102,7 +102,7 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === 'GET' && url.pathname === '/api/session') return send(response, 200, { authenticated: session.ok, enabled: auth.enabled });
-    if (request.method === 'GET' && url.pathname === '/api/state') return send(response, 200, { nodes: store.database.nodes, reports: store.database.reports, syncedAt: store.database.syncedAt, metricNames });
+    if (request.method === 'GET' && url.pathname === '/api/state') return send(response, 200, { nodes: store.database.nodes, reports: store.database.reports, syncedAt: store.database.syncedAt, metricNames, authEnabled: auth.enabled });
     if (request.method === 'POST' && url.pathname === '/api/sync') {
       if (syncing) throw new Error('正在同步，请稍候');
       syncing = true;
@@ -156,14 +156,19 @@ const server = http.createServer(async (request, response) => {
       '/': ['index.html', 'text/html'],
       '/app.js': ['app.js', 'text/javascript'],
       '/style.css': ['style.css', 'text/css'],
+      '/theme.js': ['theme.js', 'text/javascript'],
       '/login': ['login.html', 'text/html'],
       '/login.js': ['login.js', 'text/javascript']
     };
     const asset = assets[url.pathname];
     if (!asset) return send(response, 404, { error: '页面不存在' });
+    let page = await readFile(join(root, 'public', asset[0]), 'utf8');
+    // 主题选择存于 cookie：服务端注入 data-theme，页面首帧即为正确配色，无闪烁
+    const theme = (request.headers.cookie || '').match(/(?:^|;\s*)tq_theme=(light|dark)/)?.[1];
+    if (theme) page = page.replace('<html lang="zh-CN">', `<html lang="zh-CN" data-theme="${theme}">`);
     // 登录页与主界面都不应被缓存，避免发版后拿到旧壳子
     response.writeHead(200, { 'Content-Type': `${asset[1]}; charset=utf-8`, 'Cache-Control': 'no-cache' });
-    response.end(await readFile(join(root, 'public', asset[0])));
+    response.end(page);
   } catch (error) { send(response, 400, { error: error.message || '请求失败' }); }
 });
 server.listen(port, '127.0.0.1', () => {

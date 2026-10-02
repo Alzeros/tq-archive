@@ -1,3 +1,5 @@
+import { setupThemeToggle } from '/theme.js';
+
 const form = document.getElementById('loginForm');
 const button = document.getElementById('loginButton');
 const buttonText = button.querySelector('.login-submit-text');
@@ -29,6 +31,8 @@ toggle.addEventListener('click', () => {
 
 // 边输边清错误，避免旧提示滞留
 form.addEventListener('input', () => { error.hidden = true; });
+
+setupThemeToggle(document.getElementById('themeToggle'));
 
 // 已登录时直接进主界面，避免再走一遍登录页
 fetch('/api/session')
