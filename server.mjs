@@ -119,7 +119,7 @@ const server = http.createServer(async (request, response) => {
         if (previews.size >= 20) previews.delete(previews.keys().next().value);
         const token = randomUUID();
         previews.set(token, { parsed, html: fetched.html, created: Date.now() });
-        return send(response, 200, { token, report: summary(parsed) });
+        return send(response, 200, { token, report: summary(parsed), suggestion: store.suggestNode(parsed.identity) });
       } finally { importing = false; }
     }
     if (request.method === 'POST' && url.pathname === '/api/import') {
@@ -137,12 +137,17 @@ const server = http.createServer(async (request, response) => {
       const changes = compareReports(current, previous);
       return send(response, 200, { changes, currentTestedAt: current.testedAt, baseTestedAt: previous.testedAt, added: current.records.filter(record => !previous.records.some(old => old.key === record.key)).length, removed: previous.records.filter(record => !current.records.some(next => next.key === record.key)).length });
     }
-    const reportMatch = url.pathname.match(/^\/api\/reports\/([a-f\d-]+)(\/(export|raw))?$/);
+    const reportMatch = url.pathname.match(/^\/api\/reports\/([a-f\d-]+)(\/(export|raw|move))?$/);
     if (reportMatch) {
       const id = reportMatch[1];
       if (request.method === 'DELETE' && !reportMatch[3]) {
         store.remove(id);
         return send(response, 200, { id });
+      }
+      if (request.method === 'POST' && reportMatch[3] === 'move') {
+        const { nodeId } = await body(request);
+        const moved = store.move(id, nodeId);
+        return send(response, 200, summary(moved));
       }
       if (request.method !== 'GET') return send(response, 404, { error: '接口不存在' });
       const report = store.detail(id);
@@ -157,6 +162,7 @@ const server = http.createServer(async (request, response) => {
       '/app.js': ['app.js', 'text/javascript'],
       '/style.css': ['style.css', 'text/css'],
       '/theme.js': ['theme.js', 'text/javascript'],
+      '/picker.js': ['picker.js', 'text/javascript'],
       '/login': ['login.html', 'text/html'],
       '/login.js': ['login.js', 'text/javascript']
     };

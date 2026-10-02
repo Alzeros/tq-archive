@@ -231,6 +231,64 @@ input:focus, select:focus { outline: 1px solid var(--teal); }
 .node:hover { background: var(--panel-2); }
 .node.active { background: var(--panel-2); border-color: var(--teal); }
 .node .count { color: var(--muted); font-size: 12px; }
+/* 无数据的节点压暗：有归档的节点才是真正可操作的入口 */
+.node.idle { color: var(--muted); }
+.node.idle .count { visibility: hidden; }
+
+/* ============ 节点选择器 ============ */
+/* 可搜索下拉：几十个节点时原生 select 只能靠肉眼扫，无法过滤也无法表达"推荐" */
+.picker { position: relative; min-width: 240px; flex: 1; }
+.picker-input { width: 100%; }
+.picker-list {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: var(--card-shadow);
+}
+.picker-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 7px 9px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+}
+.picker-item:hover { background: var(--panel-2); }
+.picker-item.active { background: var(--panel-2); color: var(--teal); }
+.picker-badge {
+  font-style: normal;
+  font-size: 11px;
+  padding: 1px 6px;
+  margin-left: 4px;
+  border-radius: 999px;
+  color: var(--teal);
+  background: var(--ok-bg);
+  border: 1px solid var(--ok-border);
+}
+.picker-meta { color: var(--muted); font-size: 12px; flex: none; }
+.picker-empty { color: var(--muted); font-size: 13px; padding: 8px; margin: 0; }
+.picker-hint { margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+.picker-hint.ok { color: var(--teal); }
+
+/* ============ 详情页改绑 ============ */
+.detail-bind { display: flex; align-items: center; gap: 10px; margin: 8px 0; flex-wrap: wrap; }
+.detail-bind strong { color: var(--teal); font-weight: 600; }
+.bind-panel { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; padding: 10px; border: 1px dashed var(--border); border-radius: 8px; margin-bottom: 10px; }
 
 .list { display: flex; flex-direction: column; gap: 8px; }
 .item {

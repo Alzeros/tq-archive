@@ -1,6 +1,10 @@
 import { setupThemeToggle } from '/theme.js';
+import { nodePicker } from '/picker.js';
 
 const state = { nodes: [], reports: [], metricNames: {}, selectedNodeId: null, detail: null, compare: { node: '', result: null } };
+// 选择器实例：预览导入的归属选择与详情页改绑各持一个，避免互相覆盖
+let previewPicker = null;
+let bindPicker = null;
 const el = id => document.getElementById(id);
 const sectionNames = { ipv4: 'IPv4 回程', large4: 'IPv4 大包回程', ipv6: 'IPv6 回程', cernet: '教育网回程', intl: '国际互联', speedtest: '单线程测速' };
 
@@ -39,15 +43,38 @@ function readCollapsed() {
 function persistCollapsed() {
   try { localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsedGroups])); } catch { /* 隐私模式下忽略 */ }
 }
-function toggleGroup(city) {
-  collapsedGroups.has(city) ? collapsedGroups.delete(city) : collapsedGroups.add(city);
+function toggleGroup(city, currentlyCollapsed) {
+  // 三态记忆：city=手动折叠，!city=手动展开，都没有=默认（无数据组折叠）
+  if (currentlyCollapsed) { collapsedGroups.add(`!${city}`); collapsedGroups.delete(city); }
+  else { collapsedGroups.add(city); collapsedGroups.delete(`!${city}`); }
   persistCollapsed();
   renderNodes();
+}
+
+function reportsByNode() {
+  const map = new Map();
+  for (const report of state.reports) {
+    if (!map.has(report.nodeId)) map.set(report.nodeId, []);
+    map.get(report.nodeId).push(report);
+  }
+  return map;
+}
+// 活跃度排序：有数据的节点按最近一次测试时间排前，无数据保持探针顺序
+function byActivity(list, reportsOf, lastTested) {
+  return [...list].sort((a, b) => {
+    const ta = lastTested(a.id), tb = lastTested(b.id);
+    if (ta && tb) return tb.localeCompare(ta);
+    if (ta) return -1;
+    if (tb) return 1;
+    return (a.order || 0) - (b.order || 0);
+  });
 }
 
 function renderNodes() {
   const filter = el('nodeFilter').value.trim().toLowerCase();
   const visible = state.nodes.filter(node => !filter || node.name.toLowerCase().includes(filter) || (node.region || '').toLowerCase().includes(filter));
+  const reportsOf = reportsByNode();
+  const lastTested = id => (reportsOf.get(id) || []).map(report => report.testedAt).sort().at(-1) || '';
   const groups = new Map();
   for (const node of visible) {
     const city = node.name.split('-')[0] || node.region || '其他';
@@ -58,22 +85,34 @@ function renderNodes() {
   list.innerHTML = '';
   if (!state.nodes.length) { list.innerHTML = '<p class="empty">先同步探针节点。</p>'; return; }
   if (!visible.length) { list.innerHTML = '<p class="empty">没有匹配的节点。</p>'; return; }
-  for (const [city, nodes] of groups) {
-    // 搜索时强制展开，否则命中的节点被折叠藏起来会很困惑
-    const collapsed = !filter && collapsedGroups.has(city);
+  const ordered = [...groups.entries()].sort(([, aNodes], [, bNodes]) => {
+    const latest = nodes => nodes.reduce((max, node) => { const t = lastTested(node.id); return t > max ? t : max; }, '');
+    const ta = latest(aNodes), tb = latest(bNodes);
+    if (ta && tb) return tb.localeCompare(ta);
+    if (ta) return -1;
+    if (tb) return 1;
+    return 0;
+  });
+  for (const [city, groupNodes] of ordered) {
+    const nodes = byActivity(groupNodes, reportsOf, lastTested);
+    const hasData = nodes.some(node => (reportsOf.get(node.id) || []).length);
+    // 搜索时强制展开；未手动操作过的分组默认折叠「整组都无数据」的，避免淹没在空节点里
+    const userCollapsed = collapsedGroups.has(city);
+    const userExpanded = collapsedGroups.has(`!${city}`);
+    const collapsed = !filter && (userCollapsed || (!userExpanded && !hasData));
     const label = document.createElement('button');
     label.type = 'button';
     label.className = 'node-group' + (collapsed ? ' collapsed' : '');
     label.setAttribute('aria-expanded', String(!collapsed));
     label.innerHTML = `<span class="caret">▾</span><span>${escapeHtml(city)}</span><span class="group-count">${nodes.length}</span>`;
-    label.addEventListener('click', () => toggleGroup(city));
+    label.addEventListener('click', () => toggleGroup(city, collapsed));
     list.append(label);
     if (collapsed) continue;
     for (const node of nodes) {
-      const count = state.reports.filter(report => report.nodeId === node.id).length;
+      const count = (reportsOf.get(node.id) || []).length;
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = 'node' + (node.id === state.selectedNodeId ? ' active' : '');
+      button.className = 'node' + (node.id === state.selectedNodeId ? ' active' : '') + (count ? '' : ' idle');
       button.innerHTML = `<span>${escapeHtml(node.name)}</span><span class="count">${count ? `${count} 份` : ''}</span>`;
       button.addEventListener('click', () => selectNode(node.id));
       list.append(button);
@@ -165,7 +204,42 @@ async function openDetail(reportId) {
       <table><thead><tr>${head.map(cell => `<th>${escapeHtml(cell)}</th>`).join('')}</tr></thead><tbody>${body.join('')}</tbody></table>`);
   }
   el('detailBody').innerHTML = parts.join('');
+  el('bindCurrent').textContent = nodeName(report.nodeId);
+  el('bindPanel').classList.add('hidden');
+  bindPicker = null;
   el('detailCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+// 改绑：导入时选错节点不必删了重来，归属只是报告上的一个字段，直接搬走即可
+function setupBind() {
+  el('bindToggle').addEventListener('click', () => {
+    if (!state.detail) return;
+    const opening = el('bindPanel').classList.contains('hidden');
+    if (!opening) { el('bindPanel').classList.add('hidden'); return; }
+    el('bindPanel').classList.remove('hidden');
+    bindPicker = nodePicker({
+      container: el('bindPicker'),
+      nodes: state.nodes,
+      reportsOf: reportsByNode(),
+      selectedId: state.detail.nodeId
+    });
+  });
+  el('bindConfirm').addEventListener('click', async () => {
+    if (!state.detail || !bindPicker) return;
+    const nodeId = bindPicker.value;
+    if (!nodeId) { toast('请选择一个节点', true); return; }
+    const button = el('bindConfirm');
+    button.disabled = true;
+    try {
+      await api(`/api/reports/${state.detail.id}/move`, { method: 'POST', body: JSON.stringify({ nodeId }) });
+      toast(`已改绑到「${nodeName(nodeId)}」`);
+      el('bindPanel').classList.add('hidden');
+      bindPicker = null;
+      state.selectedNodeId = nodeId;
+      el('detailCard').classList.add('hidden');
+      state.detail = null;
+      await refresh();
+    } catch (error) { toast(error.message, true); } finally { button.disabled = false; }
+  });
 }
 function renderRecent() {
   const recent = [...state.reports].sort((left, right) => right.importedAt.localeCompare(left.importedAt)).slice(0, 5);
@@ -173,10 +247,9 @@ function renderRecent() {
     ? recent.map(report => `<div class="item"><div class="title"><strong>${escapeHtml(nodeName(report.nodeId))}</strong><span class="meta">测试于 ${fmtTime(report.testedAt)} · ${report.recordCount} 条指标</span></div><span class="meta">导入于 ${fmtTime(report.importedAt)}</span></div>`).join('')
     : '<p class="empty">还没有导入记录。</p>';
 }
-function renderPreview(report, token) {
+function renderPreview(report, token, suggestion) {
   const counts = report.sectionCounts || {};
   const perSection = report.sections.map(section => `<div class="stat"><div class="label">${escapeHtml(section.name)}</div><div class="value">${counts[section.id] ?? 0} 条</div></div>`).join('');
-  const options = state.nodes.map(node => `<option value="${node.id}"${node.id === state.selectedNodeId ? ' selected' : ''}>${escapeHtml(node.name)}</option>`).join('');
   const box = el('previewResult');
   box.innerHTML = `<div class="preview-grid">
     <div class="stat"><div class="label">测试时间</div><div class="value">${fmtTime(report.testedAt)}</div></div>
@@ -184,16 +257,25 @@ function renderPreview(report, token) {
     <div class="stat"><div class="label">指标总数</div><div class="value">${report.recordCount} 条</div></div>
     ${perSection}</div>
     ${report.warnings?.length ? `<div class="warn">解析提示：${report.warnings.map(escapeHtml).join('；')}</div>` : '<div class="ok">全部维度均已结构化解析，无异常提示。</div>'}
-    <div class="row-form"><select id="previewNode">${options}</select><button id="confirmImport" class="primary" type="button">绑定并归档</button></div>`;
+    <div class="row-form"><div id="previewPicker" class="picker"></div><button id="confirmImport" class="primary" type="button">绑定并归档</button></div>`;
   box.classList.remove('hidden');
+  previewPicker = nodePicker({
+    container: el('previewPicker'),
+    nodes: state.nodes,
+    reportsOf: reportsByNode(),
+    selectedId: state.selectedNodeId,
+    suggestion
+  });
   el('confirmImport').addEventListener('click', async () => {
     const button = el('confirmImport');
+    const nodeId = previewPicker.value;
+    if (!nodeId) { toast('请选择一个归属节点', true); return; }
     button.disabled = true;
     try {
-      const nodeId = el('previewNode').value;
       await api('/api/import', { method: 'POST', body: JSON.stringify({ token, nodeId }) });
       toast(`已归档到「${nodeName(nodeId)}」`);
       box.classList.add('hidden');
+      previewPicker = null;
       el('reportUrl').value = '';
       await refresh();
     } catch (error) { toast(error.message, true); } finally { button.disabled = false; }
@@ -277,7 +359,7 @@ el('previewForm').addEventListener('submit', async event => {
   button.textContent = '解析中…';
   try {
     const data = await api('/api/preview', { method: 'POST', body: JSON.stringify({ url: el('reportUrl').value.trim() }) });
-    renderPreview(data.report, data.token);
+    renderPreview(data.report, data.token, data.suggestion);
     toast('解析完成，请确认归属节点');
   } catch (error) { toast(error.message, true); } finally { button.disabled = false; button.textContent = '解析'; }
 });
@@ -290,4 +372,5 @@ el('logoutButton').addEventListener('click', async () => {
   try { await api('/api/logout', { method: 'POST' }); } finally { location.replace('/login'); }
 });
 setupThemeToggle(el('themeToggle'));
+setupBind();
 refresh().catch(error => toast(error.message, true));

@@ -105,6 +105,46 @@ test('v1 内联索引自动迁移为明细文件，且可重复启动', () => {
   assert.equal(again.detail(report.id).records.length, report.records.length);
 });
 
+// 归属建议只依赖 identity 与归档顺序，用轻量合成报告即可，避免两份 fixture 因内容相同被判重复
+const synthetic = identity => ({ sourceUrl: `https://tcpquality.ibsgss.uk/r/${Math.random().toString(36).slice(2, 10)}`, testedAt: '2026-01-01T00:00:00.000Z', importedAt: '2026-01-01T00:00:00.000Z', fingerprint: Math.random().toString(36).slice(2), identity, sections: [], records: [], rawRows: {}, warnings: [] });
+
+test('导入建议优先沿用同出口报告上次归属的节点', () => {
+  const store = freshStore();
+  store.sync([node('a'), node('b')]);
+  assert.equal(store.suggestNode(null), null, '没有任何历史时不给出建议');
+  const exit = parseReport(html, 'https://tcpquality.ibsgss.uk/r/s1').identity || 'AS4134 电信出口';
+  store.insert('a', synthetic(exit), html);
+  assert.deepEqual(store.suggestNode(exit), { nodeId: 'a', reason: 'same-exit' });
+  // 换一个节点导入后，"最近一次"会变，但同出口记忆应仍然胜出
+  store.insert('b', synthetic('AS4837 联通出口'), html);
+  assert.deepEqual(store.suggestNode(exit), { nodeId: 'a', reason: 'same-exit' }, '同出口优先于最近导入');
+  assert.deepEqual(store.suggestNode('AS0 未知出口'), { nodeId: 'b', reason: 'recent' }, '无同出口历史时退回最近导入');
+});
+
+test('改绑只改变归属，不动报告内容', () => {
+  const store = freshStore();
+  store.sync([node('a'), node('b')]);
+  const report = store.insert('a', parseReport(html, 'https://tcpquality.ibsgss.uk/r/mv'), html);
+  const before = store.detail(report.id).records.length;
+  store.move(report.id, 'b');
+  assert.equal(store.database.reports.find(item => item.id === report.id).nodeId, 'b', '索引归属应更新');
+  const detail = store.detail(report.id);
+  assert.equal(detail.nodeId, 'b', '明细归属应更新');
+  assert.equal(detail.records.length, before, '改绑不应影响记录');
+  assert.equal(detail.sourceUrl, report.sourceUrl, '改绑不应影响来源');
+  // 改绑后同出口记忆随之更新：下一次导入同一出口应建议新节点
+  assert.deepEqual(store.suggestNode(report.identity), { nodeId: 'b', reason: 'same-exit' });
+});
+
+test('改绑拒绝不存在的报告、节点与缺失明细', () => {
+  const store = freshStore();
+  store.sync([node('a')]);
+  const report = store.insert('a', parseReport(html, 'https://tcpquality.ibsgss.uk/r/mv2'), html);
+  assert.throws(() => store.move(report.id, 'ghost'), /节点不存在/);
+  assert.throws(() => store.move('ghost', 'a'), /报告不存在/);
+  assert.equal(store.move(report.id, 'a').nodeId, 'a', '改绑到当前节点是空操作');
+});
+
 test('索引体积远小于明细，避免写入随报告数膨胀', () => {
   const directory = mkdtempSync(join(tmpdir(), 'tq-size-'));
   const store = createStore(directory);
