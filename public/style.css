@@ -76,6 +76,91 @@ tr:last-child td { border-bottom: none; }
 .detail-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .detail-head .actions { display: flex; gap: 8px; }
 .hidden { display: none !important; }
+/* hidden 属性优先级低于任何 display 声明，统一兜底避免元素该藏不藏 */
+[hidden] { display: none !important; }
+
+/* 登录页：与应用同一套深色配色，用同心光晕与分层边框制造纵深，避免卡片孤悬在纯黑中央 */
+.login-body {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+  background:
+    radial-gradient(1100px 620px at 50% -10%, rgba(117, 184, 166, .10), transparent 60%),
+    radial-gradient(760px 520px at 88% 108%, rgba(216, 185, 111, .06), transparent 62%),
+    var(--bg);
+}
+.login-card {
+  width: 100%;
+  max-width: 384px;
+  padding: 30px 28px 24px;
+  background: linear-gradient(180deg, #1f1f2b, var(--panel));
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 16px;
+  box-shadow: 0 22px 48px -20px rgba(0, 0, 0, .75), 0 1px 0 rgba(255, 255, 255, .05) inset;
+}
+.login-head { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+.login-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: 11px;
+  color: var(--teal);
+  background: rgba(117, 184, 166, .12);
+  border: 1px solid rgba(117, 184, 166, .28);
+}
+.login-mark svg { width: 22px; height: 22px; }
+.login-titles { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.login-titles h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: .01em; }
+.login-titles p { margin: 0; font-size: 12.5px; color: var(--muted); }
+.login-form { display: flex; flex-direction: column; gap: 14px; }
+.login-form .field { display: flex; flex-direction: column; gap: 6px; }
+.login-form label { color: var(--muted); font-size: 12px; }
+.login-form input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(17, 17, 26, .6);
+  border: 1px solid var(--border);
+  transition: border-color .15s ease, background .15s ease;
+}
+.login-form input::placeholder { color: rgba(141, 136, 123, .7); }
+.login-form input:hover { border-color: rgba(255, 255, 255, .2); }
+.login-form input:focus { outline: none; border-color: var(--teal); background: rgba(17, 17, 26, .85); }
+.field-input { position: relative; display: flex; align-items: center; }
+.field-input input { padding-right: 42px; }
+.reveal {
+  position: absolute;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+}
+.reveal:hover { color: var(--text); background: var(--panel-2); border-color: transparent; }
+/* hidden 属性会被下方 display 规则覆盖，必须显式兜住 */
+.reveal svg { width: 17px; height: 17px; }
+.reveal svg[hidden] { display: none; }
+.login-submit { margin-top: 4px; padding: 10px 16px; font-weight: 600; }
+.login-submit:disabled { opacity: .7; }
+.login-error {
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: rgba(220, 100, 109, .12);
+  border: 1px solid rgba(220, 100, 109, .4);
+  color: #f0b4b8;
+  font-size: 13px;
+}
+.login-foot { margin: 20px 0 0; text-align: center; font-size: 11.5px; color: rgba(141, 136, 123, .75); }
+
 .toast { position: fixed; right: 18px; top: 18px; padding: 10px 14px; border-radius: 8px; background: #23232f; border: 1px solid var(--border); color: var(--green); opacity: 0; transform: translateY(-6px); transition: opacity .18s ease, transform .18s ease; pointer-events: none; z-index: 30; }
 .toast.show { opacity: 1; transform: translateY(0); }
 .toast.error { color: var(--red); border-color: rgba(220, 100, 109, .5); }

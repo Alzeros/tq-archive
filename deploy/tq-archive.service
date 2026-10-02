@@ -13,6 +13,10 @@ Environment=DATA_DIR=/opt/tq-archive/data
 # 端口可省略：带端口与不带端口的形式都会被接受。
 # Environment=ALLOWED_HOSTS=127.0.0.1:4173,tq.example.com
 # Environment=ALLOWED_ORIGINS=https://tq.example.com
+# 账号密码放在 /etc/tq-archive.env（chmod 600，仅 root 可读），不要写进本文件。
+# 未配置时后端不启用登录，仅适合本机直连；公网部署必须配置。
+# AUTH_SECURE=1 让会话 Cookie 带 Secure（走 https 时必开）。
+EnvironmentFile=-/etc/tq-archive.env
 Restart=always
 RestartSec=3
 User=tq

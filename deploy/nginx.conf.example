@@ -1,7 +1,7 @@
-# 1. 生成密码：htpasswd -c /etc/nginx/.tq htqadmin
+# 1. 登录由应用自身处理（/login 页面 + 会话 Cookie），不要再启用 basic auth，
+#    否则浏览器会先弹框，应用内的登录页根本走不到。
 # 2. 把 server_name 改成你的域名后启用到 /etc/nginx/conf.d/tq-archive.conf
-# 3. 该工具没有内置账号体系，公网访问必须保留下面的 basic auth
-# 4. 记得同步改 systemd 的 ALLOWED_HOSTS / ALLOWED_ORIGINS 为本域名，否则后端会返回 403
+# 3. 记得同步改 systemd 的 ALLOWED_HOSTS / ALLOWED_ORIGINS 为本域名，否则后端会返回 403
 #    （$host 不含端口，带端口与不带端口的写法后端都接受）
 
 server {
@@ -12,14 +12,8 @@ server {
     ssl_certificate     /etc/letsencrypt/live/tq.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/tq.example.com/privkey.pem;
 
-    auth_basic "TQ Archive";
-    auth_basic_user_file /etc/nginx/.tq;
-
     # 报告抓取在服务端完成，浏览器只发 JSON，这里留有余量即可
     client_max_body_size 2m;
-
-    # 后端自带 CSP（connect-src 'self'）与 Host/Origin 校验，不要在这里放开 CORS
-    add_header X-Content-Type-Options "nosniff" always;
 
     location / {
         proxy_pass http://127.0.0.1:4173;

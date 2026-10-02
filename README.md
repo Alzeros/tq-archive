@@ -32,13 +32,28 @@ npm start
 | 文件 | 作用 |
 | --- | --- |
 | `server.mjs` | 本地 HTTP 服务与 API |
+| `lib/auth.mjs` | 账号校验与会话 Cookie |
 | `lib/parser.mjs` | 报告 HTML 转结构化记录、两次报告对比 |
 | `lib/probe.mjs` | 探针节点同步 |
 | `lib/store.mjs` | 本地 JSON 与原始报告存储 |
 | `public/` | 前端界面 |
-| `test/` | 解析器与存储测试（`npm test`） |
+| `test/` | 解析器、存储与认证测试（`npm test`） |
 
 `database.json` 只保留列表与去重所需的元数据，明细按报告拆分到 `data/reports/{id}.json`，
 避免写入耗时随报告数线性增长。v1 库在启动时自动迁移。
 
 服务仅监听 `127.0.0.1`，并校验 Host 与 Origin，不对外网开放。
+
+## 登录
+
+未设置 `AUTH_USER` / `AUTH_PASSWORD` 时不启用登录，本机可直接使用。
+反代到公网时必须配置，登录由应用自身处理（`/login` 页面 + `HttpOnly` 会话 Cookie）：
+
+```bash
+AUTH_USER=admin
+AUTH_PASSWORD=强密码
+AUTH_SECURE=1        # 走 https 时必开，否则 Cookie 会被浏览器丢弃
+```
+
+nginx 侧不要再启用 `auth_basic`，否则浏览器会先弹原生账号框，到不了应用内登录页。
+完整步骤见 `deploy/DEPLOY.md`。

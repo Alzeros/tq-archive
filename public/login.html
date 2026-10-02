@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>登录 · TQ 报告归档</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="login-body">
+  <main class="login-card">
+    <div class="login-head">
+      <span class="login-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 17.5 8.5 11l4 4L21 5.5"/>
+          <path d="M15.5 5.5H21V11"/>
+        </svg>
+      </span>
+      <div class="login-titles">
+        <h1>TQ 报告归档</h1>
+        <p>登录后查看节点历史与指标变化</p>
+      </div>
+    </div>
+
+    <form id="loginForm" class="login-form" novalidate>
+      <div class="field">
+        <label for="username">账号</label>
+        <input id="username" name="username" type="text" placeholder="请输入账号"
+               autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" required autofocus>
+      </div>
+
+      <div class="field">
+        <label for="password">密码</label>
+        <div class="field-input">
+          <input id="password" name="password" type="password" placeholder="请输入密码"
+                 autocomplete="current-password" required>
+          <button id="togglePassword" class="reveal" type="button"
+                  aria-label="显示密码" aria-pressed="false" title="显示密码">
+            <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12Z"/>
+              <circle cx="12" cy="12" r="2.9"/>
+            </svg>
+            <svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" hidden>
+              <path d="M9.6 6.1A9.7 9.7 0 0 1 12 5.8c6 0 9.5 6.2 9.5 6.2a17 17 0 0 1-2.7 3.5"/>
+              <path d="M6.2 7.9A16.6 16.6 0 0 0 2.5 12S6 18.2 12 18.2c1.5 0 2.8-.4 4-.9"/>
+              <path d="m10 10.1a2.9 2.9 0 0 0 3.9 3.9"/>
+              <path d="m3.5 3.5 17 17"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <button id="loginButton" class="primary wide login-submit" type="submit">
+        <span class="login-submit-text">登录</span>
+      </button>
+
+      <p id="loginError" class="login-error" role="alert" hidden></p>
+    </form>
+
+    <p class="login-foot">仅限授权用户访问</p>
+  </main>
+  <script src="/login.js" type="module"></script>
+</body>
+</html>

@@ -12,6 +12,8 @@ function toast(message, isError = false) {
 }
 async function api(path, options) {
   const response = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
+  // 会话过期时立即回登录页，避免后续请求连环报错
+  if (response.status === 401 && path !== '/api/login') { location.replace('/login'); throw new Error('请先登录'); }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || `请求失败 (${response.status})`);
   return data;
@@ -259,4 +261,7 @@ el('compareBase').addEventListener('change', runCompare);
 el('compareCurrent').addEventListener('change', runCompare);
 el('runCompare').addEventListener('click', runCompare);
 for (const id of ['changeFilter', 'changeDirection', 'onlyChanged']) el(id).addEventListener('change', renderChanges);
+el('logoutButton').addEventListener('click', async () => {
+  try { await api('/api/logout', { method: 'POST' }); } finally { location.replace('/login'); }
+});
 refresh().catch(error => toast(error.message, true));
