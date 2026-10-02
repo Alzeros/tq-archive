@@ -155,8 +155,9 @@ const server = http.createServer(async (request, response) => {
       if (!report) return send(response, 404, { error: '报告不存在' });
       if (reportMatch[3]) response.setHeader('Content-Disposition', `attachment; filename="tq-${id}.${reportMatch[3] === 'raw' ? 'html' : 'json'}"`);
       if (reportMatch[3] === 'raw') { response.writeHead(200, { 'Content-Type': 'application/octet-stream' }); return response.end(store.raw(id)); }
-      // 洞察在服务端算：parser 依赖 node:crypto，浏览器端跑不了
-      return send(response, 200, { ...report, insight: summarize(report) });
+      // 洞察在服务端算：parser 依赖 node:crypto，浏览器端跑不了。
+      // 必须带上节点，延迟基准按机房区域选档，否则会把"离得远"判成"线路差"。
+      return send(response, 200, { ...report, insight: summarize(report, store.database.nodes.find(item => item.id === report.nodeId)) });
     }
     if (request.method !== 'GET') return send(response, 404, { error: '接口不存在' });
     const assets = {

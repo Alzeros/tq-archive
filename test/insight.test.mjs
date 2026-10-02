@@ -56,6 +56,27 @@ test('整份报告走同一条骨干时给出提示，多种骨干时不提示',
   assert.ok(!summarize(report(mixed)).anomalies.some(item => item.text.includes('全部走')), '骨干不同不应提示');
 });
 
+test('延迟基准按机房区域选档：同一延迟在不同区域得到不同评级', () => {
+  const records = Array.from({ length: 10 }, (_, index) => rec('ipv4', `省${index}`, '电信', { route: m('4837'), latency: m(200), loss: m(0) }));
+  const gradeOf = region => summarize(report(records), { region }).cards.find(card => card.id === 'latency');
+  assert.equal(gradeOf('DE').level, 'fair', '200ms 对德国机房属正常范围');
+  assert.equal(gradeOf('US').level, 'fair', '200ms 对美国机房属正常范围');
+  assert.equal(gradeOf('HK').level, 'bad', '200ms 对香港机房属异常');
+  assert.equal(gradeOf('de').level, 'fair', 'region 大小写不敏感');
+  assert.equal(gradeOf('').level, 'fair', '未给区域时退回兜底档，不报错');
+  assert.equal(gradeOf('DE').basis, '德国基准：≤175 好，≤230 一般');
+  assert.equal(gradeOf('').basis, '未知区域基准：≤160 好，≤215 一般');
+});
+
+test('热力图按区域基准判档，不再按报告内百分位 —— 健康的报告不该被染红', () => {
+  // 一份"整体健康"的德国机房报告：全部落在德国基准的"好"区间内
+  const records = Array.from({ length: 12 }, (_, index) => rec('ipv4', `省${index}`, '电信', { route: m('4837'), latency: m(150 + index), loss: m(0) }));
+  const cells = summarize(report(records), { region: 'DE' }).matrices[0].metrics.find(item => item.id === 'latency').cells.flat();
+  assert.equal(cells.every(cell => cell.l <= 1), true, '全部落在好区间时不应出现一般或差档');
+  // 百分位着色会让最高值必然成为最深档，这正是需要避免的
+  assert.equal(Math.max(...cells.map(cell => cell.l)) < 4, true);
+});
+
 test('无丢包无异常时不产生误报，指标卡仍然齐全', () => {
   const records = [150, 155, 160].map((value, index) => rec('ipv4', `省${index}`, '电信', { route: m('4837'), latency: m(value), loss: m(0) }));
   const result = summarize(report(records));

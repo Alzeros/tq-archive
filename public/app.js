@@ -199,10 +199,13 @@ function renderInsight(insight) {
     ? `<div class="insight-block"><h3 class="section-title">需要关注的点 · ${insight.anomalies.length} 条</h3>
         ${insight.anomalies.map(item => `<div class="anomaly ${item.level}"><span class="tag">${levels[item.level] || '提示'}</span><span>${escapeHtml(item.text)}</span></div>`).join('')}</div>`
     : '<div class="insight-block"><div class="ok">未检出丢包、重传、速度离群或骨干异常。</div></div>';
+  const region = insight.region || { label: '未知区域', good: '', fair: '' };
   const regions = insight.regions.length
     ? `<div class="insight-block"><h3 class="section-title">大区聚合 · 看是区域性劣化还是个别省份</h3>
-        <div class="region-row">${insight.regions.map(region => `<span class="region"><span class="name">${escapeHtml(region.name)}</span><span class="hm-cell l${levelOf(region.p50, insight.regions.map(item => item.p50))}">${region.p50}ms</span></span>`).join('')}</div></div>`
+        <div class="region-row">${insight.regions.map(item => `<span class="region"><span class="name">${escapeHtml(item.name)}</span><span class="hm-cell l${item.level}">${item.p50}ms</span></span>`).join('')}</div></div>`
     : '';
+  const bandRows = Object.entries(insight.latencyBands || {})
+    .map(([code, item]) => `<tr${code === region.code ? ' class="current"' : ''}><td>${escapeHtml(code)}</td><td>${escapeHtml(item.label)}</td><td>${item.good}</td><td>${item.fair}</td></tr>`).join('');
   const services = insight.services
     ? `<div class="insight-block"><h3 class="section-title">常用网站 / CDN 响应最慢的 5 个 · 共 ${insight.services.total} 个${insight.services.unreachable ? `，${insight.services.unreachable} 个不可达` : ''}</h3>
         <div class="svc-row">${insight.services.slowest.map(item => `<span class="svc"><span class="name">${escapeHtml(item.name)}</span><span class="lat">${item.latency ?? '—'}ms</span></span>`).join('')}</div></div>`
@@ -210,13 +213,17 @@ function renderInsight(insight) {
   const tabs = insight.matrices.map((matrix, index) => `<button class="hm-tab${index === 0 ? ' active' : ''}" type="button" data-matrix="${matrix.id}">${escapeHtml(matrix.name)}</button>`).join('');
   el('detailSummary').innerHTML = `<div class="insight-block">
       <div class="card-grid">${cards}</div>
-      <p class="hint">等级只看粗分档，阈值集中在 lib/thresholds.mjs，可按经验调整；异常判定一律用相对离群，不依赖这些阈值。</p>
+      <details class="basis-wrap">
+        <summary>评级基准 · 延迟按机房区域分档（当前：${escapeHtml(region.label)}，好 ≤ ${region.good}ms / 一般 ≤ ${region.fair}ms）</summary>
+        <p class="hint">同一个绝对阈值判所有区域，会把"离得远"误判成"线路差"：香港 25ms 和法兰克福 175ms 都是各自区域的正常水平。下表为延迟基准，改 <code>lib/thresholds.mjs</code> 即可调整。</p>
+        <div class="table-wrap"><table><thead><tr><th>区域</th><th>名称</th><th>好 ≤ (ms)</th><th>一般 ≤ (ms)</th></tr></thead><tbody>${bandRows}</tbody></table></div>
+      </details>
     </div>
     ${anomalies}${regions}
     <div class="insight-block">
       <div class="insight-head"><h3 class="section-title">省份 × 运营商</h3><div class="hm-tabs">${tabs}</div></div>
       <div id="heatmap"></div>
-      <p class="hint">颜色按本报告内部的分位着色，越深越差 —— 不判断"多少毫秒算慢"，因此机房在美西还是香港都能直接对比。悬停查看去程线路。</p>
+      <p class="hint">颜色按「${escapeHtml(region.label)}」基准判绝对档位：≤${region.good}ms 好、≤${region.fair}ms 一般、超过为差。健康的线路不会再因为"是这份报告里相对最差的一个"被染红。悬停查看去程线路。</p>
     </div>${services}`;
   state.heatmap = { matrixId: insight.matrices[0]?.id || null, metricId: null };
   for (const button of el('detailSummary').querySelectorAll('.hm-tab[data-matrix]')) {
@@ -227,18 +234,15 @@ function renderInsight(insight) {
 function syncMatrixTabs() {
   for (const button of el('detailSummary').querySelectorAll('.hm-tab[data-matrix]')) button.classList.toggle('active', button.dataset.matrix === state.heatmap.matrixId);
 }
-function levelOf(value, pool) {
-  const sorted = pool.filter(item => typeof item === 'number').sort((left, right) => left - right);
-  if (typeof value !== 'number' || sorted.length < 2) return 0;
-  return Math.min(4, Math.floor(sorted.filter(item => item < value).length / (sorted.length - 1) * 5));
-}
 function drawHeatmap() {
   const matrices = state.insight?.matrices;
   if (!matrices?.length) return;
   const matrix = matrices.find(item => item.id === state.heatmap.matrixId) || matrices[0];
   const metric = matrix.metrics.find(item => item.id === state.heatmap.metricId) || matrix.metrics[0];
   const tabs = matrix.metrics.map(item => `<button class="hm-tab${item.id === metric.id ? ' active' : ''}" type="button" data-metric="${item.id}">${escapeHtml(item.name)}</button>`).join('');
-  const legend = metric.text ? '' : `<div class="hm-legend"><span>低</span>${[0, 1, 2, 3, 4].map(level => `<span class="hm-cell l${level} sw"></span>`).join('')}<span>高</span></div>`;
+  // 图例按档位而非"低/高"标注：颜色现在表示"好/一般/差"，不是报告内的排名
+  const swatch = levels => levels.map(level => `<span class="hm-cell l${level} sw"></span>`).join('');
+  const legend = metric.text ? '' : `<div class="hm-legend"><span>好</span>${swatch([0, 1])}<span>一般</span>${swatch([2, 3])}<span>差</span>${swatch([4])}</div>`;
   const body = matrix.rows.map((row, rowIndex) => {
     const cells = matrix.columns.map((column, columnIndex) => {
       const route = matrix.routes[rowIndex][columnIndex];

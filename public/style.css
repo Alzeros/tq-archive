@@ -29,12 +29,15 @@
   --ok-border: rgba(135, 216, 141, .35);
   --ok-text: var(--green);
   --danger-border: rgba(220, 100, 109, .4);
-  --heat-0: #2a2426;
-  --heat-1: #4a2b2e;
-  --heat-2: #7a3438;
-  --heat-3: #a84449;
-  --heat-4: #d1585d;
-  --heat-text: #f0e2e2;
+  /* 色阶按 好 / 一般 / 差 三级语义，不再用单一红色明度：
+     健康的线路应该是绿的，浅红仍会被读成"警告" */
+  --heat-0: #16302a;
+  --heat-1: #1e463c;
+  --heat-2: #3a3018;
+  --heat-3: #5a4718;
+  --heat-4: #a83c42;
+  --heat-text: #e2ebe7;
+  --heat-bad-text: #ffffff;
   --card-shadow: 0 22px 48px -20px rgba(0, 0, 0, .75), 0 1px 0 rgba(255, 255, 255, .05) inset;
   --login-glow-1: rgba(117, 184, 166, .10);
   --login-glow-2: rgba(216, 185, 111, .06);
@@ -74,12 +77,13 @@
   --ok-border: #b7dfc2;
   --ok-text: #116329;
   --danger-border: #f0b8bb;
-  --heat-0: #fbe9e9;
-  --heat-1: #f6c4c4;
-  --heat-2: #ef9b9b;
-  --heat-3: #e04b4b;
-  --heat-4: #a32d2d;
-  --heat-text: #4a1a1a;
+  --heat-0: #e8f5f0;
+  --heat-1: #bfe4d8;
+  --heat-2: #fdf0d5;
+  --heat-3: #f8d68f;
+  --heat-4: #e05252;
+  --heat-text: #1f2a26;
+  --heat-bad-text: #ffffff;
   --card-shadow: 0 16px 36px -26px rgba(16, 24, 40, .35);
   --login-glow-1: rgba(14, 116, 102, .09);
   --login-glow-2: rgba(154, 103, 0, .05);
@@ -114,12 +118,13 @@
     --ok-border: #b7dfc2;
     --ok-text: #116329;
     --danger-border: #f0b8bb;
-    --heat-0: #fbe9e9;
-    --heat-1: #f6c4c4;
-    --heat-2: #ef9b9b;
-    --heat-3: #e04b4b;
-    --heat-4: #a32d2d;
-    --heat-text: #4a1a1a;
+    --heat-0: #e8f5f0;
+    --heat-1: #bfe4d8;
+    --heat-2: #fdf0d5;
+    --heat-3: #f8d68f;
+    --heat-4: #e05252;
+    --heat-text: #1f2a26;
+    --heat-bad-text: #ffffff;
     --card-shadow: 0 16px 36px -26px rgba(16, 24, 40, .35);
     --login-glow-1: rgba(14, 116, 102, .09);
     --login-glow-2: rgba(154, 103, 0, .05);
@@ -400,8 +405,8 @@ tbody tr:hover td { background: var(--panel-2); }
 .hm-cell.l0 { background: var(--heat-0); color: var(--heat-text); }
 .hm-cell.l1 { background: var(--heat-1); color: var(--heat-text); }
 .hm-cell.l2 { background: var(--heat-2); color: var(--heat-text); }
-.hm-cell.l3 { background: var(--heat-3); color: #fff; }
-.hm-cell.l4 { background: var(--heat-4); color: #fff; }
+.hm-cell.l3 { background: var(--heat-3); color: var(--heat-text); }
+.hm-cell.l4 { background: var(--heat-4); color: var(--heat-bad-text); }
 .hm-cell.text { background: transparent; color: var(--text); font-variant-numeric: tabular-nums; }
 .hm-legend { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 12px; color: var(--muted); }
 .hm-legend .sw { width: 26px; height: 10px; padding: 0; }
@@ -416,6 +421,16 @@ tbody tr:hover td { background: var(--panel-2); }
 .raw-wrap summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 4px 0; }
 .raw-wrap summary:hover { color: var(--text); }
 .raw-wrap[open] .table-wrap { margin-top: 10px; }
+
+/* 评级基准表：把阈值摊开给用户看，避免变成黑箱 */
+.basis-wrap { margin-top: 10px; border: 1px dashed var(--border); border-radius: 8px; padding: 8px 12px; }
+.basis-wrap summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.basis-wrap summary:hover { color: var(--text); }
+.basis-wrap[open] summary { color: var(--teal); margin-bottom: 6px; }
+.basis-wrap .hint { margin: 6px 0 8px; }
+.basis-wrap code { background: var(--panel-2); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+.basis-wrap table { font-size: 12px; }
+.basis-wrap tr.current td { background: var(--ok-bg); color: var(--ok-text); font-weight: 600; }
 
 /* ============ 登录页 ============ */
 .login-body {
