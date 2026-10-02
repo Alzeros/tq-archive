@@ -95,7 +95,21 @@ function renderHistory() {
     raw.target = '_blank';
     raw.rel = 'noreferrer noopener';
     raw.textContent = '原报告';
-    actions.append(open, raw);
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'danger';
+    remove.textContent = '删除';
+    remove.addEventListener('click', async () => {
+      if (!confirm(`删除 ${fmtTime(report.testedAt)} 的归档？原始报告 HTML 也会一并删除，且无法恢复。`)) return;
+      remove.disabled = true;
+      try {
+        await api(`/api/reports/${report.id}`, { method: 'DELETE' });
+        if (state.detail?.id === report.id) { state.detail = null; el('detailCard').classList.add('hidden'); }
+        toast('已删除该份归档');
+        await refresh();
+      } catch (error) { toast(error.message, true); remove.disabled = false; }
+    });
+    actions.append(open, raw, remove);
     item.append(actions);
     list.append(item);
   }
@@ -122,7 +136,7 @@ async function openDetail(reportId) {
     const metricKeys = [...new Set(records.flatMap(record => Object.keys(record.metrics)))];
     const head = ['分组', '对象', ...(withCarrier ? ['运营商'] : []), ...metricKeys.map(metricLabel)];
     const body = records.map(record => `<tr><td>${escapeHtml(record.group)}</td><td>${escapeHtml(record.target)}</td>${withCarrier ? `<td>${escapeHtml(record.carrier || '—')}</td>` : ''}${metricKeys.map(key => `<td>${escapeHtml(metricText(record.metrics[key]))}</td>`).join('')}</tr>`);
-    parts.push(`<h3 style="color:var(--teal);margin:14px 0 6px;font-size:14px">${escapeHtml(sectionNames[sectionId] || sectionId)} · ${records.length} 条</h3>
+    parts.push(`<h3 class="section-title">${escapeHtml(sectionNames[sectionId] || sectionId)} · ${records.length} 条</h3>
       <table><thead><tr>${head.map(cell => `<th>${escapeHtml(cell)}</th>`).join('')}</tr></thead><tbody>${body.join('')}</tbody></table>`);
   }
   el('detailBody').innerHTML = parts.join('');

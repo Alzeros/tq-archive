@@ -26,6 +26,9 @@ button.primary:hover { background: #377066; }
 button.primary:disabled { opacity: .55; cursor: not-allowed; }
 .wide { width: 100%; }
 .ghost { display: inline-block; padding: 6px 12px; background: var(--panel-2); color: var(--yellow); text-decoration: none; font-size: 13px; }
+button.danger { padding: 6px 12px; font-size: 13px; background: transparent; color: var(--red); border-color: rgba(220, 100, 109, .4); }
+button.danger:hover:not(:disabled) { background: rgba(220, 100, 109, .14); border-color: var(--red); }
+button.danger:disabled { opacity: .5; cursor: not-allowed; }
 input, select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
 input:focus, select:focus { outline: 1px solid var(--teal); }
 .search { width: 100%; }
@@ -36,6 +39,7 @@ input:focus, select:focus { outline: 1px solid var(--teal); }
 .view.active { display: block; }
 .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-bottom: 16px; }
 .card h2 { margin: 0 0 6px; font-size: 16px; color: var(--teal); }
+.section-title { color: var(--teal); margin: 14px 0 6px; font-size: 14px; font-weight: 600; }
 .hint { color: var(--muted); font-size: 13px; margin: 4px 0 12px; }
 .row-form { display: flex; gap: 10px; flex-wrap: wrap; }
 .row-form input[type=url] { flex: 1; min-width: 260px; }

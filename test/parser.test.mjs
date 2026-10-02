@@ -77,3 +77,26 @@ test('对比只输出可比较的数值指标，并给出方向', () => {
   assert.ok(changes.every(change => change.metric !== 'route'));
   assert.equal(changes.find(change => change.section === 'ipv4' && change.target === '江苏' && change.carrier === '电信' && change.metric === 'loss').delta, 10);
 });
+
+test('分隔符位置异常时整行拒绝解析，不按位移猜测', () => {
+  // 江苏行第二个分隔符（x=610）替换为普通文本：filter 后仍是 10 格，
+  // 旧实现会把它当作 12 格行继续解析并静默左移，且不产生任何告警。
+  const separator = '<text x="610" y="329.84" fill="#d8d2b8">/</text>';
+  assert.ok(html.includes(separator), '定位分隔符失败，测试将失去意义');
+  const parsed = parseReport(html.replace(separator, '<text x="610" y="329.84" fill="#d8d2b8">X</text>'), 'x');
+  assert.equal(pick(parsed, 'ipv4', '江苏', '移动'), undefined, '结构不可信时不应产出记录');
+  assert.ok(parsed.warnings.some(warning => warning.includes('江苏') && warning.includes('列结构异常')));
+});
+
+test('线路本身为 / 时不吞掉整行，也不把后续列左移', () => {
+  // 运营商线路缺失：分隔符仍在原位，仅电信线路内容变为 /
+  const route = '<text x="210" y="329.84" text-anchor="end" fill="#d8d2b8">4837</text>';
+  assert.ok(html.includes(route), '定位线路失败，测试将失去意义');
+  const parsed = parseReport(html.replace(route, '<text x="210" y="329.84" text-anchor="end" fill="#d8d2b8">/</text>'), 'x');
+  const record = pick(parsed, 'ipv4', '江苏', '电信');
+  assert.ok(record, '该省其余运营商的数据不应被整行丢弃');
+  assert.equal(record.metrics.route.value, '/', '线路缺失应保留原值');
+  assert.equal(record.metrics.latency.value, 188, '延迟应仍取本运营商自己的列');
+  assert.equal(record.metrics.loss.value, 4);
+  assert.equal(pick(parsed, 'ipv4', '江苏', '联通').metrics.latency.value, 173, '相邻运营商不应左移');
+});

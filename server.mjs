@@ -19,8 +19,7 @@ function summary(report) {
   const { records, rawRows, ...metadata } = report;
   const sectionCounts = Object.fromEntries(report.sections.map(section => [section.id, records.filter(record => record.section === section.id).length]));
   return { ...metadata, recordCount: records.length, sectionCounts };
-}
-function send(response, status, data) {
+}function send(response, status, data) {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   response.end(JSON.stringify(data));
 }
@@ -47,7 +46,7 @@ const server = http.createServer(async (request, response) => {
     if (!allowedHosts.has(request.headers.host)) return send(response, 403, { error: '仅允许本机访问' });
     if (request.method === 'POST' && request.headers.origin && !allowedOrigins.has(request.headers.origin)) return send(response, 403, { error: '不允许跨站请求' });
     const url = new URL(request.url, `http://127.0.0.1:${port}`);
-    if (request.method === 'GET' && url.pathname === '/api/state') return send(response, 200, { nodes: store.database.nodes, reports: store.database.reports.map(summary), syncedAt: store.database.syncedAt, metricNames });
+    if (request.method === 'GET' && url.pathname === '/api/state') return send(response, 200, { nodes: store.database.nodes, reports: store.database.reports, syncedAt: store.database.syncedAt, metricNames });
     if (request.method === 'POST' && url.pathname === '/api/sync') {
       if (syncing) throw new Error('正在同步，请稍候');
       syncing = true;
@@ -76,18 +75,24 @@ const server = http.createServer(async (request, response) => {
       return send(response, 201, summary(report));
     }
     if (request.method === 'GET' && url.pathname === '/api/compare') {
-      const current = store.database.reports.find(report => report.id === url.searchParams.get('current'));
-      const previous = store.database.reports.find(report => report.id === url.searchParams.get('base'));
+      const current = store.detail(url.searchParams.get('current'));
+      const previous = store.detail(url.searchParams.get('base'));
       if (!current || !previous || current.nodeId !== previous.nodeId || current.id === previous.id) throw new Error('请选择同一节点的两份不同报告');
       const changes = compareReports(current, previous);
       return send(response, 200, { changes, currentTestedAt: current.testedAt, baseTestedAt: previous.testedAt, added: current.records.filter(record => !previous.records.some(old => old.key === record.key)).length, removed: previous.records.filter(record => !current.records.some(next => next.key === record.key)).length });
     }
     const reportMatch = url.pathname.match(/^\/api\/reports\/([a-f\d-]+)(\/(export|raw))?$/);
-    if (request.method === 'GET' && reportMatch) {
-      const report = store.database.reports.find(item => item.id === reportMatch[1]);
+    if (reportMatch) {
+      const id = reportMatch[1];
+      if (request.method === 'DELETE' && !reportMatch[3]) {
+        store.remove(id);
+        return send(response, 200, { id });
+      }
+      if (request.method !== 'GET') return send(response, 404, { error: '接口不存在' });
+      const report = store.detail(id);
       if (!report) return send(response, 404, { error: '报告不存在' });
-      if (reportMatch[3]) response.setHeader('Content-Disposition', `attachment; filename="tq-${report.id}.${reportMatch[3] === 'raw' ? 'html' : 'json'}"`);
-      if (reportMatch[3] === 'raw') { response.writeHead(200, { 'Content-Type': 'application/octet-stream' }); return response.end(store.raw(report.id)); }
+      if (reportMatch[3]) response.setHeader('Content-Disposition', `attachment; filename="tq-${id}.${reportMatch[3] === 'raw' ? 'html' : 'json'}"`);
+      if (reportMatch[3] === 'raw') { response.writeHead(200, { 'Content-Type': 'application/octet-stream' }); return response.end(store.raw(id)); }
       return send(response, 200, report);
     }
     if (request.method !== 'GET') return send(response, 404, { error: '接口不存在' });
