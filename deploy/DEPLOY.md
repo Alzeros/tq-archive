@@ -2,6 +2,11 @@
 
 目标环境：Debian / Ubuntu，Node >= 22，项目固定在 `/opt/tq-archive`。
 
+> **两种 sudo 用法别混淆**
+> - `sudo -u tq …`：把身份**降级**到服务账号，让文件归 tq 所有。用于 `git clone`、建目录。
+> - `sudo bash deploy.sh`：以 **root** 运行脚本（脚本内部再对 git/npm 降权）。
+>   `systemctl` 必须 root，不能用 `-u tq`。
+
 ## 一次性准备
 
 ```bash
@@ -81,15 +86,26 @@ sudo journalctl -u tq-archive -f
 ## 日常更新
 
 ```bash
-sudo -u tq bash /opt/tq-archive/deploy/deploy.sh
+sudo bash /opt/tq-archive/deploy/deploy.sh
 ```
 
-脚本会 `git fetch` + `--ff-only` 合并 + 重启 + 健康检查，失败时打印 `systemctl status`。
+**必须以 root 运行**：`systemctl restart` 需要提权，脚本内的 `git` / `npm` 会自动
+降权到服务账号（默认 `tq`）执行，避免在 `/opt/tq-archive` 里生成 root 属主的文件
+导致服务启动后读写失败。用 `sudo -u tq`（降级身份）会报 `Access denied`。
+
+可用环境变量：`APP_DIR`、`BRANCH`、`SERVICE`、`RUN_USER`、`PORT`。
+
+脚本会 `git fetch` + `--ff-only` 合并 + 装依赖 + 重启 + 健康检查，
+失败时打印 `systemctl status` 并以非零码退出。
 
 ## 容易踩的坑
 
 | 现象 | 原因 | 处理 |
 | --- | --- | --- |
+| `deploy.sh` 报 `Failed to restart ... Access denied` | 用了 `sudo -u tq` 降级身份执行，但 `systemctl` 需要 root | 改用 `sudo bash deploy.sh` |
+| `deploy.sh` 提示「请以 root 运行」 | 同上 | 去掉 `-u tq` |
+| 更新后服务起不来，日志 Permission denied | 曾用 root 跑过 git/npm，生成 root 属主文件 | `sudo chown -R tq:tq /opt/tq-archive` |
+| `deploy.sh` 提示「服务账号 tq 不存在」 | 换了服务账号但没改 `RUN_USER` | `sudo RUN_USER=<用户> bash deploy.sh`，或先建该账号 |
 | 仍弹出浏览器原生账号框 | nginx 还开着 `auth_basic` | 删掉 `auth_basic` 两行后 `nginx -t && systemctl reload nginx` |
 | 打开站点直接进主界面，没有登录页 | 未配置 `AUTH_USER` / `AUTH_PASSWORD` | 写 `/etc/tq-archive.env` 后重启；不配等于不启用认证 |
 | 登录后立刻又回到登录页 | 走 https 但没设 `AUTH_SECURE=1`，Cookie 被浏览器丢弃 | 补上该变量并重启 |
