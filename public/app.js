@@ -25,6 +25,12 @@ async function api(path, options) {
   return data;
 }
 const fmtTime = iso => new Date(iso).toLocaleString('zh-CN', { hour12: false });
+// 标题里放完整秒数太碎，只到分钟即可
+const fmtShort = iso => {
+  const date = new Date(iso);
+  const pad = value => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
 const nodeName = id => state.nodes.find(node => node.id === id)?.name || id;
 const metricLabel = key => state.metricNames[key] || key;
 const metricText = measurement => {
@@ -253,7 +259,7 @@ async function openDetail(reportId) {
   const report = await api(`/api/reports/${reportId}`);
   state.detail = report;
   el('detailCard').classList.remove('hidden');
-  el('detailTitle').textContent = `报告详情 · ${fmtTime(report.testedAt)}`;
+  el('detailTitle').textContent = `报告详情 · ${nodeName(report.nodeId)} · ${fmtShort(report.testedAt)}`;
   el('openOriginal').href = report.sourceUrl;
   el('downloadJson').href = `/api/reports/${reportId}/export`;
   el('downloadRaw').href = `/api/reports/${reportId}/raw`;
@@ -378,7 +384,7 @@ async function runCompare() {
   try {
     const result = await api(`/api/compare?base=${base}&current=${current}`);
     state.compare.result = result;
-    el('compareTitle').textContent = `变化明细 · ${fmtTime(result.baseTestedAt)} → ${fmtTime(result.currentTestedAt)}`;
+    el('compareTitle').textContent = `变化明细 · ${fmtShort(result.baseTestedAt)} → ${fmtShort(result.currentTestedAt)}`;
     el('changeFilter').innerHTML = '<option value="all">全部维度</option>' + Object.entries(sectionNames).map(([id, name]) => `<option value="${id}">${escapeHtml(name)}</option>`).join('');
     renderChanges();
   } catch (error) { toast(error.message, true); }

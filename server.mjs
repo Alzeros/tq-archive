@@ -67,7 +67,7 @@ const server = http.createServer(async (request, response) => {
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
   // 登录页与静态资源必须可匿名访问，否则未登录时前端根本加载不出来
-  const publicPaths = new Set(['/login', '/login.js', '/theme.js', '/style.css']);
+  const publicPaths = new Set(['/login', '/login.js', '/theme.js', '/style.css', '/favicon.svg']);
   try {
     if (!allowedHosts.has(request.headers.host)) return send(response, 403, { error: '仅允许本机访问' });
     if (request.method === 'POST' && request.headers.origin && !allowedOrigins.has(request.headers.origin)) return send(response, 403, { error: '不允许跨站请求' });
@@ -166,7 +166,8 @@ const server = http.createServer(async (request, response) => {
       '/theme.js': ['theme.js', 'text/javascript'],
       '/picker.js': ['picker.js', 'text/javascript'],
       '/login': ['login.html', 'text/html'],
-      '/login.js': ['login.js', 'text/javascript']
+      '/login.js': ['login.js', 'text/javascript'],
+      '/favicon.svg': ['favicon.svg', 'image/svg+xml']
     };
     const asset = assets[url.pathname];
     if (!asset) return send(response, 404, { error: '页面不存在' });
