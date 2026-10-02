@@ -1,0 +1,26 @@
+[Unit]
+Description=TQ Report Archive
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/tq-archive
+ExecStart=/usr/bin/node server.mjs
+Environment=PORT=4173
+Environment=DATA_DIR=/opt/tq-archive/data
+# 反代到域名后，把下面两行改成对应域名，否则 Host 校验会拒绝请求
+# Environment=ALLOWED_HOSTS=127.0.0.1:4173,tq.example.com
+# Environment=ALLOWED_ORIGINS=https://tq.example.com
+Restart=always
+RestartSec=3
+User=tq
+Group=tq
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/tq-archive/data
+
+[Install]
+WantedBy=multi-user.target

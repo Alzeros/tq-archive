@@ -1,0 +1,1520 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TcpQuality Bv0B-Hu6iM</title>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:#11111a;color:#d8d2b8;font-family:"Inter","PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;font-variant-numeric:tabular-nums}
+    /* Preserve the native 1200px speedtest SVG width on desktop. */
+    main{width:min(1240px,calc(100vw - 24px));margin:24px auto}
+    .toolbar{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin:0 0 12px 0}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+    .tab{height:30px;padding:0 14px;border:1px solid rgba(255,255,255,.22);border-radius:5px;background:#20202d;color:#8d887b;font:700 14px "Inter","PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;cursor:pointer}
+    .tab.active{background:#3a3947;color:#75b8a6;border-color:#75b8a6}
+    .action{height:30px;padding:0 14px;border:1px solid rgba(255,255,255,.22);border-radius:5px;background:#20202d;color:#d8b96f;font:700 14px "Inter","PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;cursor:pointer}
+    .tab:hover{border-color:#75b8a6}
+    .action:hover{border-color:#87d88d}
+    .panel{display:none}
+    .panel.active{display:block}
+    .report-frame{position:relative;width:max-content;max-width:100%;margin:0 auto}
+    svg{display:block;width:auto;max-width:100%;height:auto;margin:0 auto}
+    .save-image{display:none;width:100%;height:100%;object-fit:contain}
+    .toast{position:fixed;right:20px;top:20px;padding:10px 14px;border-radius:6px;background:rgba(32,32,45,.98);border:1px solid rgba(135,216,141,.65);color:#87d88d;font:700 14px "Inter","PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.28);opacity:0;transform:translateY(-6px);transition:opacity .18s ease,transform .18s ease;pointer-events:none;z-index:20}
+    .toast.show{opacity:1;transform:translateY(0)}
+    @media (hover:none), (max-width:720px){
+      .report-frame > .save-image{display:block;position:absolute;inset:0;opacity:.01;z-index:2}
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="toolbar">
+      <nav class="tabs"><button class="tab active" data-target="ipv4">IPv4回程</button><button class="tab" data-target="large4">IPv4大包回程</button><button class="tab" data-target="cernet">教育网回程</button><button class="tab" data-target="intl">国际互联</button><button class="tab" data-target="speedtest">单线程测速</button></nav>
+      <div class="actions">
+    <button class="action" id="download-svg">下载图片</button>
+    <button class="action" id="copy-nodeseek">复制为 NodeSeek 格式</button>
+  </div>
+    </div>
+    <section id="ipv4" class="panel active"><div class="report-frame"><svg xmlns="http://www.w3.org/2000/svg" width="920" height="1062.22" viewBox="0 0 920 1062.22" style="font-size:14px" xml:space="preserve">
+<rect width="100%" height="100%" fill="#1f1e2a"/>
+<style>
+    text{font-family:"Inter","PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;font-size:14px;font-weight:700;letter-spacing:0;dominant-baseline:central;white-space:pre;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+    .small{font-size:14px}.meta{font-size:14px}.title{font-size:18px}.section{font-size:16px}.head{font-size:14px}
+    .speed{font-size:14px}.speedval{font-size:14px;font-variant-numeric:tabular-nums}
+    a text{text-decoration:underline}
+  </style>
+<text x="460" y="28.21" text-anchor="middle" class="title" fill="#75b8a6">TcpQuality--最贴近你上网的综合体验</text>
+<text x="460" y="52.08" text-anchor="middle" class="meta"><a href="https://github.com/ibsgss/TcpQuality" target="_blank"><tspan fill="#8d887b" text-decoration="underline">GitHub项目链接</tspan></a><tspan fill="#8d887b"> | 特价VPS补货TG频道：</tspan><a href="https://t.me/ibsgss" target="_blank"><tspan fill="#8d887b" text-decoration="underline">ibsgss</tspan></a><tspan fill="#8d887b"> | 感谢 Zstatic CDN 节点</tspan></text>
+<text x="460" y="75.95" text-anchor="middle" class="meta" fill="#8d887b">AS402169 USCLOUD INC - Uscloud Inc    IP: 186.241.*.*</text>
+<line x1="40" x2="880" y1="99.82" y2="99.82" stroke="#8d887b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="0.1 5"/>
+<text x="460" y="123.69" class="section" text-anchor="middle" fill="#75b8a6">IPv4回程</text>
+<text x="460" y="147.56" text-anchor="middle" class="head"><tspan fill="#75b8a6">统计摘要：</tspan><tspan fill="#87d88d">  零丢包: 90</tspan><tspan fill="#d8b96f">    1-20%: 2</tspan><tspan fill="#dc646d">    &gt;20%: 1</tspan></text>
+<text x="40" y="186.62" class="head" fill="#75b8a6">三网概览</text>
+<text x="280" y="186.62" class="head" text-anchor="end" fill="#75b8a6">电信</text>
+<text x="340" y="186.62" class="head" fill="#d8d2b8">/</text>
+<text x="550" y="186.62" class="head" text-anchor="end" fill="#75b8a6">联通</text>
+<text x="610" y="186.62" class="head" fill="#d8d2b8">/</text>
+<text x="820" y="186.62" class="head" text-anchor="end" fill="#75b8a6">移动</text>
+<text x="40" y="210.49" fill="#75b8a6">河北</text>
+<text x="210" y="210.49" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="210.49" text-anchor="end" fill="#d8b96f">174ms</text>
+<text x="330" y="210.49" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="210.49" fill="#d8d2b8">/</text>
+<text x="480" y="210.49" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="210.49" text-anchor="end" fill="#d8b96f">181ms</text>
+<text x="600" y="210.49" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="210.49" fill="#d8d2b8">/</text>
+<text x="750" y="210.49" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="210.49" text-anchor="end" fill="#d8b96f">177ms</text>
+<text x="870" y="210.49" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="234.36" fill="#75b8a6">山西</text>
+<text x="210" y="234.36" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="234.36" text-anchor="end" fill="#d8b96f">175ms</text>
+<text x="330" y="234.36" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="234.36" fill="#d8d2b8">/</text>
+<text x="480" y="234.36" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="234.36" text-anchor="end" fill="#d8b96f">195ms</text>
+<text x="600" y="234.36" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="234.36" fill="#d8d2b8">/</text>
+<text x="750" y="234.36" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="234.36" text-anchor="end" fill="#d8b96f">181ms</text>
+<text x="870" y="234.36" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="258.23" fill="#75b8a6">辽宁</text>
+<text x="210" y="258.23" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="258.23" text-anchor="end" fill="#d8b96f">177ms</text>
+<text x="330" y="258.23" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="258.23" fill="#d8d2b8">/</text>
+<text x="480" y="258.23" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="258.23" text-anchor="end" fill="#d8b96f">178ms</text>
+<text x="600" y="258.23" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="258.23" fill="#d8d2b8">/</text>
+<text x="750" y="258.23" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="258.23" text-anchor="end" fill="#d8b96f">192ms</text>
+<text x="870" y="258.23" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="282.1" fill="#75b8a6">吉林</text>
+<text x="210" y="282.1" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="282.1" text-anchor="end" fill="#d8b96f">195ms</text>
+<text x="330" y="282.1" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="282.1" fill="#d8d2b8">/</text>
+<text x="480" y="282.1" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="282.1" text-anchor="end" fill="#d8b96f">172ms</text>
+<text x="600" y="282.1" text-anchor="end" fill="#dc646d">78%</text>
+<text x="610" y="282.1" fill="#d8d2b8">/</text>
+<text x="750" y="282.1" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="282.1" text-anchor="end" fill="#d8b96f">184ms</text>
+<text x="870" y="282.1" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="305.97" fill="#75b8a6">黑龙江</text>
+<text x="210" y="305.97" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="305.97" text-anchor="end" fill="#d8b96f">166ms</text>
+<text x="330" y="305.97" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="305.97" fill="#d8d2b8">/</text>
+<text x="480" y="305.97" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="305.97" text-anchor="end" fill="#d8b96f">188ms</text>
+<text x="600" y="305.97" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="305.97" fill="#d8d2b8">/</text>
+<text x="750" y="305.97" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="305.97" text-anchor="end" fill="#d8b96f">185ms</text>
+<text x="870" y="305.97" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="329.84" fill="#75b8a6">江苏</text>
+<text x="210" y="329.84" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="329.84" text-anchor="end" fill="#d8b96f">188ms</text>
+<text x="330" y="329.84" text-anchor="end" fill="#d8b96f">4%</text>
+<text x="340" y="329.84" fill="#d8d2b8">/</text>
+<text x="480" y="329.84" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="329.84" text-anchor="end" fill="#d8b96f">173ms</text>
+<text x="600" y="329.84" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="329.84" fill="#d8d2b8">/</text>
+<text x="750" y="329.84" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="329.84" text-anchor="end" fill="#d8b96f">156ms</text>
+<text x="870" y="329.84" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="353.71" fill="#75b8a6">浙江</text>
+<text x="210" y="353.71" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="353.71" text-anchor="end" fill="#87d88d">140ms</text>
+<text x="330" y="353.71" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="353.71" fill="#d8d2b8">/</text>
+<text x="480" y="353.71" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="353.71" text-anchor="end" fill="#d8b96f">170ms</text>
+<text x="600" y="353.71" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="353.71" fill="#d8d2b8">/</text>
+<text x="750" y="353.71" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="353.71" text-anchor="end" fill="#d8b96f">151ms</text>
+<text x="870" y="353.71" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="377.58" fill="#75b8a6">安徽</text>
+<text x="210" y="377.58" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="377.58" text-anchor="end" fill="#d8b96f">151ms</text>
+<text x="330" y="377.58" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="377.58" fill="#d8d2b8">/</text>
+<text x="480" y="377.58" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="377.58" text-anchor="end" fill="#d8b96f">168ms</text>
+<text x="600" y="377.58" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="377.58" fill="#d8d2b8">/</text>
+<text x="750" y="377.58" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="377.58" text-anchor="end" fill="#d8b96f">159ms</text>
+<text x="870" y="377.58" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="401.45" fill="#75b8a6">福建</text>
+<text x="210" y="401.45" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="401.45" text-anchor="end" fill="#d8b96f">155ms</text>
+<text x="330" y="401.45" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="401.45" fill="#d8d2b8">/</text>
+<text x="480" y="401.45" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="401.45" text-anchor="end" fill="#d8b96f">185ms</text>
+<text x="600" y="401.45" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="401.45" fill="#d8d2b8">/</text>
+<text x="750" y="401.45" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="401.45" text-anchor="end" fill="#d8b96f">193ms</text>
+<text x="870" y="401.45" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="425.32" fill="#75b8a6">江西</text>
+<text x="210" y="425.32" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="425.32" text-anchor="end" fill="#87d88d">150ms</text>
+<text x="330" y="425.32" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="425.32" fill="#d8d2b8">/</text>
+<text x="480" y="425.32" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="425.32" text-anchor="end" fill="#d8b96f">165ms</text>
+<text x="600" y="425.32" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="425.32" fill="#d8d2b8">/</text>
+<text x="750" y="425.32" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="425.32" text-anchor="end" fill="#d8b96f">169ms</text>
+<text x="870" y="425.32" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="449.19" fill="#75b8a6">山东</text>
+<text x="210" y="449.19" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="449.19" text-anchor="end" fill="#d8b96f">159ms</text>
+<text x="330" y="449.19" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="449.19" fill="#d8d2b8">/</text>
+<text x="480" y="449.19" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="449.19" text-anchor="end" fill="#d8b96f">194ms</text>
+<text x="600" y="449.19" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="449.19" fill="#d8d2b8">/</text>
+<text x="750" y="449.19" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="449.19" text-anchor="end" fill="#d8b96f">191ms</text>
+<text x="870" y="449.19" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="473.06" fill="#75b8a6">河南</text>
+<text x="210" y="473.06" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="473.06" text-anchor="end" fill="#d8b96f">154ms</text>
+<text x="330" y="473.06" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="473.06" fill="#d8d2b8">/</text>
+<text x="480" y="473.06" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="473.06" text-anchor="end" fill="#d8b96f">165ms</text>
+<text x="600" y="473.06" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="473.06" fill="#d8d2b8">/</text>
+<text x="750" y="473.06" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="473.06" text-anchor="end" fill="#d8b96f">196ms</text>
+<text x="870" y="473.06" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="496.93" fill="#75b8a6">湖北</text>
+<text x="210" y="496.93" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="496.93" text-anchor="end" fill="#d8b96f">163ms</text>
+<text x="330" y="496.93" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="496.93" fill="#d8d2b8">/</text>
+<text x="480" y="496.93" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="496.93" text-anchor="end" fill="#d8b96f">191ms</text>
+<text x="600" y="496.93" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="496.93" fill="#d8d2b8">/</text>
+<text x="750" y="496.93" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="496.93" text-anchor="end" fill="#d8b96f">167ms</text>
+<text x="870" y="496.93" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="520.8" fill="#75b8a6">湖南</text>
+<text x="210" y="520.8" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="520.8" text-anchor="end" fill="#d8b96f">161ms</text>
+<text x="330" y="520.8" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="520.8" fill="#d8d2b8">/</text>
+<text x="480" y="520.8" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="520.8" text-anchor="end" fill="#d8b96f">177ms</text>
+<text x="600" y="520.8" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="520.8" fill="#d8d2b8">/</text>
+<text x="750" y="520.8" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="520.8" text-anchor="end" fill="#d8b96f">193ms</text>
+<text x="870" y="520.8" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="544.67" fill="#75b8a6">广东</text>
+<text x="210" y="544.67" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="544.67" text-anchor="end" fill="#d8b96f">151ms</text>
+<text x="330" y="544.67" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="544.67" fill="#d8d2b8">/</text>
+<text x="480" y="544.67" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="544.67" text-anchor="end" fill="#d8b96f">179ms</text>
+<text x="600" y="544.67" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="544.67" fill="#d8d2b8">/</text>
+<text x="750" y="544.67" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="544.67" text-anchor="end" fill="#d8b96f">195ms</text>
+<text x="870" y="544.67" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="568.54" fill="#75b8a6">海南</text>
+<text x="210" y="568.54" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="568.54" text-anchor="end" fill="#d8b96f">180ms</text>
+<text x="330" y="568.54" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="568.54" fill="#d8d2b8">/</text>
+<text x="480" y="568.54" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="568.54" text-anchor="end" fill="#d8b96f">216ms</text>
+<text x="600" y="568.54" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="568.54" fill="#d8d2b8">/</text>
+<text x="750" y="568.54" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="568.54" text-anchor="end" fill="#d8b96f">171ms</text>
+<text x="870" y="568.54" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="592.41" fill="#75b8a6">四川</text>
+<text x="210" y="592.41" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="592.41" text-anchor="end" fill="#d8b96f">168ms</text>
+<text x="330" y="592.41" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="592.41" fill="#d8d2b8">/</text>
+<text x="480" y="592.41" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="592.41" text-anchor="end" fill="#d8b96f">188ms</text>
+<text x="600" y="592.41" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="592.41" fill="#d8d2b8">/</text>
+<text x="750" y="592.41" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="592.41" text-anchor="end" fill="#d8b96f">181ms</text>
+<text x="870" y="592.41" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="616.28" fill="#75b8a6">贵州</text>
+<text x="210" y="616.28" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="616.28" text-anchor="end" fill="#d8b96f">160ms</text>
+<text x="330" y="616.28" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="616.28" fill="#d8d2b8">/</text>
+<text x="480" y="616.28" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="616.28" text-anchor="end" fill="#d8b96f">187ms</text>
+<text x="600" y="616.28" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="616.28" fill="#d8d2b8">/</text>
+<text x="750" y="616.28" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="616.28" text-anchor="end" fill="#d8b96f">170ms</text>
+<text x="870" y="616.28" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="640.15" fill="#75b8a6">云南</text>
+<text x="210" y="640.15" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="640.15" text-anchor="end" fill="#d8b96f">166ms</text>
+<text x="330" y="640.15" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="640.15" fill="#d8d2b8">/</text>
+<text x="480" y="640.15" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="640.15" text-anchor="end" fill="#d8b96f">184ms</text>
+<text x="600" y="640.15" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="640.15" fill="#d8d2b8">/</text>
+<text x="750" y="640.15" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="640.15" text-anchor="end" fill="#d8b96f">182ms</text>
+<text x="870" y="640.15" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="664.02" fill="#75b8a6">陕西</text>
+<text x="210" y="664.02" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="664.02" text-anchor="end" fill="#d8b96f">155ms</text>
+<text x="330" y="664.02" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="664.02" fill="#d8d2b8">/</text>
+<text x="480" y="664.02" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="664.02" text-anchor="end" fill="#d8b96f">170ms</text>
+<text x="600" y="664.02" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="664.02" fill="#d8d2b8">/</text>
+<text x="750" y="664.02" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="664.02" text-anchor="end" fill="#d8b96f">183ms</text>
+<text x="870" y="664.02" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="687.89" fill="#75b8a6">甘肃</text>
+<text x="210" y="687.89" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="687.89" text-anchor="end" fill="#d8b96f">155ms</text>
+<text x="330" y="687.89" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="687.89" fill="#d8d2b8">/</text>
+<text x="480" y="687.89" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="687.89" text-anchor="end" fill="#d8b96f">206ms</text>
+<text x="600" y="687.89" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="687.89" fill="#d8d2b8">/</text>
+<text x="750" y="687.89" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="687.89" text-anchor="end" fill="#d8b96f">180ms</text>
+<text x="870" y="687.89" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="711.76" fill="#75b8a6">青海</text>
+<text x="210" y="711.76" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="711.76" text-anchor="end" fill="#d8b96f">166ms</text>
+<text x="330" y="711.76" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="711.76" fill="#d8d2b8">/</text>
+<text x="480" y="711.76" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="711.76" text-anchor="end" fill="#d8b96f">165ms</text>
+<text x="600" y="711.76" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="711.76" fill="#d8d2b8">/</text>
+<text x="750" y="711.76" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="711.76" text-anchor="end" fill="#d8b96f">182ms</text>
+<text x="870" y="711.76" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="735.63" fill="#75b8a6">内蒙古</text>
+<text x="210" y="735.63" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="735.63" text-anchor="end" fill="#d8b96f">187ms</text>
+<text x="330" y="735.63" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="735.63" fill="#d8d2b8">/</text>
+<text x="480" y="735.63" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="735.63" text-anchor="end" fill="#d8b96f">174ms</text>
+<text x="600" y="735.63" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="735.63" fill="#d8d2b8">/</text>
+<text x="750" y="735.63" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="735.63" text-anchor="end" fill="#d8b96f">182ms</text>
+<text x="870" y="735.63" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="759.5" fill="#75b8a6">广西</text>
+<text x="210" y="759.5" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="759.5" text-anchor="end" fill="#d8b96f">172ms</text>
+<text x="330" y="759.5" text-anchor="end" fill="#d8b96f">12%</text>
+<text x="340" y="759.5" fill="#d8d2b8">/</text>
+<text x="480" y="759.5" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="759.5" text-anchor="end" fill="#d8b96f">188ms</text>
+<text x="600" y="759.5" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="759.5" fill="#d8d2b8">/</text>
+<text x="750" y="759.5" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="759.5" text-anchor="end" fill="#d8b96f">199ms</text>
+<text x="870" y="759.5" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="783.37" fill="#75b8a6">西藏</text>
+<text x="210" y="783.37" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="783.37" text-anchor="end" fill="#d8b96f">166ms</text>
+<text x="330" y="783.37" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="783.37" fill="#d8d2b8">/</text>
+<text x="480" y="783.37" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="783.37" text-anchor="end" fill="#d8b96f">233ms</text>
+<text x="600" y="783.37" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="783.37" fill="#d8d2b8">/</text>
+<text x="750" y="783.37" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="783.37" text-anchor="end" fill="#d8b96f">203ms</text>
+<text x="870" y="783.37" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="807.24" fill="#75b8a6">宁夏</text>
+<text x="210" y="807.24" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="807.24" text-anchor="end" fill="#d8b96f">171ms</text>
+<text x="330" y="807.24" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="807.24" fill="#d8d2b8">/</text>
+<text x="480" y="807.24" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="807.24" text-anchor="end" fill="#d8b96f">171ms</text>
+<text x="600" y="807.24" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="807.24" fill="#d8d2b8">/</text>
+<text x="750" y="807.24" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="807.24" text-anchor="end" fill="#d8b96f">212ms</text>
+<text x="870" y="807.24" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="831.11" fill="#75b8a6">新疆</text>
+<text x="210" y="831.11" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="831.11" text-anchor="end" fill="#d8b96f">156ms</text>
+<text x="330" y="831.11" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="831.11" fill="#d8d2b8">/</text>
+<text x="480" y="831.11" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="831.11" text-anchor="end" fill="#d8b96f">226ms</text>
+<text x="600" y="831.11" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="831.11" fill="#d8d2b8">/</text>
+<text x="750" y="831.11" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="831.11" text-anchor="end" fill="#d8b96f">211ms</text>
+<text x="870" y="831.11" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="854.98" fill="#75b8a6">北京</text>
+<text x="210" y="854.98" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="854.98" text-anchor="end" fill="#87d88d">149ms</text>
+<text x="330" y="854.98" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="854.98" fill="#d8d2b8">/</text>
+<text x="480" y="854.98" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="854.98" text-anchor="end" fill="#d8b96f">187ms</text>
+<text x="600" y="854.98" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="854.98" fill="#d8d2b8">/</text>
+<text x="750" y="854.98" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="854.98" text-anchor="end" fill="#d8b96f">193ms</text>
+<text x="870" y="854.98" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="878.85" fill="#75b8a6">天津</text>
+<text x="210" y="878.85" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="878.85" text-anchor="end" fill="#d8b96f">155ms</text>
+<text x="330" y="878.85" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="878.85" fill="#d8d2b8">/</text>
+<text x="480" y="878.85" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="878.85" text-anchor="end" fill="#d8b96f">186ms</text>
+<text x="600" y="878.85" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="878.85" fill="#d8d2b8">/</text>
+<text x="750" y="878.85" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="878.85" text-anchor="end" fill="#d8b96f">175ms</text>
+<text x="870" y="878.85" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="902.72" fill="#75b8a6">上海</text>
+<text x="210" y="902.72" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="902.72" text-anchor="end" fill="#d8b96f">161ms</text>
+<text x="330" y="902.72" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="902.72" fill="#d8d2b8">/</text>
+<text x="480" y="902.72" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="902.72" text-anchor="end" fill="#87d88d">128ms</text>
+<text x="600" y="902.72" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="902.72" fill="#d8d2b8">/</text>
+<text x="750" y="902.72" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="902.72" text-anchor="end" fill="#87d88d">149ms</text>
+<text x="870" y="902.72" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="926.59" fill="#75b8a6">重庆</text>
+<text x="210" y="926.59" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="926.59" text-anchor="end" fill="#d8b96f">167ms</text>
+<text x="330" y="926.59" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="926.59" fill="#d8d2b8">/</text>
+<text x="480" y="926.59" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="926.59" text-anchor="end" fill="#d8b96f">179ms</text>
+<text x="600" y="926.59" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="926.59" fill="#d8d2b8">/</text>
+<text x="750" y="926.59" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="926.59" text-anchor="end" fill="#d8b96f">168ms</text>
+<text x="870" y="926.59" text-anchor="end" fill="#87d88d">0%</text>
+<text x="110.4" y="965.65" class="head"><tspan fill="#87d88d">●</tspan><tspan fill="#87d88d"> 正常：零丢包 / ≤150ms</tspan></text>
+<text x="340.4" y="965.65" class="head"><tspan fill="#d8b96f">●</tspan><tspan fill="#d8b96f"> 一般：≤20% 重传 / 151-240ms</tspan></text>
+<text x="598" y="965.65" class="head"><tspan fill="#dc646d">●</tspan><tspan fill="#dc646d"> 异常：&gt;20% 重传 / &gt;240ms / 失败</tspan></text>
+<text x="460" y="1004.71" class="small" text-anchor="middle" fill="#8d887b">报告时间：2026-10-02 17:42:28 CST（北京时间）</text>
+<text x="460" y="1028.58" class="small" text-anchor="middle" fill="#8d887b">今日报告次数：247    累计报告次数：45442</text>
+</svg><img class="save-image" data-src="https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.png?section=ipv4&amp;format=png&amp;rv=inter-noto-sc-fg-eee8d0-rsvg-2x-layout-v2" alt="IPv4回程" loading="eager"></div></section><section id="large4" class="panel"><div class="report-frame"><svg xmlns="http://www.w3.org/2000/svg" width="920" height="1062.22" viewBox="0 0 920 1062.22" style="font-size:14px" xml:space="preserve">
+<rect width="100%" height="100%" fill="#1f1e2a"/>
+<style>
+    text{font-family:"Inter","PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;font-size:14px;font-weight:700;letter-spacing:0;dominant-baseline:central;white-space:pre;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+    .small{font-size:14px}.meta{font-size:14px}.title{font-size:18px}.section{font-size:16px}.head{font-size:14px}
+    .speed{font-size:14px}.speedval{font-size:14px;font-variant-numeric:tabular-nums}
+    a text{text-decoration:underline}
+  </style>
+<text x="460" y="28.21" text-anchor="middle" class="title" fill="#75b8a6">TcpQuality--最贴近你上网的综合体验</text>
+<text x="460" y="52.08" text-anchor="middle" class="meta"><a href="https://github.com/ibsgss/TcpQuality" target="_blank"><tspan fill="#8d887b" text-decoration="underline">GitHub项目链接</tspan></a><tspan fill="#8d887b"> | 特价VPS补货TG频道：</tspan><a href="https://t.me/ibsgss" target="_blank"><tspan fill="#8d887b" text-decoration="underline">ibsgss</tspan></a><tspan fill="#8d887b"> | 感谢 Zstatic CDN 节点</tspan></text>
+<text x="460" y="75.95" text-anchor="middle" class="meta" fill="#8d887b">AS402169 USCLOUD INC - Uscloud Inc    IP: 186.241.*.*</text>
+<line x1="40" x2="880" y1="99.82" y2="99.82" stroke="#8d887b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="0.1 5"/>
+<text x="460" y="123.69" class="section" text-anchor="middle" fill="#75b8a6">IPv4大包回程</text>
+<text x="460" y="147.56" text-anchor="middle" class="head"><tspan fill="#75b8a6">统计摘要：</tspan><tspan fill="#87d88d">  零重传: 86</tspan><tspan fill="#d8b96f">    1-20%: 5</tspan><tspan fill="#dc646d">    &gt;20%: 2</tspan></text>
+<text x="40" y="186.62" class="head" fill="#75b8a6">三网概览</text>
+<text x="280" y="186.62" class="head" text-anchor="end" fill="#75b8a6">电信</text>
+<text x="340" y="186.62" class="head" fill="#d8d2b8">/</text>
+<text x="550" y="186.62" class="head" text-anchor="end" fill="#75b8a6">联通</text>
+<text x="610" y="186.62" class="head" fill="#d8d2b8">/</text>
+<text x="820" y="186.62" class="head" text-anchor="end" fill="#75b8a6">移动</text>
+<text x="40" y="210.49" fill="#75b8a6">河北</text>
+<text x="210" y="210.49" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="210.49" text-anchor="end" fill="#d8b96f">174ms</text>
+<text x="330" y="210.49" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="210.49" fill="#d8d2b8">/</text>
+<text x="480" y="210.49" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="210.49" text-anchor="end" fill="#d8b96f">174ms</text>
+<text x="600" y="210.49" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="210.49" fill="#d8d2b8">/</text>
+<text x="750" y="210.49" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="210.49" text-anchor="end" fill="#d8b96f">174ms</text>
+<text x="870" y="210.49" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="234.36" fill="#75b8a6">山西</text>
+<text x="210" y="234.36" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="234.36" text-anchor="end" fill="#d8b96f">174ms</text>
+<text x="330" y="234.36" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="234.36" fill="#d8d2b8">/</text>
+<text x="480" y="234.36" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="234.36" text-anchor="end" fill="#d8b96f">197ms</text>
+<text x="600" y="234.36" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="234.36" fill="#d8d2b8">/</text>
+<text x="750" y="234.36" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="234.36" text-anchor="end" fill="#d8b96f">183ms</text>
+<text x="870" y="234.36" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="258.23" fill="#75b8a6">辽宁</text>
+<text x="210" y="258.23" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="258.23" text-anchor="end" fill="#d8b96f">178ms</text>
+<text x="330" y="258.23" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="258.23" fill="#d8d2b8">/</text>
+<text x="480" y="258.23" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="258.23" text-anchor="end" fill="#d8b96f">176ms</text>
+<text x="600" y="258.23" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="258.23" fill="#d8d2b8">/</text>
+<text x="750" y="258.23" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="258.23" text-anchor="end" fill="#d8b96f">190ms</text>
+<text x="870" y="258.23" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="282.1" fill="#75b8a6">吉林</text>
+<text x="210" y="282.1" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="282.1" text-anchor="end" fill="#d8b96f">195ms</text>
+<text x="330" y="282.1" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="282.1" fill="#d8d2b8">/</text>
+<text x="480" y="282.1" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="282.1" text-anchor="end" fill="#d8b96f">176ms</text>
+<text x="600" y="282.1" text-anchor="end" fill="#dc646d">76%</text>
+<text x="610" y="282.1" fill="#d8d2b8">/</text>
+<text x="750" y="282.1" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="282.1" text-anchor="end" fill="#d8b96f">184ms</text>
+<text x="870" y="282.1" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="305.97" fill="#75b8a6">黑龙江</text>
+<text x="210" y="305.97" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="305.97" text-anchor="end" fill="#d8b96f">167ms</text>
+<text x="330" y="305.97" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="305.97" fill="#d8d2b8">/</text>
+<text x="480" y="305.97" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="305.97" text-anchor="end" fill="#d8b96f">185ms</text>
+<text x="600" y="305.97" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="305.97" fill="#d8d2b8">/</text>
+<text x="750" y="305.97" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="305.97" text-anchor="end" fill="#d8b96f">181ms</text>
+<text x="870" y="305.97" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="329.84" fill="#75b8a6">江苏</text>
+<text x="210" y="329.84" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="329.84" text-anchor="end" fill="#d8b96f">187ms</text>
+<text x="330" y="329.84" text-anchor="end" fill="#dc646d">58%</text>
+<text x="340" y="329.84" fill="#d8d2b8">/</text>
+<text x="480" y="329.84" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="329.84" text-anchor="end" fill="#d8b96f">170ms</text>
+<text x="600" y="329.84" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="329.84" fill="#d8d2b8">/</text>
+<text x="750" y="329.84" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="329.84" text-anchor="end" fill="#d8b96f">158ms</text>
+<text x="870" y="329.84" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="353.71" fill="#75b8a6">浙江</text>
+<text x="210" y="353.71" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="353.71" text-anchor="end" fill="#87d88d">141ms</text>
+<text x="330" y="353.71" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="353.71" fill="#d8d2b8">/</text>
+<text x="480" y="353.71" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="353.71" text-anchor="end" fill="#d8b96f">172ms</text>
+<text x="600" y="353.71" text-anchor="end" fill="#d8b96f">4%</text>
+<text x="610" y="353.71" fill="#d8d2b8">/</text>
+<text x="750" y="353.71" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="353.71" text-anchor="end" fill="#87d88d">150ms</text>
+<text x="870" y="353.71" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="377.58" fill="#75b8a6">安徽</text>
+<text x="210" y="377.58" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="377.58" text-anchor="end" fill="#87d88d">147ms</text>
+<text x="330" y="377.58" text-anchor="end" fill="#d8b96f">4%</text>
+<text x="340" y="377.58" fill="#d8d2b8">/</text>
+<text x="480" y="377.58" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="377.58" text-anchor="end" fill="#d8b96f">163ms</text>
+<text x="600" y="377.58" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="377.58" fill="#d8d2b8">/</text>
+<text x="750" y="377.58" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="377.58" text-anchor="end" fill="#d8b96f">160ms</text>
+<text x="870" y="377.58" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="401.45" fill="#75b8a6">福建</text>
+<text x="210" y="401.45" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="401.45" text-anchor="end" fill="#d8b96f">154ms</text>
+<text x="330" y="401.45" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="401.45" fill="#d8d2b8">/</text>
+<text x="480" y="401.45" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="401.45" text-anchor="end" fill="#d8b96f">182ms</text>
+<text x="600" y="401.45" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="401.45" fill="#d8d2b8">/</text>
+<text x="750" y="401.45" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="401.45" text-anchor="end" fill="#d8b96f">190ms</text>
+<text x="870" y="401.45" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="425.32" fill="#75b8a6">江西</text>
+<text x="210" y="425.32" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="425.32" text-anchor="end" fill="#d8b96f">151ms</text>
+<text x="330" y="425.32" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="425.32" fill="#d8d2b8">/</text>
+<text x="480" y="425.32" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="425.32" text-anchor="end" fill="#d8b96f">169ms</text>
+<text x="600" y="425.32" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="425.32" fill="#d8d2b8">/</text>
+<text x="750" y="425.32" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="425.32" text-anchor="end" fill="#d8b96f">172ms</text>
+<text x="870" y="425.32" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="449.19" fill="#75b8a6">山东</text>
+<text x="210" y="449.19" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="449.19" text-anchor="end" fill="#d8b96f">158ms</text>
+<text x="330" y="449.19" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="449.19" fill="#d8d2b8">/</text>
+<text x="480" y="449.19" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="449.19" text-anchor="end" fill="#d8b96f">194ms</text>
+<text x="600" y="449.19" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="449.19" fill="#d8d2b8">/</text>
+<text x="750" y="449.19" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="449.19" text-anchor="end" fill="#d8b96f">188ms</text>
+<text x="870" y="449.19" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="473.06" fill="#75b8a6">河南</text>
+<text x="210" y="473.06" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="473.06" text-anchor="end" fill="#d8b96f">151ms</text>
+<text x="330" y="473.06" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="473.06" fill="#d8d2b8">/</text>
+<text x="480" y="473.06" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="473.06" text-anchor="end" fill="#d8b96f">168ms</text>
+<text x="600" y="473.06" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="473.06" fill="#d8d2b8">/</text>
+<text x="750" y="473.06" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="473.06" text-anchor="end" fill="#d8b96f">196ms</text>
+<text x="870" y="473.06" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="496.93" fill="#75b8a6">湖北</text>
+<text x="210" y="496.93" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="496.93" text-anchor="end" fill="#d8b96f">160ms</text>
+<text x="330" y="496.93" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="496.93" fill="#d8d2b8">/</text>
+<text x="480" y="496.93" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="496.93" text-anchor="end" fill="#d8b96f">189ms</text>
+<text x="600" y="496.93" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="496.93" fill="#d8d2b8">/</text>
+<text x="750" y="496.93" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="496.93" text-anchor="end" fill="#d8b96f">169ms</text>
+<text x="870" y="496.93" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="520.8" fill="#75b8a6">湖南</text>
+<text x="210" y="520.8" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="520.8" text-anchor="end" fill="#d8b96f">160ms</text>
+<text x="330" y="520.8" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="520.8" fill="#d8d2b8">/</text>
+<text x="480" y="520.8" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="520.8" text-anchor="end" fill="#d8b96f">179ms</text>
+<text x="600" y="520.8" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="520.8" fill="#d8d2b8">/</text>
+<text x="750" y="520.8" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="520.8" text-anchor="end" fill="#d8b96f">194ms</text>
+<text x="870" y="520.8" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="544.67" fill="#75b8a6">广东</text>
+<text x="210" y="544.67" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="544.67" text-anchor="end" fill="#d8b96f">152ms</text>
+<text x="330" y="544.67" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="544.67" fill="#d8d2b8">/</text>
+<text x="480" y="544.67" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="544.67" text-anchor="end" fill="#d8b96f">185ms</text>
+<text x="600" y="544.67" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="544.67" fill="#d8d2b8">/</text>
+<text x="750" y="544.67" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="544.67" text-anchor="end" fill="#d8b96f">196ms</text>
+<text x="870" y="544.67" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="568.54" fill="#75b8a6">海南</text>
+<text x="210" y="568.54" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="568.54" text-anchor="end" fill="#d8b96f">182ms</text>
+<text x="330" y="568.54" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="568.54" fill="#d8d2b8">/</text>
+<text x="480" y="568.54" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="568.54" text-anchor="end" fill="#d8b96f">214ms</text>
+<text x="600" y="568.54" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="568.54" fill="#d8d2b8">/</text>
+<text x="750" y="568.54" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="568.54" text-anchor="end" fill="#d8b96f">171ms</text>
+<text x="870" y="568.54" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="592.41" fill="#75b8a6">四川</text>
+<text x="210" y="592.41" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="592.41" text-anchor="end" fill="#d8b96f">167ms</text>
+<text x="330" y="592.41" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="592.41" fill="#d8d2b8">/</text>
+<text x="480" y="592.41" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="592.41" text-anchor="end" fill="#d8b96f">188ms</text>
+<text x="600" y="592.41" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="592.41" fill="#d8d2b8">/</text>
+<text x="750" y="592.41" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="592.41" text-anchor="end" fill="#d8b96f">182ms</text>
+<text x="870" y="592.41" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="616.28" fill="#75b8a6">贵州</text>
+<text x="210" y="616.28" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="616.28" text-anchor="end" fill="#d8b96f">159ms</text>
+<text x="330" y="616.28" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="616.28" fill="#d8d2b8">/</text>
+<text x="480" y="616.28" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="616.28" text-anchor="end" fill="#d8b96f">186ms</text>
+<text x="600" y="616.28" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="616.28" fill="#d8d2b8">/</text>
+<text x="750" y="616.28" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="616.28" text-anchor="end" fill="#d8b96f">170ms</text>
+<text x="870" y="616.28" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="640.15" fill="#75b8a6">云南</text>
+<text x="210" y="640.15" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="640.15" text-anchor="end" fill="#d8b96f">168ms</text>
+<text x="330" y="640.15" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="640.15" fill="#d8d2b8">/</text>
+<text x="480" y="640.15" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="640.15" text-anchor="end" fill="#d8b96f">182ms</text>
+<text x="600" y="640.15" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="640.15" fill="#d8d2b8">/</text>
+<text x="750" y="640.15" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="640.15" text-anchor="end" fill="#d8b96f">183ms</text>
+<text x="870" y="640.15" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="664.02" fill="#75b8a6">陕西</text>
+<text x="210" y="664.02" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="664.02" text-anchor="end" fill="#d8b96f">154ms</text>
+<text x="330" y="664.02" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="664.02" fill="#d8d2b8">/</text>
+<text x="480" y="664.02" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="664.02" text-anchor="end" fill="#d8b96f">171ms</text>
+<text x="600" y="664.02" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="664.02" fill="#d8d2b8">/</text>
+<text x="750" y="664.02" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="664.02" text-anchor="end" fill="#d8b96f">186ms</text>
+<text x="870" y="664.02" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="687.89" fill="#75b8a6">甘肃</text>
+<text x="210" y="687.89" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="687.89" text-anchor="end" fill="#d8b96f">156ms</text>
+<text x="330" y="687.89" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="687.89" fill="#d8d2b8">/</text>
+<text x="480" y="687.89" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="687.89" text-anchor="end" fill="#d8b96f">202ms</text>
+<text x="600" y="687.89" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="687.89" fill="#d8d2b8">/</text>
+<text x="750" y="687.89" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="687.89" text-anchor="end" fill="#d8b96f">182ms</text>
+<text x="870" y="687.89" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="711.76" fill="#75b8a6">青海</text>
+<text x="210" y="711.76" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="711.76" text-anchor="end" fill="#d8b96f">165ms</text>
+<text x="330" y="711.76" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="711.76" fill="#d8d2b8">/</text>
+<text x="480" y="711.76" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="711.76" text-anchor="end" fill="#d8b96f">168ms</text>
+<text x="600" y="711.76" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="711.76" fill="#d8d2b8">/</text>
+<text x="750" y="711.76" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="711.76" text-anchor="end" fill="#d8b96f">182ms</text>
+<text x="870" y="711.76" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="735.63" fill="#75b8a6">内蒙古</text>
+<text x="210" y="735.63" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="735.63" text-anchor="end" fill="#d8b96f">188ms</text>
+<text x="330" y="735.63" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="735.63" fill="#d8d2b8">/</text>
+<text x="480" y="735.63" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="735.63" text-anchor="end" fill="#d8b96f">174ms</text>
+<text x="600" y="735.63" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="735.63" fill="#d8d2b8">/</text>
+<text x="750" y="735.63" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="735.63" text-anchor="end" fill="#d8b96f">174ms</text>
+<text x="870" y="735.63" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="759.5" fill="#75b8a6">广西</text>
+<text x="210" y="759.5" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="759.5" text-anchor="end" fill="#d8b96f">171ms</text>
+<text x="330" y="759.5" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="759.5" fill="#d8d2b8">/</text>
+<text x="480" y="759.5" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="759.5" text-anchor="end" fill="#d8b96f">193ms</text>
+<text x="600" y="759.5" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="759.5" fill="#d8d2b8">/</text>
+<text x="750" y="759.5" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="759.5" text-anchor="end" fill="#d8b96f">198ms</text>
+<text x="870" y="759.5" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="783.37" fill="#75b8a6">西藏</text>
+<text x="210" y="783.37" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="783.37" text-anchor="end" fill="#d8b96f">167ms</text>
+<text x="330" y="783.37" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="783.37" fill="#d8d2b8">/</text>
+<text x="480" y="783.37" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="783.37" text-anchor="end" fill="#d8b96f">233ms</text>
+<text x="600" y="783.37" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="783.37" fill="#d8d2b8">/</text>
+<text x="750" y="783.37" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="783.37" text-anchor="end" fill="#d8b96f">210ms</text>
+<text x="870" y="783.37" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="807.24" fill="#75b8a6">宁夏</text>
+<text x="210" y="807.24" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="807.24" text-anchor="end" fill="#d8b96f">172ms</text>
+<text x="330" y="807.24" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="807.24" fill="#d8d2b8">/</text>
+<text x="480" y="807.24" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="807.24" text-anchor="end" fill="#d8b96f">172ms</text>
+<text x="600" y="807.24" text-anchor="end" fill="#d8b96f">4%</text>
+<text x="610" y="807.24" fill="#d8d2b8">/</text>
+<text x="750" y="807.24" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="807.24" text-anchor="end" fill="#d8b96f">211ms</text>
+<text x="870" y="807.24" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="831.11" fill="#75b8a6">新疆</text>
+<text x="210" y="831.11" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="831.11" text-anchor="end" fill="#d8b96f">155ms</text>
+<text x="330" y="831.11" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="831.11" fill="#d8d2b8">/</text>
+<text x="480" y="831.11" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="831.11" text-anchor="end" fill="#d8b96f">224ms</text>
+<text x="600" y="831.11" text-anchor="end" fill="#d8b96f">4%</text>
+<text x="610" y="831.11" fill="#d8d2b8">/</text>
+<text x="750" y="831.11" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="831.11" text-anchor="end" fill="#d8b96f">215ms</text>
+<text x="870" y="831.11" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="854.98" fill="#75b8a6">北京</text>
+<text x="210" y="854.98" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="854.98" text-anchor="end" fill="#87d88d">149ms</text>
+<text x="330" y="854.98" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="854.98" fill="#d8d2b8">/</text>
+<text x="480" y="854.98" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="854.98" text-anchor="end" fill="#d8b96f">184ms</text>
+<text x="600" y="854.98" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="854.98" fill="#d8d2b8">/</text>
+<text x="750" y="854.98" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="854.98" text-anchor="end" fill="#d8b96f">192ms</text>
+<text x="870" y="854.98" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="878.85" fill="#75b8a6">天津</text>
+<text x="210" y="878.85" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="878.85" text-anchor="end" fill="#d8b96f">154ms</text>
+<text x="330" y="878.85" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="878.85" fill="#d8d2b8">/</text>
+<text x="480" y="878.85" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="878.85" text-anchor="end" fill="#d8b96f">198ms</text>
+<text x="600" y="878.85" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="878.85" fill="#d8d2b8">/</text>
+<text x="750" y="878.85" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="878.85" text-anchor="end" fill="#d8b96f">174ms</text>
+<text x="870" y="878.85" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="902.72" fill="#75b8a6">上海</text>
+<text x="210" y="902.72" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="902.72" text-anchor="end" fill="#d8b96f">160ms</text>
+<text x="330" y="902.72" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="902.72" fill="#d8d2b8">/</text>
+<text x="480" y="902.72" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="902.72" text-anchor="end" fill="#87d88d">132ms</text>
+<text x="600" y="902.72" text-anchor="end" fill="#87d88d">0%</text>
+<text x="610" y="902.72" fill="#d8d2b8">/</text>
+<text x="750" y="902.72" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="902.72" text-anchor="end" fill="#87d88d">143ms</text>
+<text x="870" y="902.72" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="926.59" fill="#75b8a6">重庆</text>
+<text x="210" y="926.59" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="280" y="926.59" text-anchor="end" fill="#d8b96f">167ms</text>
+<text x="330" y="926.59" text-anchor="end" fill="#87d88d">0%</text>
+<text x="340" y="926.59" fill="#d8d2b8">/</text>
+<text x="480" y="926.59" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="550" y="926.59" text-anchor="end" fill="#d8b96f">191ms</text>
+<text x="600" y="926.59" text-anchor="end" fill="#d8b96f">8%</text>
+<text x="610" y="926.59" fill="#d8d2b8">/</text>
+<text x="750" y="926.59" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="820" y="926.59" text-anchor="end" fill="#d8b96f">164ms</text>
+<text x="870" y="926.59" text-anchor="end" fill="#87d88d">0%</text>
+<text x="110.4" y="965.65" class="head"><tspan fill="#87d88d">●</tspan><tspan fill="#87d88d"> 正常：零丢包 / ≤150ms</tspan></text>
+<text x="340.4" y="965.65" class="head"><tspan fill="#d8b96f">●</tspan><tspan fill="#d8b96f"> 一般：≤20% 重传 / 151-240ms</tspan></text>
+<text x="598" y="965.65" class="head"><tspan fill="#dc646d">●</tspan><tspan fill="#dc646d"> 异常：&gt;20% 重传 / &gt;240ms / 失败</tspan></text>
+<text x="460" y="1004.71" class="small" text-anchor="middle" fill="#8d887b">报告时间：2026-10-02 17:42:28 CST（北京时间）</text>
+<text x="460" y="1028.58" class="small" text-anchor="middle" fill="#8d887b">今日报告次数：247    累计报告次数：45442</text>
+</svg><img class="save-image" data-src="https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.png?section=large4&amp;format=png&amp;rv=inter-noto-sc-fg-eee8d0-rsvg-2x-layout-v2" alt="IPv4大包回程" loading="lazy"></div></section><section id="cernet" class="panel"><div class="report-frame"><svg xmlns="http://www.w3.org/2000/svg" width="920" height="1031.84" viewBox="0 0 920 1031.84" style="font-size:14px" xml:space="preserve">
+<rect width="100%" height="100%" fill="#1f1e2a"/>
+<style>
+    text{font-family:"Inter","PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;font-size:14px;font-weight:700;letter-spacing:0;dominant-baseline:central;white-space:pre;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+    .small{font-size:14px}.meta{font-size:14px}.title{font-size:18px}.section{font-size:16px}.head{font-size:14px}
+    .speed{font-size:14px}.speedval{font-size:14px;font-variant-numeric:tabular-nums}
+    a text{text-decoration:underline}
+  </style>
+<text x="460" y="28.21" text-anchor="middle" class="title" fill="#75b8a6">TcpQuality--最贴近你上网的综合体验</text>
+<text x="460" y="52.08" text-anchor="middle" class="meta"><a href="https://github.com/ibsgss/TcpQuality" target="_blank"><tspan fill="#8d887b" text-decoration="underline">GitHub项目链接</tspan></a><tspan fill="#8d887b"> | 特价VPS补货TG频道：</tspan><a href="https://t.me/ibsgss" target="_blank"><tspan fill="#8d887b" text-decoration="underline">ibsgss</tspan></a><tspan fill="#8d887b"> | 感谢 Zstatic CDN 节点</tspan></text>
+<text x="460" y="75.95" text-anchor="middle" class="meta" fill="#8d887b">AS402169 USCLOUD INC - Uscloud Inc    IP: 186.241.*.*</text>
+<line x1="40" x2="880" y1="99.82" y2="99.82" stroke="#8d887b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="0.1 5"/>
+<text x="460" y="123.69" class="section" text-anchor="middle" fill="#75b8a6">教育网回程</text>
+<text x="40" y="147.56" class="head" fill="#75b8a6">CERNET-IPv4</text>
+<text x="270" y="147.56" fill="#87d88d">零丢包: 31</text>
+<text x="420" y="147.56" fill="#d8b96f">1-20%:  0</text>
+<text x="560" y="147.56" fill="#dc646d">&gt;20%:  0</text>
+<text x="40" y="186.62" class="head" fill="#75b8a6">教育网概览</text>
+<text x="250" y="186.62" class="head" text-anchor="middle" fill="#75b8a6">CERNET-IPv4</text>
+<text x="40" y="210.49" fill="#75b8a6">河北</text>
+<text x="280" y="210.49" text-anchor="end" fill="#d8d2b8">Tata-&gt;Arelion</text>
+<text x="350" y="210.49" text-anchor="end" fill="#d8b96f">179ms</text>
+<text x="400" y="210.49" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="234.36" fill="#75b8a6">山西</text>
+<text x="280" y="234.36" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="350" y="234.36" text-anchor="end" fill="#d8b96f">194ms</text>
+<text x="400" y="234.36" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="258.23" fill="#75b8a6">辽宁</text>
+<text x="280" y="258.23" text-anchor="end" fill="#d8d2b8">Tata</text>
+<text x="350" y="258.23" text-anchor="end" fill="#d8b96f">176ms</text>
+<text x="400" y="258.23" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="282.1" fill="#75b8a6">吉林</text>
+<text x="280" y="282.1" text-anchor="end" fill="#d8d2b8">Tata-&gt;Arelion</text>
+<text x="350" y="282.1" text-anchor="end" fill="#d8b96f">191ms</text>
+<text x="400" y="282.1" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="305.97" fill="#75b8a6">黑龙江</text>
+<text x="280" y="305.97" text-anchor="end" fill="#d8d2b8">Tata</text>
+<text x="350" y="305.97" text-anchor="end" fill="#d8b96f">178ms</text>
+<text x="400" y="305.97" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="329.84" fill="#75b8a6">江苏</text>
+<text x="280" y="329.84" text-anchor="end" fill="#d8d2b8">Tata-&gt;CTGGIA</text>
+<text x="350" y="329.84" text-anchor="end" fill="#d8b96f">202ms</text>
+<text x="400" y="329.84" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="353.71" fill="#75b8a6">浙江</text>
+<text x="280" y="353.71" text-anchor="end" fill="#d8d2b8">Tata-&gt;Arelion</text>
+<text x="350" y="353.71" text-anchor="end" fill="#d8b96f">187ms</text>
+<text x="400" y="353.71" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="377.58" fill="#75b8a6">安徽</text>
+<text x="280" y="377.58" text-anchor="end" fill="#d8d2b8">Tata-&gt;Arelion</text>
+<text x="350" y="377.58" text-anchor="end" fill="#d8b96f">178ms</text>
+<text x="400" y="377.58" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="401.45" fill="#75b8a6">福建</text>
+<text x="280" y="401.45" text-anchor="end" fill="#d8d2b8">Tata-&gt;Cogent</text>
+<text x="350" y="401.45" text-anchor="end" fill="#d8b96f">213ms</text>
+<text x="400" y="401.45" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="425.32" fill="#75b8a6">江西</text>
+<text x="280" y="425.32" text-anchor="end" fill="#d8d2b8">Tata-&gt;Cogent</text>
+<text x="350" y="425.32" text-anchor="end" fill="#d8b96f">202ms</text>
+<text x="400" y="425.32" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="449.19" fill="#75b8a6">山东</text>
+<text x="280" y="449.19" text-anchor="end" fill="#d8d2b8">Tata-&gt;Arelion</text>
+<text x="350" y="449.19" text-anchor="end" fill="#d8b96f">178ms</text>
+<text x="400" y="449.19" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="473.06" fill="#75b8a6">河南</text>
+<text x="280" y="473.06" text-anchor="end" fill="#d8d2b8">Tata-&gt;Arelion</text>
+<text x="350" y="473.06" text-anchor="end" fill="#d8b96f">182ms</text>
+<text x="400" y="473.06" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="496.93" fill="#75b8a6">湖北</text>
+<text x="280" y="496.93" text-anchor="end" fill="#d8d2b8">Tata-&gt;HE</text>
+<text x="350" y="496.93" text-anchor="end" fill="#d8b96f">173ms</text>
+<text x="400" y="496.93" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="520.8" fill="#75b8a6">湖南</text>
+<text x="280" y="520.8" text-anchor="end" fill="#d8d2b8">Tata-&gt;Arelion</text>
+<text x="350" y="520.8" text-anchor="end" fill="#d8b96f">185ms</text>
+<text x="400" y="520.8" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="544.67" fill="#75b8a6">广东</text>
+<text x="280" y="544.67" text-anchor="end" fill="#d8d2b8">Tata-&gt;CTGGIA</text>
+<text x="350" y="544.67" text-anchor="end" fill="#d8b96f">215ms</text>
+<text x="400" y="544.67" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="568.54" fill="#75b8a6">海南</text>
+<text x="280" y="568.54" text-anchor="end" fill="#d8d2b8">Arelion</text>
+<text x="350" y="568.54" text-anchor="end" fill="#d8b96f">201ms</text>
+<text x="400" y="568.54" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="592.41" fill="#75b8a6">四川</text>
+<text x="280" y="592.41" text-anchor="end" fill="#d8d2b8">Tata</text>
+<text x="350" y="592.41" text-anchor="end" fill="#d8b96f">177ms</text>
+<text x="400" y="592.41" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="616.28" fill="#75b8a6">贵州</text>
+<text x="280" y="616.28" text-anchor="end" fill="#d8d2b8">Tata-&gt;Arelion</text>
+<text x="350" y="616.28" text-anchor="end" fill="#d8b96f">215ms</text>
+<text x="400" y="616.28" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="640.15" fill="#75b8a6">云南</text>
+<text x="280" y="640.15" text-anchor="end" fill="#d8d2b8">163</text>
+<text x="350" y="640.15" text-anchor="end" fill="#d8b96f">202ms</text>
+<text x="400" y="640.15" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="664.02" fill="#75b8a6">陕西</text>
+<text x="280" y="664.02" text-anchor="end" fill="#d8d2b8">Tata</text>
+<text x="350" y="664.02" text-anchor="end" fill="#d8b96f">176ms</text>
+<text x="400" y="664.02" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="687.89" fill="#75b8a6">甘肃</text>
+<text x="280" y="687.89" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="350" y="687.89" text-anchor="end" fill="#d8b96f">189ms</text>
+<text x="400" y="687.89" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="711.76" fill="#75b8a6">青海</text>
+<text x="280" y="711.76" text-anchor="end" fill="#d8d2b8">Tata</text>
+<text x="350" y="711.76" text-anchor="end" fill="#d8b96f">186ms</text>
+<text x="400" y="711.76" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="735.63" fill="#75b8a6">内蒙古</text>
+<text x="280" y="735.63" text-anchor="end" fill="#d8d2b8">Arelion</text>
+<text x="350" y="735.63" text-anchor="end" fill="#d8b96f">188ms</text>
+<text x="400" y="735.63" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="759.5" fill="#75b8a6">广西</text>
+<text x="280" y="759.5" text-anchor="end" fill="#d8d2b8">Arelion</text>
+<text x="350" y="759.5" text-anchor="end" fill="#d8b96f">206ms</text>
+<text x="400" y="759.5" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="783.37" fill="#75b8a6">西藏</text>
+<text x="280" y="783.37" text-anchor="end" fill="#d8d2b8">163</text>
+<text x="350" y="783.37" text-anchor="end" fill="#d8b96f">181ms</text>
+<text x="400" y="783.37" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="807.24" fill="#75b8a6">宁夏</text>
+<text x="280" y="807.24" text-anchor="end" fill="#d8d2b8">Tata</text>
+<text x="350" y="807.24" text-anchor="end" fill="#d8b96f">189ms</text>
+<text x="400" y="807.24" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="831.11" fill="#75b8a6">新疆</text>
+<text x="280" y="831.11" text-anchor="end" fill="#d8d2b8">Tata-&gt;Arelion</text>
+<text x="350" y="831.11" text-anchor="end" fill="#d8b96f">223ms</text>
+<text x="400" y="831.11" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="854.98" fill="#75b8a6">北京</text>
+<text x="280" y="854.98" text-anchor="end" fill="#d8d2b8">Tata-&gt;Arelion</text>
+<text x="350" y="854.98" text-anchor="end" fill="#d8b96f">217ms</text>
+<text x="400" y="854.98" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="878.85" fill="#75b8a6">天津</text>
+<text x="280" y="878.85" text-anchor="end" fill="#d8d2b8">Tata</text>
+<text x="350" y="878.85" text-anchor="end" fill="#d8b96f">162ms</text>
+<text x="400" y="878.85" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="902.72" fill="#75b8a6">上海</text>
+<text x="280" y="902.72" text-anchor="end" fill="#d8d2b8">Tata</text>
+<text x="350" y="902.72" text-anchor="end" fill="#d8b96f">158ms</text>
+<text x="400" y="902.72" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="926.59" fill="#75b8a6">重庆</text>
+<text x="280" y="926.59" text-anchor="end" fill="#d8d2b8">4837</text>
+<text x="350" y="926.59" text-anchor="end" fill="#d8b96f">168ms</text>
+<text x="400" y="926.59" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="950.46" class="small" fill="#8d887b">颜色: </text>
+<text x="100" y="950.46" class="small" fill="#87d88d">正常</text>
+<text x="160" y="950.46" class="small" fill="#d8b96f">延迟151-240ms或1-20%重传</text>
+<text x="400" y="950.46" class="small" fill="#dc646d">延迟&gt;240ms或&gt;20%重传，或失败</text>
+<text x="460" y="974.33" class="small" text-anchor="middle" fill="#8d887b">报告时间：2026-10-02 17:42:28 CST（北京时间）</text>
+<text x="460" y="998.2" class="small" text-anchor="middle" fill="#8d887b">今日报告次数：247    累计报告次数：45442</text>
+</svg><img class="save-image" data-src="https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.png?section=cernet&amp;format=png&amp;rv=inter-noto-sc-fg-eee8d0-rsvg-2x-layout-v2" alt="教育网回程" loading="lazy"></div></section><section id="intl" class="panel"><div class="report-frame"><svg xmlns="http://www.w3.org/2000/svg" width="920" height="1690.43" viewBox="0 0 920 1690.43" style="font-size:14px" xml:space="preserve">
+<rect width="100%" height="100%" fill="#1f1e2a"/>
+<style>
+    text{font-family:"Inter","PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;font-size:14px;font-weight:700;letter-spacing:0;dominant-baseline:central;white-space:pre;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+    .small{font-size:14px}.meta{font-size:14px}.title{font-size:18px}.section{font-size:16px}.head{font-size:14px}
+    .speed{font-size:14px}.speedval{font-size:14px;font-variant-numeric:tabular-nums}
+    a text{text-decoration:underline}
+  </style>
+<text x="460" y="28.21" text-anchor="middle" class="title" fill="#75b8a6">TcpQuality--最贴近你上网的综合体验</text>
+<text x="460" y="52.08" text-anchor="middle" class="meta"><a href="https://github.com/ibsgss/TcpQuality" target="_blank"><tspan fill="#8d887b" text-decoration="underline">GitHub项目链接</tspan></a><tspan fill="#8d887b"> | 特价VPS补货TG频道：</tspan><a href="https://t.me/ibsgss" target="_blank"><tspan fill="#8d887b" text-decoration="underline">ibsgss</tspan></a><tspan fill="#8d887b"> | 感谢 Zstatic CDN 节点</tspan></text>
+<text x="460" y="75.95" text-anchor="middle" class="meta" fill="#8d887b">AS402169 USCLOUD INC - Uscloud Inc    IP: 186.241.*.*</text>
+<line x1="40" x2="880" y1="99.82" y2="99.82" stroke="#8d887b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="0.1 5"/>
+<text x="460" y="123.69" class="section" text-anchor="middle" fill="#75b8a6">国际互联</text>
+<text x="40" y="162.75" class="head" fill="#75b8a6">国际节点TCP互联测试</text>
+<text x="40" y="186.62" class="head" fill="#75b8a6">区域</text>
+<text x="140" y="186.62" class="head" fill="#75b8a6">节点-IPv4</text>
+<text x="490" y="186.62" class="head" text-anchor="end" fill="#75b8a6">下载延迟</text>
+<text x="590" y="186.62" class="head" text-anchor="end" fill="#75b8a6">下载重传</text>
+<text x="690" y="186.62" class="head" text-anchor="end" fill="#75b8a6">上传延迟</text>
+<text x="790" y="186.62" class="head" text-anchor="end" fill="#75b8a6">上传重传</text>
+<text x="40" y="210.49" fill="#75b8a6">亚洲</text>
+<text x="140" y="210.49" class="small" fill="#d8d2b8">香港</text>
+<text x="490" y="210.49" text-anchor="end" fill="#d8b96f">146ms</text>
+<text x="590" y="210.49" text-anchor="end" fill="#87d88d">0</text>
+<text x="690" y="210.49" text-anchor="end" fill="#d8b96f">147ms</text>
+<text x="790" y="210.49" text-anchor="end" fill="#87d88d">0</text>
+<text x="40" y="234.36" fill="#75b8a6"></text>
+<text x="140" y="234.36" class="small" fill="#d8d2b8">日本</text>
+<text x="490" y="234.36" text-anchor="end" fill="#d8b96f">101ms</text>
+<text x="590" y="234.36" text-anchor="end" fill="#87d88d">0</text>
+<text x="690" y="234.36" text-anchor="end" fill="#d8b96f">102ms</text>
+<text x="790" y="234.36" text-anchor="end" fill="#87d88d">0</text>
+<text x="40" y="258.23" fill="#75b8a6"></text>
+<text x="140" y="258.23" class="small" fill="#d8d2b8">新加坡</text>
+<text x="490" y="258.23" text-anchor="end" fill="#d8b96f">164ms</text>
+<text x="590" y="258.23" text-anchor="end" fill="#87d88d">0</text>
+<text x="690" y="258.23" text-anchor="end" fill="#d8b96f">165ms</text>
+<text x="790" y="258.23" text-anchor="end" fill="#87d88d">0</text>
+<text x="40" y="282.1" fill="#75b8a6">美洲</text>
+<text x="140" y="282.1" class="small" fill="#d8d2b8">美国西部-洛杉矶</text>
+<text x="490" y="282.1" text-anchor="end" fill="#87d88d">11ms</text>
+<text x="590" y="282.1" text-anchor="end" fill="#87d88d">0</text>
+<text x="690" y="282.1" text-anchor="end" fill="#87d88d">11ms</text>
+<text x="790" y="282.1" text-anchor="end" fill="#87d88d">0</text>
+<text x="40" y="305.97" fill="#75b8a6"></text>
+<text x="140" y="305.97" class="small" fill="#d8d2b8">美国中部-达拉斯</text>
+<text x="490" y="305.97" text-anchor="end" fill="#87d88d">41ms</text>
+<text x="590" y="305.97" text-anchor="end" fill="#87d88d">0</text>
+<text x="690" y="305.97" text-anchor="end" fill="#87d88d">41ms</text>
+<text x="790" y="305.97" text-anchor="end" fill="#87d88d">0</text>
+<text x="40" y="329.84" fill="#75b8a6"></text>
+<text x="140" y="329.84" class="small" fill="#d8d2b8">美国东部-芝加哥</text>
+<text x="490" y="329.84" text-anchor="end" fill="#87d88d">52ms</text>
+<text x="590" y="329.84" text-anchor="end" fill="#87d88d">0</text>
+<text x="690" y="329.84" text-anchor="end" fill="#87d88d">50ms</text>
+<text x="790" y="329.84" text-anchor="end" fill="#87d88d">0</text>
+<text x="40" y="353.71" fill="#75b8a6"></text>
+<text x="140" y="353.71" class="small" fill="#d8d2b8">加拿大-蒙特利尔</text>
+<text x="490" y="353.71" text-anchor="end" fill="#87d88d">63ms</text>
+<text x="590" y="353.71" text-anchor="end" fill="#87d88d">0</text>
+<text x="690" y="353.71" text-anchor="end" fill="#87d88d">62ms</text>
+<text x="790" y="353.71" text-anchor="end" fill="#87d88d">0</text>
+<text x="40" y="377.58" fill="#75b8a6"></text>
+<text x="140" y="377.58" class="small" fill="#d8d2b8">巴西-里约热内卢</text>
+<text x="490" y="377.58" text-anchor="end" fill="#d8b96f">175ms</text>
+<text x="590" y="377.58" text-anchor="end" fill="#87d88d">0</text>
+<text x="690" y="377.58" text-anchor="end" fill="#d8b96f">175ms</text>
+<text x="790" y="377.58" text-anchor="end" fill="#87d88d">0</text>
+<text x="40" y="401.45" fill="#75b8a6">欧洲</text>
+<text x="140" y="401.45" class="small" fill="#d8d2b8">德国-法兰克福</text>
+<text x="490" y="401.45" text-anchor="end" fill="#d8b96f">152ms</text>
+<text x="590" y="401.45" text-anchor="end" fill="#87d88d">0</text>
+<text x="690" y="401.45" text-anchor="end" fill="#d8b96f">150ms</text>
+<text x="790" y="401.45" text-anchor="end" fill="#87d88d">0</text>
+<text x="40" y="425.32" fill="#75b8a6"></text>
+<text x="140" y="425.32" class="small" fill="#d8d2b8">英国-伦敦</text>
+<text x="490" y="425.32" text-anchor="end" fill="#d8b96f">135ms</text>
+<text x="590" y="425.32" text-anchor="end" fill="#87d88d">0</text>
+<text x="690" y="425.32" text-anchor="end" fill="#d8b96f">138ms</text>
+<text x="790" y="425.32" text-anchor="end" fill="#87d88d">0</text>
+<text x="40" y="449.19" fill="#75b8a6"></text>
+<text x="140" y="449.19" class="small" fill="#d8d2b8">荷兰-阿姆斯特丹</text>
+<text x="490" y="449.19" text-anchor="end" fill="#d8b96f">140ms</text>
+<text x="590" y="449.19" text-anchor="end" fill="#87d88d">0</text>
+<text x="690" y="449.19" text-anchor="end" fill="#d8b96f">139ms</text>
+<text x="790" y="449.19" text-anchor="end" fill="#87d88d">0</text>
+<text x="40" y="473.06" fill="#75b8a6">大洋洲</text>
+<text x="140" y="473.06" class="small" fill="#d8d2b8">澳大利亚-悉尼</text>
+<text x="490" y="473.06" text-anchor="end" fill="#d8b96f">141ms</text>
+<text x="590" y="473.06" text-anchor="end" fill="#87d88d">1</text>
+<text x="690" y="473.06" text-anchor="end" fill="#d8b96f">140ms</text>
+<text x="790" y="473.06" text-anchor="end" fill="#87d88d">0</text>
+<text x="40" y="504.53" class="small"><tspan fill="#8d887b">测试消耗流量&lt;100MB，颜色: </tspan><tspan fill="#87d88d">0-100ms 正常</tspan><tspan fill="#d8b96f">    101-200ms 一般</tspan><tspan fill="#dc646d">    &gt;200ms 较高</tspan></text>
+<text x="40" y="543.59" class="head" fill="#75b8a6">常用网站</text>
+<text x="40" y="567.46" class="head" fill="#75b8a6">服务</text>
+<text x="280" y="567.46" class="head" fill="#75b8a6">域名</text>
+<text x="580" y="567.46" class="head" text-anchor="end" fill="#75b8a6">可达</text>
+<text x="690" y="567.46" class="head" text-anchor="end" fill="#75b8a6">延迟</text>
+<text x="790" y="567.46" class="head" text-anchor="end" fill="#75b8a6">重传</text>
+<text x="40" y="591.33" fill="#d8d2b8">Adobe Assets</text>
+<text x="280" y="591.33" fill="#d8d2b8">assets.adobe.com</text>
+<text x="580" y="591.33" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="591.33" text-anchor="end" fill="#87d88d">2.180ms</text>
+<text x="790" y="591.33" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="615.2" fill="#d8d2b8">Amazon</text>
+<text x="280" y="615.2" fill="#d8d2b8">www.amazon.com</text>
+<text x="580" y="615.2" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="615.2" text-anchor="end" fill="#87d88d">1.040ms</text>
+<text x="790" y="615.2" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="639.07" fill="#d8d2b8">Apple iCloud</text>
+<text x="280" y="639.07" fill="#d8d2b8">www.icloud.com</text>
+<text x="580" y="639.07" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="639.07" text-anchor="end" fill="#87d88d">4.356ms</text>
+<text x="790" y="639.07" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="662.94" fill="#d8d2b8">AWS STS</text>
+<text x="280" y="662.94" fill="#d8d2b8">sts.amazonaws.com</text>
+<text x="580" y="662.94" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="662.94" text-anchor="end" fill="#87d88d">66.000ms</text>
+<text x="790" y="662.94" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="686.81" fill="#d8d2b8">ChatGPT</text>
+<text x="280" y="686.81" fill="#d8d2b8">chatgpt.com</text>
+<text x="580" y="686.81" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="686.81" text-anchor="end" fill="#87d88d">2.967ms</text>
+<text x="790" y="686.81" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="710.68" fill="#d8d2b8">Claude</text>
+<text x="280" y="710.68" fill="#d8d2b8">claude.ai</text>
+<text x="580" y="710.68" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="710.68" text-anchor="end" fill="#87d88d">3.627ms</text>
+<text x="790" y="710.68" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="734.55" fill="#d8d2b8">Cloudflare Dashboard</text>
+<text x="280" y="734.55" fill="#d8d2b8">dash.cloudflare.com</text>
+<text x="580" y="734.55" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="734.55" text-anchor="end" fill="#87d88d">3.450ms</text>
+<text x="790" y="734.55" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="758.42" fill="#d8d2b8">Discord Gateway</text>
+<text x="280" y="758.42" fill="#d8d2b8">gateway.discord.gg</text>
+<text x="580" y="758.42" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="758.42" text-anchor="end" fill="#87d88d">3.444ms</text>
+<text x="790" y="758.42" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="782.29" fill="#d8d2b8">Dropbox API</text>
+<text x="280" y="782.29" fill="#d8d2b8">api.dropboxapi.com</text>
+<text x="580" y="782.29" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="782.29" text-anchor="end" fill="#87d88d">1.733ms</text>
+<text x="790" y="782.29" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="806.16" fill="#d8d2b8">Facebook</text>
+<text x="280" y="806.16" fill="#d8d2b8">www.facebook.com</text>
+<text x="580" y="806.16" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="806.16" text-anchor="end" fill="#87d88d">2.553ms</text>
+<text x="790" y="806.16" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="830.03" fill="#d8d2b8">GitHub API</text>
+<text x="280" y="830.03" fill="#d8d2b8">api.github.com</text>
+<text x="580" y="830.03" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="830.03" text-anchor="end" fill="#87d88d">19.080ms</text>
+<text x="790" y="830.03" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="853.9" fill="#d8d2b8">GitLab</text>
+<text x="280" y="853.9" fill="#d8d2b8">gitlab.com</text>
+<text x="580" y="853.9" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="853.9" text-anchor="end" fill="#87d88d">3.493ms</text>
+<text x="790" y="853.9" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="877.77" fill="#d8d2b8">Gmail</text>
+<text x="280" y="877.77" fill="#d8d2b8">mail.google.com</text>
+<text x="580" y="877.77" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="877.77" text-anchor="end" fill="#87d88d">2.300ms</text>
+<text x="790" y="877.77" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="901.64" fill="#d8d2b8">Google Search</text>
+<text x="280" y="901.64" fill="#d8d2b8">www.google.com</text>
+<text x="580" y="901.64" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="901.64" text-anchor="end" fill="#87d88d">12.056ms</text>
+<text x="790" y="901.64" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="925.51" fill="#d8d2b8">Google Static</text>
+<text x="280" y="925.51" fill="#d8d2b8">www.gstatic.com</text>
+<text x="580" y="925.51" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="925.51" text-anchor="end" fill="#87d88d">3.300ms</text>
+<text x="790" y="925.51" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="949.38" fill="#d8d2b8">Instagram</text>
+<text x="280" y="949.38" fill="#d8d2b8">www.instagram.com</text>
+<text x="580" y="949.38" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="949.38" text-anchor="end" fill="#87d88d">1.727ms</text>
+<text x="790" y="949.38" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="973.25" fill="#d8d2b8">Microsoft Login</text>
+<text x="280" y="973.25" fill="#d8d2b8">login.microsoftonline.com</text>
+<text x="580" y="973.25" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="973.25" text-anchor="end" fill="#87d88d">16.960ms</text>
+<text x="790" y="973.25" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="997.12" fill="#d8d2b8">Netflix API</text>
+<text x="280" y="997.12" fill="#d8d2b8">api-global.netflix.com</text>
+<text x="580" y="997.12" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="997.12" text-anchor="end" fill="#87d88d">24.076ms</text>
+<text x="790" y="997.12" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1020.99" fill="#d8d2b8">NodeSeek</text>
+<text x="280" y="1020.99" fill="#d8d2b8">www.nodeseek.com</text>
+<text x="580" y="1020.99" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1020.99" text-anchor="end" fill="#87d88d">3.364ms</text>
+<text x="790" y="1020.99" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1044.86" fill="#d8d2b8">Notion API</text>
+<text x="280" y="1044.86" fill="#d8d2b8">api.notion.com</text>
+<text x="580" y="1044.86" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1044.86" text-anchor="end" fill="#87d88d">4.864ms</text>
+<text x="790" y="1044.86" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1068.73" fill="#d8d2b8">OpenAI API</text>
+<text x="280" y="1068.73" fill="#d8d2b8">api.openai.com</text>
+<text x="580" y="1068.73" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1068.73" text-anchor="end" fill="#87d88d">3.100ms</text>
+<text x="790" y="1068.73" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1092.6" fill="#d8d2b8">PayPal API</text>
+<text x="280" y="1092.6" fill="#d8d2b8">api-m.paypal.com</text>
+<text x="580" y="1092.6" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1092.6" text-anchor="end" fill="#87d88d">2.227ms</text>
+<text x="790" y="1092.6" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1116.47" fill="#d8d2b8">Reddit OAuth</text>
+<text x="280" y="1116.47" fill="#d8d2b8">oauth.reddit.com</text>
+<text x="580" y="1116.47" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1116.47" text-anchor="end" fill="#87d88d">2.030ms</text>
+<text x="790" y="1116.47" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1140.34" fill="#d8d2b8">Slack App</text>
+<text x="280" y="1140.34" fill="#d8d2b8">app.slack.com</text>
+<text x="580" y="1140.34" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1140.34" text-anchor="end" fill="#87d88d">23.030ms</text>
+<text x="790" y="1140.34" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1164.21" fill="#d8d2b8">Spotify Web</text>
+<text x="280" y="1164.21" fill="#d8d2b8">open.spotify.com</text>
+<text x="580" y="1164.21" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1164.21" text-anchor="end" fill="#87d88d">3.657ms</text>
+<text x="790" y="1164.21" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1188.08" fill="#d8d2b8">Steam</text>
+<text x="280" y="1188.08" fill="#d8d2b8">store.steampowered.com</text>
+<text x="580" y="1188.08" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1188.08" text-anchor="end" fill="#87d88d">1.800ms</text>
+<text x="790" y="1188.08" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1211.95" fill="#d8d2b8">Telegram</text>
+<text x="280" y="1211.95" fill="#d8d2b8">telegram.org</text>
+<text x="580" y="1211.95" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1211.95" text-anchor="end" fill="#d8b96f">151.520ms</text>
+<text x="790" y="1211.95" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1235.82" fill="#d8d2b8">Wikipedia</text>
+<text x="280" y="1235.82" fill="#d8d2b8">www.wikipedia.org</text>
+<text x="580" y="1235.82" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1235.82" text-anchor="end" fill="#87d88d">3.753ms</text>
+<text x="790" y="1235.82" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1259.69" fill="#d8d2b8">X</text>
+<text x="280" y="1259.69" fill="#d8d2b8">x.com</text>
+<text x="580" y="1259.69" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1259.69" text-anchor="end" fill="#87d88d">2.827ms</text>
+<text x="790" y="1259.69" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1283.56" fill="#d8d2b8">YouTube API</text>
+<text x="280" y="1283.56" fill="#d8d2b8">youtubei.googleapis.com</text>
+<text x="580" y="1283.56" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1283.56" text-anchor="end" fill="#87d88d">2.300ms</text>
+<text x="790" y="1283.56" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1307.43" fill="#d8d2b8">Zoom API</text>
+<text x="280" y="1307.43" fill="#d8d2b8">api.zoom.us</text>
+<text x="580" y="1307.43" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1307.43" text-anchor="end" fill="#87d88d">2.647ms</text>
+<text x="790" y="1307.43" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1331.3" class="small" fill="#8d887b">颜色: </text>
+<text x="100" y="1331.3" class="small" fill="#87d88d">0-100ms 正常</text>
+<text x="240" y="1331.3" class="small" fill="#d8b96f">101-200ms 一般</text>
+<text x="400" y="1331.3" class="small" fill="#dc646d">&gt;200ms 较高</text>
+<text x="40" y="1370.36" class="head" fill="#75b8a6">常用 CDN</text>
+<text x="40" y="1394.23" class="head" fill="#75b8a6">服务</text>
+<text x="280" y="1394.23" class="head" fill="#75b8a6">域名</text>
+<text x="580" y="1394.23" class="head" text-anchor="end" fill="#75b8a6">可达</text>
+<text x="690" y="1394.23" class="head" text-anchor="end" fill="#75b8a6">延迟</text>
+<text x="790" y="1394.23" class="head" text-anchor="end" fill="#75b8a6">重传</text>
+<text x="40" y="1418.1" fill="#d8d2b8">Akamai Edge</text>
+<text x="280" y="1418.1" fill="#d8d2b8">www.akamai.com</text>
+<text x="580" y="1418.1" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1418.1" text-anchor="end" fill="#d8b96f">2.700ms</text>
+<text x="790" y="1418.1" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1441.97" fill="#d8d2b8">AWS CloudFront</text>
+<text x="280" y="1441.97" fill="#d8d2b8">d1.awsstatic.com</text>
+<text x="580" y="1441.97" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1441.97" text-anchor="end" fill="#87d88d">1.660ms</text>
+<text x="790" y="1441.97" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1465.84" fill="#d8d2b8">CacheFly</text>
+<text x="280" y="1465.84" fill="#d8d2b8">cachefly.cachefly.net</text>
+<text x="580" y="1465.84" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1465.84" text-anchor="end" fill="#d8b96f">2.313ms</text>
+<text x="790" y="1465.84" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1489.71" fill="#d8d2b8">Cloudflare CDNJS</text>
+<text x="280" y="1489.71" fill="#d8d2b8">cdnjs.cloudflare.com</text>
+<text x="580" y="1489.71" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1489.71" text-anchor="end" fill="#d8b96f">2.780ms</text>
+<text x="790" y="1489.71" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1513.58" fill="#d8d2b8">Fastly Test</text>
+<text x="280" y="1513.58" fill="#d8d2b8">http-me.fastly.dev</text>
+<text x="580" y="1513.58" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1513.58" text-anchor="end" fill="#d8b96f">2.020ms</text>
+<text x="790" y="1513.58" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1537.45" fill="#d8d2b8">Google Hosted Libraries</text>
+<text x="280" y="1537.45" fill="#d8d2b8">ajax.googleapis.com</text>
+<text x="580" y="1537.45" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1537.45" text-anchor="end" fill="#d8b96f">2.827ms</text>
+<text x="790" y="1537.45" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1561.32" fill="#d8d2b8">jsDelivr Multi-CDN</text>
+<text x="280" y="1561.32" fill="#d8d2b8">cdn.jsdelivr.net</text>
+<text x="580" y="1561.32" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1561.32" text-anchor="end" fill="#87d88d">1.297ms</text>
+<text x="790" y="1561.32" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1585.19" fill="#d8d2b8">UNPKG Cloudflare</text>
+<text x="280" y="1585.19" fill="#d8d2b8">unpkg.com</text>
+<text x="580" y="1585.19" text-anchor="end" fill="#87d88d">✓</text>
+<text x="690" y="1585.19" text-anchor="end" fill="#d8b96f">3.000ms</text>
+<text x="790" y="1585.19" text-anchor="end" fill="#87d88d">0%</text>
+<text x="40" y="1609.06" class="small" fill="#8d887b">颜色: </text>
+<text x="100" y="1609.06" class="small" fill="#87d88d">0-2ms 正常</text>
+<text x="220" y="1609.06" class="small" fill="#d8b96f">2-10ms 一般</text>
+<text x="350" y="1609.06" class="small" fill="#dc646d">&gt;10ms 异常，或不可达</text>
+<text x="460" y="1632.92" class="small" text-anchor="middle" fill="#8d887b">报告时间：2026-10-02 17:42:28 CST（北京时间）</text>
+<text x="460" y="1656.79" class="small" text-anchor="middle" fill="#8d887b">今日报告次数：247    累计报告次数：45442</text>
+</svg><img class="save-image" data-src="https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.png?section=intl&amp;format=png&amp;rv=inter-noto-sc-fg-eee8d0-rsvg-2x-layout-v2" alt="国际互联" loading="lazy"></div></section><section id="speedtest" class="panel"><div class="report-frame"><svg xmlns="http://www.w3.org/2000/svg" width="840" height="784.46" viewBox="0 0 840 784.46" style="font-size:14px" xml:space="preserve">
+<rect width="100%" height="100%" fill="#1f1e2a"/>
+<style>
+    text{font-family:"Inter","PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;font-size:14px;font-weight:700;letter-spacing:0;dominant-baseline:central;white-space:pre;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+    .small{font-size:14px}.meta{font-size:14px}.title{font-size:18px}.section{font-size:16px}.head{font-size:14px}
+    .speed{font-size:14px}.speedval{font-size:14px;font-variant-numeric:tabular-nums}
+    a text{text-decoration:underline}
+  </style>
+<text x="420" y="28.21" text-anchor="middle" class="title" fill="#75b8a6">TcpQuality--最贴近你上网的综合体验</text>
+<text x="420" y="52.08" text-anchor="middle" class="meta"><a href="https://github.com/ibsgss/TcpQuality" target="_blank"><tspan fill="#8d887b" text-decoration="underline">GitHub项目链接</tspan></a><tspan fill="#8d887b"> | 特价VPS补货TG频道：</tspan><a href="https://t.me/ibsgss" target="_blank"><tspan fill="#8d887b" text-decoration="underline">ibsgss</tspan></a><tspan fill="#8d887b"> | 感谢 Zstatic CDN 节点</tspan></text>
+<text x="420" y="75.95" text-anchor="middle" class="meta" fill="#8d887b">AS402169 USCLOUD INC - Uscloud Inc    IP: 186.241.*.*</text>
+<line x1="40" x2="800" y1="99.82" y2="99.82" stroke="#8d887b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="0.1 5"/>
+<text x="420" y="123.69" text-anchor="middle" class="section"><tspan fill="#75b8a6">单线程测速</tspan><tspan fill="#75b8a6"> | </tspan><a href="https://tcpquality.ibsgss.uk/rank?date=today&amp;rate=%E5%8C%97%E4%BA%AC&amp;carrier=%E7%94%B5%E4%BF%A1&amp;location=%E7%BE%8E%E5%9B%BD&amp;reportId=Bv0B-Hu6iM" target="_blank"><tspan fill="#d8b96f" text-decoration="underline">排行榜</tspan></a></text>
+<text x="130" y="162.75" text-anchor="end" fill="#75b8a6" class="speed">IPv4</text>
+<text x="250" y="162.75" text-anchor="end" fill="#75b8a6" class="speed">回程重传</text>
+<text x="380" y="162.75" text-anchor="end" fill="#75b8a6" class="speed">回程速度</text>
+<text x="510" y="162.75" text-anchor="end" fill="#75b8a6" class="speed">去程速度</text>
+<text x="640" y="162.75" text-anchor="end" fill="#75b8a6" class="speed">回程延迟</text>
+<text x="770" y="162.75" text-anchor="end" fill="#75b8a6" class="speed">去程延迟</text>
+<text x="130" y="186.62" text-anchor="end" fill="#75b8a6">北京电信</text>
+<text x="250" y="186.62" text-anchor="end" fill="#87d88d" class="speedval">0.00%</text>
+<text x="380" y="186.62" text-anchor="end" fill="#87d88d" class="speedval">483.2Mbps</text>
+<text x="510" y="186.62" text-anchor="end" fill="#d8b96f" class="speedval">105.6Mbps</text>
+<text x="640" y="186.62" text-anchor="end" fill="#d8b96f" class="speedval">190ms</text>
+<text x="770" y="186.62" text-anchor="end" fill="#d8b96f" class="speedval">186ms</text>
+<text x="130" y="210.49" text-anchor="end" fill="#75b8a6">北京联通</text>
+<text x="250" y="210.49" text-anchor="end" fill="#87d88d" class="speedval">0.00%</text>
+<text x="380" y="210.49" text-anchor="end" fill="#87d88d" class="speedval">499.0Mbps</text>
+<text x="510" y="210.49" text-anchor="end" fill="#dc646d" class="speedval">5.4Mbps</text>
+<text x="640" y="210.49" text-anchor="end" fill="#d8b96f" class="speedval">192ms</text>
+<text x="770" y="210.49" text-anchor="end" fill="#d8b96f" class="speedval">189ms</text>
+<text x="130" y="234.36" text-anchor="end" fill="#75b8a6">北京移动</text>
+<text x="250" y="234.36" text-anchor="end" fill="#87d88d" class="speedval">0.00%</text>
+<text x="380" y="234.36" text-anchor="end" fill="#87d88d" class="speedval">523.8Mbps</text>
+<text x="510" y="234.36" text-anchor="end" fill="#d8b96f" class="speedval">82.6Mbps</text>
+<text x="640" y="234.36" text-anchor="end" fill="#d8b96f" class="speedval">181ms</text>
+<text x="770" y="234.36" text-anchor="end" fill="#d8b96f" class="speedval">191ms</text>
+<text x="130" y="274.5" text-anchor="end" fill="#75b8a6" class="speed">IPv4</text>
+<text x="250" y="274.5" text-anchor="end" fill="#75b8a6" class="speed">回程重传</text>
+<text x="380" y="274.5" text-anchor="end" fill="#75b8a6" class="speed">回程速度</text>
+<text x="510" y="274.5" text-anchor="end" fill="#75b8a6" class="speed">去程速度</text>
+<text x="640" y="274.5" text-anchor="end" fill="#75b8a6" class="speed">回程延迟</text>
+<text x="770" y="274.5" text-anchor="end" fill="#75b8a6" class="speed">去程延迟</text>
+<text x="130" y="298.38" text-anchor="end" fill="#75b8a6">上海电信</text>
+<text x="250" y="298.38" text-anchor="end" fill="#87d88d" class="speedval">8.56%</text>
+<text x="380" y="298.38" text-anchor="end" fill="#d8b96f" class="speedval">60.2Mbps</text>
+<text x="510" y="298.38" text-anchor="end" fill="#dc646d" class="speedval">2.2Mbps</text>
+<text x="640" y="298.38" text-anchor="end" fill="#d8b96f" class="speedval">173ms</text>
+<text x="770" y="298.38" text-anchor="end" fill="#dc646d" class="speedval">391ms</text>
+<text x="130" y="322.25" text-anchor="end" fill="#75b8a6">上海联通</text>
+<text x="250" y="322.25" text-anchor="end" fill="#87d88d" class="speedval">0.00%</text>
+<text x="380" y="322.25" text-anchor="end" fill="#87d88d" class="speedval">491.9Mbps</text>
+<text x="510" y="322.25" text-anchor="end" fill="#87d88d" class="speedval">229.1Mbps</text>
+<text x="640" y="322.25" text-anchor="end" fill="#d8b96f" class="speedval">192ms</text>
+<text x="770" y="322.25" text-anchor="end" fill="#d8b96f" class="speedval">200ms</text>
+<text x="130" y="346.11" text-anchor="end" fill="#75b8a6">上海移动</text>
+<text x="250" y="346.11" text-anchor="end" fill="#87d88d" class="speedval">0.00%</text>
+<text x="380" y="346.11" text-anchor="end" fill="#87d88d" class="speedval">525.7Mbps</text>
+<text x="510" y="346.11" text-anchor="end" fill="#87d88d" class="speedval">190.4Mbps</text>
+<text x="640" y="346.11" text-anchor="end" fill="#d8b96f" class="speedval">180ms</text>
+<text x="770" y="346.11" text-anchor="end" fill="#d8b96f" class="speedval">178ms</text>
+<text x="130" y="386.26" text-anchor="end" fill="#75b8a6" class="speed">IPv4</text>
+<text x="250" y="386.26" text-anchor="end" fill="#75b8a6" class="speed">回程重传</text>
+<text x="380" y="386.26" text-anchor="end" fill="#75b8a6" class="speed">回程速度</text>
+<text x="510" y="386.26" text-anchor="end" fill="#75b8a6" class="speed">去程速度</text>
+<text x="640" y="386.26" text-anchor="end" fill="#75b8a6" class="speed">回程延迟</text>
+<text x="770" y="386.26" text-anchor="end" fill="#75b8a6" class="speed">去程延迟</text>
+<text x="130" y="410.13" text-anchor="end" fill="#75b8a6">广东电信</text>
+<text x="250" y="410.13" text-anchor="end" fill="#87d88d" class="speedval">0.00%</text>
+<text x="380" y="410.13" text-anchor="end" fill="#87d88d" class="speedval">480.0Mbps</text>
+<text x="510" y="410.13" text-anchor="end" fill="#87d88d" class="speedval">299.0Mbps</text>
+<text x="640" y="410.13" text-anchor="end" fill="#d8b96f" class="speedval">193ms</text>
+<text x="770" y="410.13" text-anchor="end" fill="#d8b96f" class="speedval">204ms</text>
+<text x="130" y="434" text-anchor="end" fill="#75b8a6">广东联通</text>
+<text x="250" y="434" text-anchor="end" fill="#87d88d" class="speedval">0.00%</text>
+<text x="380" y="434" text-anchor="end" fill="#87d88d" class="speedval">431.5Mbps</text>
+<text x="510" y="434" text-anchor="end" fill="#d8b96f" class="speedval">65.6Mbps</text>
+<text x="640" y="434" text-anchor="end" fill="#d8b96f" class="speedval">219ms</text>
+<text x="770" y="434" text-anchor="end" fill="#d8b96f" class="speedval">233ms</text>
+<text x="130" y="457.87" text-anchor="end" fill="#75b8a6">广东移动</text>
+<text x="250" y="457.87" text-anchor="end" fill="#87d88d" class="speedval">0.00%</text>
+<text x="380" y="457.87" text-anchor="end" fill="#87d88d" class="speedval">447.0Mbps</text>
+<text x="510" y="457.87" text-anchor="end" fill="#d8b96f" class="speedval">22.7Mbps</text>
+<text x="640" y="457.87" text-anchor="end" fill="#d8b96f" class="speedval">202ms</text>
+<text x="770" y="457.87" text-anchor="end" fill="#d8b96f" class="speedval">201ms</text>
+<text x="130" y="498.02" text-anchor="end" fill="#75b8a6" class="speed">国际方向</text>
+<text x="250" y="498.02" text-anchor="end" fill="#75b8a6" class="speed">下载重传</text>
+<text x="380" y="498.02" text-anchor="end" fill="#75b8a6" class="speed">下载速度</text>
+<text x="510" y="498.02" text-anchor="end" fill="#75b8a6" class="speed">上传速度</text>
+<text x="640" y="498.02" text-anchor="end" fill="#75b8a6" class="speed">下载延迟</text>
+<text x="770" y="498.02" text-anchor="end" fill="#75b8a6" class="speed">上传延迟</text>
+<text x="130" y="521.89" text-anchor="end" fill="#75b8a6">Apple IPv4</text>
+<text x="250" y="521.89" text-anchor="end" fill="#87d88d" class="speedval">0.00%</text>
+<text x="380" y="521.89" text-anchor="end" fill="#87d88d" class="speedval">809.1Mbps</text>
+<text x="510" y="521.89" text-anchor="end" fill="#87d88d" class="speedval">591.3Mbps</text>
+<text x="640" y="521.89" text-anchor="end" fill="#87d88d" class="speedval">47ms</text>
+<text x="770" y="521.89" text-anchor="end" fill="#87d88d" class="speedval">91ms</text>
+<text x="70" y="567.46" class="speed"><tspan fill="#8d887b">拥塞控制 </tspan><tspan fill="#75b8a6">bbr</tspan></text>
+<text x="280" y="567.46" class="speed"><tspan fill="#8d887b">TCP发送(回程)缓存最小/默认/最大值 </tspan><tspan fill="#75b8a6">4K/16K/64M</tspan></text>
+<text x="644" y="567.46" class="speed"><tspan fill="#8d887b">TCP窗口缩放 </tspan><tspan fill="#75b8a6">1/正常</tspan></text>
+<text x="70" y="591.33" class="speed"><tspan fill="#8d887b">排队算法 </tspan><tspan fill="#75b8a6">fq</tspan></text>
+<text x="280" y="591.33" class="speed"><tspan fill="#8d887b">TCP接收(去程)缓存最小/默认/最大值 </tspan><tspan fill="#75b8a6">4K/128K/64M</tspan></text>
+<text x="644" y="591.33" class="speed"><tspan fill="#8d887b">TCP接收自调 </tspan><tspan fill="#75b8a6">1/正常</tspan></text>
+<line x1="40" x2="800" y1="620.62" y2="620.62" stroke="#8d887b" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="0.1 5"/>
+<text x="70" y="644.49" class="speed" fill="#8d887b">注：单线程理论极值=最大窗口/平均延迟*8，其中最大窗口=min(本地最大窗口，测速点最大窗口=16MB)</text>
+<text x="70" y="668.36" class="speed" fill="#8d887b">以美西为例：160ms延迟+4M发送缓存=理论单线程200Mbps，理论值不考虑商家限速和线路拥堵</text>
+<text x="70" y="692.23" class="speed" fill="#8d887b">代理下载速度由 回程速度+下载速度 的短板决定</text>
+<text x="420" y="726.95" class="small" text-anchor="middle" fill="#8d887b">报告时间：2026-10-02 17:42:28 CST（北京时间）</text>
+<text x="420" y="750.82" class="small" text-anchor="middle" fill="#8d887b">今日报告次数：247    累计报告次数：45442</text>
+</svg><img class="save-image" data-src="https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.png?section=speedtest&amp;format=png&amp;rv=inter-noto-sc-fg-eee8d0-rsvg-2x-layout-v2" alt="单线程测速" loading="lazy"></div></section>
+  </main>
+  <div class="toast" id="toast" aria-live="polite"></div>
+  <script>
+    const tabs = document.querySelectorAll(".tab");
+    const panels = document.querySelectorAll(".panel");
+    const toast = document.getElementById("toast");
+    const reportSections = [{"id":"ipv4","label":"IPv4回程","svgUrl":"https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.svg?section=ipv4","pngUrl":"https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.png?section=ipv4","pngDownloadUrl":"https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.png?section=ipv4&format=png&rv=inter-noto-sc-fg-eee8d0-rsvg-2x-layout-v2"},{"id":"large4","label":"IPv4大包回程","svgUrl":"https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.svg?section=large4","pngUrl":"https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.png?section=large4","pngDownloadUrl":"https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.png?section=large4&format=png&rv=inter-noto-sc-fg-eee8d0-rsvg-2x-layout-v2"},{"id":"cernet","label":"教育网回程","svgUrl":"https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.svg?section=cernet","pngUrl":"https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.png?section=cernet","pngDownloadUrl":"https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.png?section=cernet&format=png&rv=inter-noto-sc-fg-eee8d0-rsvg-2x-layout-v2"},{"id":"intl","label":"国际互联","svgUrl":"https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.svg?section=intl","pngUrl":"https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.png?section=intl","pngDownloadUrl":"https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.png?section=intl&format=png&rv=inter-noto-sc-fg-eee8d0-rsvg-2x-layout-v2"},{"id":"speedtest","label":"单线程测速","svgUrl":"https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.svg?section=speedtest","pngUrl":"https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.png?section=speedtest","pngDownloadUrl":"https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM.png?section=speedtest&format=png&rv=inter-noto-sc-fg-eee8d0-rsvg-2x-layout-v2"}];
+    const reportId = "Bv0B-Hu6iM";
+    const reportUrl = "https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM" || (window.location.origin + "/r/" + reportId);
+
+    function activeSection() {
+      const activeTab = document.querySelector(".tab.active");
+      return reportSections.find((section) => section.id === activeTab?.dataset.target) || reportSections[0];
+    }
+
+    function armSaveImages() {
+      if (!window.matchMedia("(hover: none), (max-width: 720px)").matches) return;
+      document.querySelectorAll(".save-image[data-src]").forEach((img) => {
+        if (!img.src) img.src = img.dataset.src;
+      });
+    }
+
+    async function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    }
+
+    async function downloadActiveSvg() {
+      for (const section of reportSections) {
+        const response = await fetch(section.pngDownloadUrl, { cache: "no-store" });
+        if (!response.ok) throw new Error("PNG download failed");
+        const pngBlob = await response.blob();
+        await downloadBlob(pngBlob, reportId + "-" + section.label + ".png");
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+    }
+
+    function nodeSeekMarkdown() {
+      const body = reportSections.map((section) => (
+        "::: tab-item " + nodeSeekTabLabel(section) + "\n" +
+        "![](" + section.pngUrl + ")\n" +
+        ":::"
+      )).join("\n\n");
+      return ":::: tabs\n" + body + "\n::::\n\n报告链接：" + reportUrl;
+    }
+
+    function nodeSeekTabLabel(section) {
+      if (section.id === "ipv4") return "IPv4回程";
+      if (section.id === "large4") return "IPv4大包回程";
+      if (section.id === "ipv6") return "IPv6回程";
+      if (section.id === "cernet") return "教育网回程";
+      if (section.id === "intl") return "国际互联";
+      if (section.id === "speedtest") return "单线程测速";
+      return section.label;
+    }
+
+    async function copyNodeSeekMarkdown() {
+      const text = nodeSeekMarkdown();
+      await copyText(text);
+      showToast("复制成功");
+    }
+
+    async function copyText(text) {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const input = document.createElement("textarea");
+      input.value = text;
+      input.style.position = "fixed";
+      input.style.opacity = "0";
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      input.remove();
+    }
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => toast.classList.remove("show"), 1600);
+    }
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        tabs.forEach((item) => item.classList.toggle("active", item === tab));
+        panels.forEach((panel) => panel.classList.toggle("active", panel.id === tab.dataset.target));
+      });
+    });
+    window.addEventListener("load", armSaveImages);
+    window.addEventListener("resize", armSaveImages);
+    document.getElementById("download-svg").addEventListener("click", async () => {
+      try {
+        await downloadActiveSvg();
+      } catch (err) {
+        console.error(err);
+        alert("下载失败");
+      }
+    });
+    document.getElementById("copy-nodeseek").addEventListener("click", async () => {
+      try {
+        await copyNodeSeekMarkdown();
+      } catch (err) {
+        console.error(err);
+        alert("复制失败");
+      }
+    });
+  </script>
+</body>
+</html>

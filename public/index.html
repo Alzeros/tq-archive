@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TQ 报告归档 · 本地版</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="toast" class="toast"></div>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <strong>TQ 报告归档</strong>
+        <span id="syncState">未同步节点</span>
+      </div>
+      <button id="syncButton" class="primary wide" type="button">从探针同步节点</button>
+      <input id="nodeFilter" class="search" type="search" placeholder="筛选节点…" autocomplete="off">
+      <div id="nodeList" class="node-list"></div>
+    </aside>
+
+    <main class="content">
+      <nav class="tabs">
+        <button class="tab active" data-view="import" type="button">导入报告</button>
+        <button class="tab" data-view="history" type="button">历史报告</button>
+        <button class="tab" data-view="compare" type="button">变化对比</button>
+      </nav>
+
+      <section id="view-import" class="view active">
+        <div class="card">
+          <h2>粘贴 TQ 报告链接</h2>
+          <p class="hint">先解析并预览，确认无误后再绑定到节点。重复报告会被拒绝。</p>
+          <form id="previewForm" class="row-form">
+            <input id="reportUrl" type="url" placeholder="https://tcpquality.ibsgss.uk/r/xxxxxxxx" required>
+            <button class="primary" type="submit">解析</button>
+          </form>
+          <div id="previewResult" class="preview hidden"></div>
+        </div>
+        <div class="card">
+          <h2>最近导入</h2>
+          <div id="recentImports" class="list"></div>
+        </div>
+      </section>
+
+      <section id="view-history" class="view">
+        <div class="card">
+          <h2 id="historyTitle">请选择节点</h2>
+          <div id="historyList" class="list"></div>
+        </div>
+        <div class="card hidden" id="detailCard">
+          <div class="detail-head">
+            <h2 id="detailTitle">报告详情</h2>
+            <div class="actions">
+              <a id="openOriginal" class="button ghost" target="_blank" rel="noreferrer noopener">原始报告</a>
+              <a id="downloadJson" class="button ghost" download>JSON</a>
+              <a id="downloadRaw" class="button ghost" download>原始 HTML</a>
+            </div>
+          </div>
+          <div id="detailWarnings"></div>
+          <div id="detailBody" class="table-wrap"></div>
+        </div>
+      </section>
+
+      <section id="view-compare" class="view">
+        <div class="card">
+          <h2>选择同一节点的两份报告</h2>
+          <div class="row-form">
+            <select id="compareNode"></select>
+            <select id="compareBase"></select>
+            <select id="compareCurrent"></select>
+            <button id="runCompare" class="primary" type="button">对比</button>
+          </div>
+          <p class="hint">变化按“当前报告 − 基础报告”计算。延迟、丢包、速度含义不同，请结合数值判断好坏。</p>
+        </div>
+        <div class="card hidden" id="compareResult">
+          <h2 id="compareTitle">变化明细</h2>
+          <div class="filters">
+            <select id="changeFilter"></select>
+            <select id="changeDirection">
+              <option value="all">全部变化</option>
+              <option value="up">上升</option>
+              <option value="down">下降</option>
+              <option value="same">无变化</option>
+            </select>
+            <label class="inline"><input type="checkbox" id="onlyChanged" checked> 仅显示有变化的项</label>
+          </div>
+          <div id="changeBody" class="table-wrap"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>
