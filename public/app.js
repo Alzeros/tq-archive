@@ -217,8 +217,13 @@ function renderInsight(insight) {
     ? `<div class="insight-block"><h3 class="section-title">大区聚合 · 看是区域性劣化还是个别省份</h3>
         <div class="region-row">${insight.regions.map(item => `<span class="region"><span class="name">${escapeHtml(item.name)}</span><span class="hm-cell l${item.level}">${item.p50}ms</span></span>`).join('')}</div></div>`
     : '';
+  // 标出哪些区域是用真实报告校准过的：把估算值当实测值看，正是之前误判的根源
+  const calibrated = new Set(insight.calibratedRegions || []);
   const bandRows = Object.entries(insight.latencyBands || {})
-    .map(([code, item]) => `<tr${code === region.code ? ' class="current"' : ''}><td>${escapeHtml(code)}</td><td>${escapeHtml(item.label)}</td><td>${item.good}</td><td>${item.fair}</td></tr>`).join('');
+    .map(([code, item]) => `<tr${code === region.code ? ' class="current"' : ''}>
+      <td>${escapeHtml(code)}</td><td>${escapeHtml(item.label)}</td><td>${item.good}</td><td>${item.fair}</td>
+      <td class="${calibrated.has(code) ? 'yes' : 'no'}">${calibrated.has(code) ? '已校准' : '待校准'}</td>
+    </tr>`).join('');
   const services = insight.services
     ? `<div class="insight-block"><h3 class="section-title">常用网站 / CDN 响应最慢的 5 个 · 共 ${insight.services.total} 个${insight.services.unreachable ? `，${insight.services.unreachable} 个不可达` : ''}</h3>
         <div class="svc-row">${insight.services.slowest.map(item => `<span class="svc"><span class="name">${escapeHtml(item.name)}</span><span class="lat">${item.latency ?? '—'}ms</span></span>`).join('')}</div></div>`
@@ -227,9 +232,9 @@ function renderInsight(insight) {
   el('detailSummary').innerHTML = `<div class="insight-block">
       <div class="card-grid">${cards}</div>
       <details class="basis-wrap">
-        <summary>评级基准 · 延迟按机房区域分档（当前：${escapeHtml(region.label)}，好 ≤ ${region.good}ms / 一般 ≤ ${region.fair}ms）</summary>
-        <p class="hint">同一个绝对阈值判所有区域，会把"离得远"误判成"线路差"：香港 25ms 和法兰克福 175ms 都是各自区域的正常水平。下表为延迟基准，改 <code>lib/thresholds.mjs</code> 即可调整。</p>
-        <div class="table-wrap"><table><thead><tr><th>区域</th><th>名称</th><th>好 ≤ (ms)</th><th>一般 ≤ (ms)</th></tr></thead><tbody>${bandRows}</tbody></table></div>
+        <summary>评级基准 · 延迟按机房区域分档（当前：${escapeHtml(region.label)}，好 ≤ ${region.good}ms / 一般 ≤ ${region.fair}ms${region.calibrated ? '' : ' · 待校准'}）</summary>
+        <p class="hint">同一个绝对阈值判所有区域，会把"离得远"误判成"线路差"：香港 55ms 和法兰克福 175ms 都是各自区域的正常水平。改 <code>lib/thresholds.mjs</code> 即可调整。<strong>只有标「已校准」的区域是用实测报告推导的</strong>，其余是按地理位置的估算值，可能偏紧。</p>
+        <div class="table-wrap"><table><thead><tr><th>区域</th><th>名称</th><th>好 ≤ (ms)</th><th>一般 ≤ (ms)</th><th>校准</th></tr></thead><tbody>${bandRows}</tbody></table></div>
       </details>
     </div>
     ${anomalies}${regions}
@@ -274,6 +279,35 @@ function drawHeatmap() {
     button.addEventListener('click', () => { state.heatmap.metricId = button.dataset.metric; drawHeatmap(); });
   }
 }
+// ============ 解析提示：按类归并 ============
+// 一份双栈报告能产出几十条同类提示（31 个省份报同一个问题），
+// 逐条铺开会把整块界面变成字墙，反而看不出"到底哪里出了问题"。
+function renderWarnings(report) {
+  const warnings = report.warnings || [];
+  const box = el('detailWarnings');
+  if (!warnings.length) { box.innerHTML = ''; return; }
+  const summary = report.insight?.warningSummary;
+  // 只有一两条时不必套归并的壳，直接说清楚更省事
+  if (!summary || summary.total <= 2) {
+    box.innerHTML = `<div class="warn">解析提示：${warnings.map(escapeHtml).join('；')}</div>`;
+    return;
+  }
+  const rows = summary.groups.map(group => `<li class="warn-row ${group.level}">
+      <span class="warn-scope">${escapeHtml(group.scope)}</span>
+      <span class="warn-count">${group.count} 条</span>
+      <span class="warn-title">${escapeHtml(group.title)}</span>
+      ${group.samples.length ? `<span class="warn-samples">${escapeHtml(group.samples.join('、'))}${group.count > group.samples.length ? ' 等' : ''}</span>` : ''}
+    </li>`).join('');
+  const restRow = summary.rest.length
+    ? `<li class="warn-row"><span class="warn-scope">其他</span><span class="warn-count">${summary.rest.length} 条</span></li>`
+    : '';
+  const kinds = summary.groups.length + (summary.rest.length ? 1 : 0);
+  box.innerHTML = `<div class="warn warn-summary">
+      <div class="warn-head">解析提示 · 共 ${summary.total} 条，归为 ${kinds} 类${kinds === 1 ? '（同一问题影响多处）' : ''}</div>
+      <ul class="warn-list">${rows}${restRow}</ul>
+      <details class="warn-all"><summary>展开全部 ${summary.total} 条原始提示</summary><ol>${warnings.map(warning => `<li>${escapeHtml(warning)}</li>`).join('')}</ol></details>
+    </div>`;
+}
 async function openDetail(reportId) {
   const report = await api(`/api/reports/${reportId}`);
   state.detail = report;
@@ -282,9 +316,7 @@ async function openDetail(reportId) {
   el('openOriginal').href = report.sourceUrl;
   el('downloadJson').href = `/api/reports/${reportId}/export`;
   el('downloadRaw').href = `/api/reports/${reportId}/raw`;
-  el('detailWarnings').innerHTML = report.warnings?.length
-    ? `<div class="warn">解析提示：${report.warnings.map(escapeHtml).join('；')}</div>`
-    : '';
+  renderWarnings(report);
   const bySection = new Map();
   for (const record of report.records) {
     if (!bySection.has(record.section)) bySection.set(record.section, []);
