@@ -47,7 +47,7 @@
         <span>从探针同步节点</span>
       </button>
 
-      <a href="/keys.html" class="secondary wide keys-link">
+      <a href="/keys.html" class="button ghost wide keys-link">
         <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="7.5" cy="15.5" r="5.5"/>
           <path d="m21 2-9.6 9.6"/>
@@ -95,6 +95,7 @@
             <path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
           </svg>
           <span>导入报告</span>
+          <span id="pendingBadge" class="tab-badge" hidden>0</span>
         </button>
         <button class="tab" data-view="history" type="button">
           <svg class="tab-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -130,6 +131,12 @@
           </div>
           <div id="dashStats" class="dash-stats"></div>
         </div>
+
+        <button id="dashPending" class="dash-pending" type="button" hidden>
+          <span class="dash-pending-dot" aria-hidden="true"></span>
+          <span id="dashPendingText" class="dash-pending-text"></span>
+          <span class="dash-pending-go">去绑定 →</span>
+        </button>
 
         <div class="card dash-alert-card hidden" id="dashAlertCard">
           <div class="card-header alert-header">
@@ -186,6 +193,23 @@
       </section>
 
       <section id="view-import" class="view">
+        <div class="card pending-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="card-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 14.9A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 2.5 8.2"/>
+                  <path d="M12 12v9m0-9-3 3m3-3 3 3"/>
+                </svg>
+              </span>
+              <h2>脚本直传 · 待绑定</h2>
+              <span id="pendingCount" class="record-pill">0 份</span>
+            </div>
+            <p class="hint">服务器上用 run-with-hub.sh 跑完 TQ 后自动上传到这里，选择节点后归档；同一台机器绑定过一次，之后会自动推荐</p>
+          </div>
+          <div id="pendingList" class="pending-list"></div>
+        </div>
+
         <div class="card import-card">
           <div class="card-header">
             <div class="card-title-group">

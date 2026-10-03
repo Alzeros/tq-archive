@@ -9,7 +9,7 @@
 npm start
 ```
 
-打开 http://127.0.0.1:4173 。数据保存在 `data/`（`database.json` 为索引，`data/reports/` 存结构化明细，`data/raw/` 保存原始报告 HTML），不依赖数据库。
+打开 http://127.0.0.1:4173 。数据保存在 `data/`（`database.json` 为索引，`data/reports/` 存结构化明细，`data/raw/` 保存原始报告 HTML / CSV，`data/csv-pool/` 是待绑定的直传 CSV），不依赖数据库。
 
 ## 使用流程
 
@@ -18,6 +18,22 @@ npm start
 3. 选择归属节点后确认归档；重复链接或重复内容会被拒绝。
 4. 在「历史报告」查看某节点历次报告，并打开任意一份看完整指标表；误归档可用「删除」移除。
 5. 在「变化对比」选择同一节点的两份报告，查看各指标增减。
+
+## 脚本直传
+
+不经过链接，在被测服务器上跑完 TQ 直接把结果传到 TQ Hub：
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Alzeros/tq-archive/main/scripts/run-with-hub.sh) \
+  --hub=https://你的域名 --key=<API Key>
+```
+
+- Key 在侧边栏「API Key 管理」生成；脚本开跑前会先校验 hub 与 key。
+- 检测原样运行官方 `runTcpQuality.sh`：不带其他参数出现官方选项菜单（回车即全选），带 `--all`、`-v4` 等参数则原样透传。
+- 本次 CSV 经官方的 `TCPQUALITY_OUTPUT_DIR` 落到私有临时目录后上传；测试时间取 CSV 的修改时间（即报告时间）。
+- 上传后进入「导入报告 → 脚本直传 · 待绑定」，选择节点后归档。同一台机器（主机名 + 出口 IP）绑定过一次后会自动推荐；没有记录时不预选，避免成批绑错。
+- 上传失败时 CSV 保存在 `~/.cache/tq-archive/failed/`，用 `--upload=文件` 重传。同一份数据按内容指纹去重，重复上传不会重复入队。
+- CSV 目前解析三网（IPv4/IPv6）、IPv4 大包与教育网；国际互联、单线程测速的行暂不入库（原始 CSV 完整保留），待核对真实样本后补齐。
 
 ## 数据口径
 
@@ -34,11 +50,14 @@ npm start
 | --- | --- |
 | `server.mjs` | 本地 HTTP 服务与 API |
 | `lib/auth.mjs` | 账号校验与会话 Cookie |
+| `lib/csv-parser.mjs` | 脚本直传的 CSV 转结构化记录（与链接导入同一套 key 与单位） |
 | `lib/insight.mjs` | 单份报告洞察：指标卡、相对离群异常、省份×运营商热力图 |
 | `lib/parser.mjs` | 报告 HTML 转结构化记录、两次报告对比 |
 | `lib/probe.mjs` | 探针节点同步 |
 | `lib/store.mjs` | 本地 JSON 与原始报告存储 |
+| `lib/keys.mjs` | 脚本直传用的 API Key |
 | `lib/thresholds.mjs` | 主观评级阈值（可调），异常检测不依赖它 |
+| `scripts/run-with-hub.sh` | 被测服务器上运行：跑官方 TQ 并直传结果 CSV |
 | `public/` | 前端界面 |
 | `test/` | 解析器、存储、认证与洞察测试（`npm test`） |
 

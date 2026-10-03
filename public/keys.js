@@ -1,7 +1,6 @@
 // API Key 管理逻辑
-// 注意：不使用行内 onclick。server 会注入 data-theme，浏览器据此把本脚本
-// 视为模块（顶层函数不进全局作用域），行内 onclick 会找不到函数。
-// 因此统一用事件委托 + 显式暴露。
+// 注意：不使用行内 onclick。站点 CSP 是 script-src 'self'，会拦截行内事件处理器，
+// 因此表格按钮统一用事件委托绑定。
 
 const $ = id => document.getElementById(id);
 

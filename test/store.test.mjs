@@ -31,7 +31,7 @@ test('detail 可还原完整记录，供详情页与对比使用', () => {
   const report = store.insert('a', parseReport(html, 'https://tcpquality.ibsgss.uk/r/x1'), html);
   const detail = store.detail(report.id);
   assert.ok(detail.records.find(record => record.section === 'ipv4' && record.target === '江苏' && record.carrier === '电信'));
-  assert.equal(store.raw(report.id), html);
+  assert.deepEqual(store.raw(report.id), { content: html, ext: 'html' });
 });
 
 test('同一链接或同一内容重复导入被拒绝', () => {
@@ -99,7 +99,7 @@ test('v1 内联索引自动迁移为明细文件，且可重复启动', () => {
   assert.equal(migrated.database.version, 2);
   assert.equal(migrated.database.reports[0].records, undefined, '迁移后索引不应再内联 records');
   assert.equal(migrated.detail(report.id).records.length, report.records.length, '明细应完整可取');
-  assert.equal(migrated.raw(report.id), html, '迁移不应影响原始 HTML');
+  assert.equal(migrated.raw(report.id).content, html, '迁移不应影响原始 HTML');
   const again = createStore(directory);
   assert.equal(again.database.reports.length, 1, '重复启动不应产生重复报告');
   assert.equal(again.detail(report.id).records.length, report.records.length);

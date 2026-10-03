@@ -1,7 +1,7 @@
 import { setupThemeToggle } from '/theme.js';
 import { nodePicker } from '/picker.js';
 
-const state = { nodes: [], reports: [], metricNames: {}, selectedNodeId: null, detail: null, insight: null, heatmap: { matrixId: null, metricId: null }, compare: { node: '', result: null } };
+const state = { nodes: [], reports: [], pending: [], metricNames: {}, selectedNodeId: null, detail: null, insight: null, heatmap: { matrixId: null, metricId: null }, compare: { node: '', result: null } };
 // 选择器实例：预览导入的归属选择与详情页改绑各持一个，避免互相覆盖
 let previewPicker = null;
 let bindPicker = null;
@@ -292,6 +292,7 @@ function renderHistory() {
       <div class="title">
         <div class="history-title-row">
           <strong class="time-title">${fmtTime(report.testedAt)}</strong>
+          ${report.sourceType === 'csv' ? '<span class="source-pill" title="服务器上用 run-with-hub.sh 直传的 CSV">直传</span>' : ''}
           ${report.identity ? `<span class="ident-pill">${escapeHtml(report.identity)}</span>` : ''}
           <span class="record-pill">${report.recordCount} 条指标</span>
           ${warnCount ? `<span class="warn-pill">${warnCount} 条提示</span>` : ''}
@@ -304,10 +305,15 @@ function renderHistory() {
         <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
         <span>查看数据</span>
       </button>
-      <a class="button ghost small" href="${report.sourceUrl}" target="_blank" rel="noreferrer noopener">
+      ${report.sourceType === 'csv'
+        ? `<a class="button ghost small" href="/api/reports/${report.id}/raw" download>
+        <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>原始 CSV</span>
+      </a>`
+        : `<a class="button ghost small" href="${escapeHtml(report.sourceUrl)}" target="_blank" rel="noreferrer noopener">
         <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         <span>原报告</span>
-      </a>
+      </a>`}
       <button class="danger small del-btn" type="button" title="删除归档">
         <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
         <span>删除</span>
@@ -317,7 +323,7 @@ function renderHistory() {
     open.addEventListener('click', () => openDetail(report.id));
     const remove = item.querySelector('.del-btn');
     remove.addEventListener('click', async () => {
-      if (!confirm(`删除 ${fmtTime(report.testedAt)} 的归档？原始报告 HTML 也会一并删除，且无法恢复。`)) return;
+      if (!confirm(`删除 ${fmtTime(report.testedAt)} 的归档？原始${report.sourceType === 'csv' ? ' CSV' : '报告 HTML'}也会一并删除，且无法恢复。`)) return;
       remove.disabled = true;
       try {
         await api(`/api/reports/${report.id}`, { method: 'DELETE' });
@@ -480,9 +486,12 @@ async function openDetail(reportId) {
   state.detail = report;
   el('detailCard').classList.remove('hidden');
   el('detailTitle').textContent = `报告详情 · ${nodeName(report.nodeId)} · ${fmtShort(report.testedAt)}`;
-  el('openOriginal').href = report.sourceUrl;
+  const isCsv = report.sourceType === 'csv';
+  el('openOriginal').hidden = isCsv;
+  if (!isCsv) el('openOriginal').href = report.sourceUrl;
   el('downloadJson').href = `/api/reports/${reportId}/export`;
   el('downloadRaw').href = `/api/reports/${reportId}/raw`;
+  el('downloadRaw').querySelector('span').textContent = isCsv ? '原始 CSV' : '原始 HTML';
   renderWarnings(report);
   const bySection = new Map();
   for (const record of report.records) {
@@ -758,6 +767,86 @@ async function renderDashboard() {
     alertsBox.append(item);
   }
 }
+// 脚本直传、尚未绑定节点的报告。每份一个独立的选择器；没有"同一台机器"的记忆时不预选，必须明确选择
+const CORE_SECTIONS = ['ipv4', 'large4', 'cernet', 'intl', 'speedtest'];
+function renderPending() {
+  const count = state.pending.length;
+  el('pendingCount').textContent = `${count} 份`;
+  el('pendingBadge').textContent = count;
+  el('pendingBadge').hidden = !count;
+  el('dashPendingText').textContent = `有 ${count} 份脚本直传的报告等待绑定节点`;
+  el('dashPending').hidden = !count;
+  const list = el('pendingList');
+  if (!count) {
+    list.innerHTML = '<p class="empty">暂无待绑定的报告。在服务器上执行 run-with-hub.sh，跑完会自动出现在这里。</p>';
+    return;
+  }
+  list.innerHTML = '';
+  const reportsOf = reportsByNode();
+  for (const entry of [...state.pending].sort((left, right) => right.testedAt.localeCompare(left.testedAt))) {
+    const counts = entry.sectionCounts || {};
+    const present = new Set(entry.sections.map(section => section.id));
+    const pills = entry.sections.map(section => counts[section.id]
+      ? `<span class="record-pill">${escapeHtml(section.name)} ${counts[section.id]} 条</span>`
+      : `<span class="record-pill muted" title="CSV 里有这部分数据，映射待真实样本核对，原始 CSV 已保留">${escapeHtml(section.name)} · 暂未解析</span>`).join('');
+    const missing = CORE_SECTIONS.filter(id => !present.has(id)).map(id => sectionNames[id]);
+    const { latency, loss } = entry.preview || {};
+    const preview = [
+      latency && `<span class="metric"><span class="m-icon">⚡</span>延迟 p50 ${latency.value}${latency.unit}</span>`,
+      loss && `<span class="metric"><span class="m-icon">📉</span>丢包 ${loss.value}${loss.unit}</span>`
+    ].filter(Boolean).join('');
+    // "报告没有 X 维度" 已在上面单独成行，提示里只留其他信息
+    const notes = (entry.warnings || []).filter(text => !text.startsWith('报告没有') && !text.includes('暂未解析'));
+    const source = [entry.hostname, entry.sourceIp].filter(Boolean).map(escapeHtml).join(' · ') || '来源未知（旧版脚本上传）';
+    const item = document.createElement('div');
+    item.className = `pending-item${entry.error ? ' failed' : ''}`;
+    item.innerHTML = `
+      <div class="pending-main">
+        <div class="pending-title-row">
+          <strong class="time-title">${fmtTime(entry.testedAt)}</strong>
+          ${entry.timeSource === 'upload' ? '<span class="warn-pill" title="上传时没有带测试时间，按服务器收到 CSV 的时间记录">按上传时间</span>' : ''}
+          ${entry.keyName ? `<span class="record-pill">Key · ${escapeHtml(entry.keyName)}</span>` : ''}
+        </div>
+        <div class="pending-source">来源：${source}</div>
+        ${entry.error
+          ? `<div class="warn">无法解析：${escapeHtml(entry.error)}。原始 CSV 已保留，可下载查看后丢弃。</div>`
+          : `<div class="pending-sections">${pills}</div>
+             ${missing.length ? `<div class="pending-missing">本次未包含：${missing.map(escapeHtml).join('、')}</div>` : ''}
+             ${preview ? `<div class="metrics">${preview}</div>` : ''}
+             ${notes.length ? `<details class="pending-notes"><summary>${notes.length} 条解析提示</summary><ul>${notes.map(text => `<li>${escapeHtml(text)}</li>`).join('')}</ul></details>` : ''}`}
+      </div>
+      <div class="pending-actions">
+        ${entry.error ? '' : '<div class="picker pending-picker"></div><button class="primary small bind-btn" type="button">绑定</button>'}
+        <a class="button ghost small" href="/api/pending/${entry.id}/raw" download title="下载原始 CSV">CSV</a>
+        <button class="danger small discard-btn" type="button">丢弃</button>
+      </div>`;
+    if (!entry.error) {
+      const picker = nodePicker({ container: item.querySelector('.pending-picker'), nodes: state.nodes, reportsOf, selectedId: null, suggestion: entry.suggestion, allowEmpty: true });
+      const bind = item.querySelector('.bind-btn');
+      bind.addEventListener('click', async () => {
+        const nodeId = picker.value;
+        if (!nodeId) { toast('请先选择要绑定的节点', true); return; }
+        bind.disabled = true;
+        try {
+          await api(`/api/pending/${entry.id}/bind`, { method: 'POST', body: JSON.stringify({ nodeId }) });
+          toast(`已绑定到「${nodeName(nodeId)}」`);
+          await refresh();
+        } catch (error) { toast(error.message, true); bind.disabled = false; }
+      });
+    }
+    const discard = item.querySelector('.discard-btn');
+    discard.addEventListener('click', async () => {
+      if (!confirm(`丢弃 ${fmtTime(entry.testedAt)} 这份直传报告？原始 CSV 会一并删除，且无法恢复。`)) return;
+      discard.disabled = true;
+      try {
+        await api(`/api/pending/${entry.id}`, { method: 'DELETE' });
+        toast('已丢弃');
+        await refresh();
+      } catch (error) { toast(error.message, true); discard.disabled = false; }
+    });
+    list.append(item);
+  }
+}
 function renderPreview(report, token, suggestion) {
   const counts = report.sectionCounts || {};
   const perSection = report.sections.map(section => `<div class="stat"><div class="label">${escapeHtml(section.name)}</div><div class="value">${counts[section.id] ?? 0} 条</div></div>`).join('');
@@ -846,6 +935,7 @@ async function refresh() {
   const data = await api('/api/state');
   state.nodes = data.nodes;
   state.reports = data.reports;
+  state.pending = data.pending || [];
   state.metricNames = data.metricNames;
   // 未启用认证时没有"登录"概念，退出按钮不应出现（否则登出会被登录页立即送回）
   el('logoutButton').hidden = !data.authEnabled;
@@ -854,6 +944,7 @@ async function refresh() {
   renderHistory();
   renderRecent();
   renderDashboard();
+  renderPending();
   renderCompareSelectors();
 
   // 支持 URL 参数直达指定视图、节点或报告详情
@@ -880,6 +971,7 @@ async function refresh() {
   }
 }
 for (const tab of document.querySelectorAll('.tab')) tab.addEventListener('click', () => showView(tab.dataset.view));
+el('dashPending').addEventListener('click', () => showView('import'));
 el('nodeFilter').addEventListener('input', renderNodes);
 el('syncButton').addEventListener('click', async () => {
   const button = el('syncButton');

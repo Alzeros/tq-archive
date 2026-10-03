@@ -1,6 +1,7 @@
 // 可搜索节点选择器：input 过滤 + 下拉列表，推荐节点置顶并高亮说明理由。
 // 原生 select 在几十个节点时无法搜索，且无法表达"推荐"语义。
-export function nodePicker({ container, nodes, reportsOf, selectedId, suggestion }) {
+// allowEmpty：没有可信推荐时保持未选。待绑定列表一次可能好几份，默认选中第一个节点就会成批绑错
+export function nodePicker({ container, nodes, reportsOf, selectedId, suggestion, allowEmpty = false }) {
   container.innerHTML = '';
   const state = { nodes, selectedId: null };
   const nodeName = id => nodes.find(node => node.id === id)?.name || id;
@@ -61,7 +62,7 @@ export function nodePicker({ container, nodes, reportsOf, selectedId, suggestion
     hint.classList.add('hidden');
     if (!state.selectedId) return;
     if (suggestion?.reason === 'same-exit' && suggestion.nodeId === state.selectedId) {
-      hint.textContent = `已按出口记录自动选择上次归档的节点`;
+      hint.textContent = allowEmpty ? '已按同一台机器上次的归属自动选择' : '已按出口记录自动选择上次归档的节点';
       hint.className = 'picker-hint ok';
     } else if (suggestion?.reason === 'recent' && suggestion.nodeId === state.selectedId) {
       hint.textContent = '已默认选择最近导入的节点';
@@ -86,7 +87,7 @@ export function nodePicker({ container, nodes, reportsOf, selectedId, suggestion
   input.addEventListener('blur', () => setTimeout(() => list.classList.add('hidden'), 150));
 
   // 初始选中：推荐节点（来自出口记忆，比"上次浏览的节点"更贴近这份报告的归属）> 侧边栏当前选中 > 第一个
-  state.selectedId = suggestion?.nodeId || selectedId || nodes[0]?.id || null;
+  state.selectedId = suggestion?.nodeId || selectedId || (allowEmpty ? null : nodes[0]?.id) || null;
   input.value = state.selectedId ? nodeName(state.selectedId) : '';
   renderHint();
 
