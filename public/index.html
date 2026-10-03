@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TQ Hub</title>
+  <title>TQ Hub · 网络质量监控与评测归档</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/style.css">
 </head>
@@ -12,9 +12,19 @@
   <div class="layout">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-text">
-          <strong>TQ Hub</strong>
-          <span id="syncState">未同步节点</span>
+        <div class="brand-left">
+          <div class="brand-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>
+            </svg>
+          </div>
+          <div class="brand-text">
+            <div class="brand-title-row">
+              <strong>TQ Hub</strong>
+              <span class="brand-badge">PROBE</span>
+            </div>
+            <span id="syncState" class="sync-state">未同步节点</span>
+          </div>
         </div>
         <button id="themeToggle" class="theme-toggle" type="button" title="切换配色" aria-label="切换配色">
           <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" hidden>
@@ -26,50 +36,174 @@
           </svg>
         </button>
       </div>
-      <button id="syncButton" class="primary wide" type="button">从探针同步节点</button>
-      <input id="nodeFilter" class="search" type="search" placeholder="筛选节点…" autocomplete="off">
+
+      <button id="syncButton" class="primary wide sync-btn" type="button">
+        <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+          <path d="M3 3v5h5"/>
+          <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+          <path d="M16 21h5v-5"/>
+        </svg>
+        <span>从探针同步节点</span>
+      </button>
+
+      <div class="search-wrap">
+        <svg class="search-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="11" cy="11" r="7"/>
+          <path d="m20 20-3.5-3.5"/>
+        </svg>
+        <input id="nodeFilter" class="search" type="search" placeholder="筛选节点…" autocomplete="off">
+        <kbd class="search-key" title="快捷键 /">/</kbd>
+      </div>
+
       <div id="nodeList" class="node-list"></div>
+
       <div class="sidebar-foot">
-        <button id="logoutButton" class="ghost wide" type="button">退出登录</button>
+        <button id="logoutButton" class="ghost wide logout-btn" type="button">
+          <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" x2="9" y1="12" y2="12"/>
+          </svg>
+          <span>退出登录</span>
+        </button>
       </div>
     </aside>
 
     <main class="content">
       <nav class="tabs">
-        <button class="tab active" data-view="dashboard" type="button">看板</button>
-        <button class="tab active" data-view="import" type="button">导入报告</button>
-        <button class="tab" data-view="history" type="button">历史报告</button>
-        <button class="tab" data-view="compare" type="button">变化对比</button>
+        <button class="tab active" data-view="dashboard" type="button">
+          <svg class="tab-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect width="7" height="9" x="3" y="3" rx="1.5"/>
+            <rect width="7" height="5" x="14" y="3" rx="1.5"/>
+            <rect width="7" height="9" x="14" y="12" rx="1.5"/>
+            <rect width="7" height="5" x="3" y="16" rx="1.5"/>
+          </svg>
+          <span>看板</span>
+        </button>
+        <button class="tab" data-view="import" type="button">
+          <svg class="tab-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+          </svg>
+          <span>导入报告</span>
+        </button>
+        <button class="tab" data-view="history" type="button">
+          <svg class="tab-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M3 3v18h18"/>
+            <path d="m7 15 4-5 4 3 6-8"/>
+          </svg>
+          <span>历史报告</span>
+        </button>
+        <button class="tab" data-view="compare" type="button">
+          <svg class="tab-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M16 3h5v5"/>
+            <path d="m21 3-7 7"/>
+            <path d="M8 21H3v-5"/>
+            <path d="m3 21 7-7"/>
+          </svg>
+          <span>变化对比</span>
+        </button>
       </nav>
 
       <section id="view-dashboard" class="view active">
-        <div class="card">
-          <h2>概览</h2>
+        <div class="card dash-overview-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="card-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 3v18h18"/>
+                  <path d="M18 9l-5 5-3-3-4 4"/>
+                </svg>
+              </span>
+              <h2>全局指标概览</h2>
+            </div>
+            <span class="card-subtitle">实时监控节点覆盖率与测速统计</span>
+          </div>
           <div id="dashStats" class="dash-stats"></div>
         </div>
-        <div class="card hidden" id="dashAlertCard">
-          <h2>需要关注的节点</h2>
-          <p class="hint">最近一份报告里出现了"差"档指标，点行直接打开详情。</p>
+
+        <div class="card dash-alert-card hidden" id="dashAlertCard">
+          <div class="card-header alert-header">
+            <div class="card-title-group">
+              <span class="card-icon-badge alert">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </span>
+              <h2>需要关注的节点</h2>
+            </div>
+            <p class="hint">最近报告中出现丢包/重传严重或延迟偏高的节点，点击整行可直达详情</p>
+          </div>
           <div id="dashAlerts" class="list"></div>
         </div>
+
         <div class="card">
-          <h2>节点健康</h2>
-          <p class="hint">按最近一次测试时间排序。延迟/丢包/回程速度与详情页徽标同源。</p>
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="card-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                </svg>
+              </span>
+              <h2>节点健康总览</h2>
+            </div>
+            <p class="hint">按最近测试时间排序，汇聚回程延迟 (p50)、丢包线路与实测带宽</p>
+          </div>
+          <div class="dash-health-head">
+            <span class="col-name">节点名称</span>
+            <span class="col-time">最近测试时间</span>
+            <span class="col-metrics">综合指标 (回程延迟 · 丢包重传 · 实测带宽)</span>
+          </div>
           <div id="dashHealth" class="dash-health"></div>
         </div>
+
         <div class="card">
-          <h2>最近导入</h2>
-          <div id="recentImports" class="list"></div>
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="card-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </span>
+              <h2>最近归档动态</h2>
+            </div>
+            <p class="hint">最近导入归档的 TCP Quality 报告记录</p>
+          </div>
+          <div id="recentImports" class="list recent-list"></div>
         </div>
       </section>
 
       <section id="view-import" class="view">
-        <div class="card">
-          <h2>粘贴 TQ 报告链接</h2>
-          <p class="hint">先解析并预览，确认无误后再绑定到节点。重复报告会被拒绝。</p>
-          <form id="previewForm" class="row-form">
-            <input id="reportUrl" type="url" placeholder="https://tcpquality.ibsgss.uk/r/xxxxxxxx" required>
-            <button class="primary" type="submit">解析</button>
+        <div class="card import-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="card-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+                </svg>
+              </span>
+              <h2>粘贴 TQ 报告链接</h2>
+            </div>
+            <p class="hint">粘贴脚本生成的完整报告 URL，系统将提取全部维度并提示归属推荐</p>
+          </div>
+          <form id="previewForm" class="row-form import-form">
+            <div class="input-with-icon">
+              <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+              </svg>
+              <input id="reportUrl" type="url" placeholder="https://tcpquality.ibsgss.uk/r/xxxxxxxx" required autocomplete="off">
+            </div>
+            <button class="primary parse-btn" type="submit">
+              <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="7"/>
+                <path d="m20 20-3.5-3.5"/>
+              </svg>
+              <span>解析报告</span>
+            </button>
           </form>
           <div id="previewResult" class="preview hidden"></div>
         </div>
@@ -77,17 +211,49 @@
 
       <section id="view-history" class="view">
         <div class="card">
-          <h2 id="historyTitle">请选择节点</h2>
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="card-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 3v18h18"/>
+                  <path d="m7 15 4-5 4 3 6-8"/>
+                </svg>
+              </span>
+              <h2 id="historyTitle">请选择节点</h2>
+            </div>
+            <p class="hint">点击左侧节点列表查看该节点历次评测报告走势及详情</p>
+          </div>
           <div id="trendPanel" class="trend hidden"></div>
           <div id="historyList" class="list"></div>
         </div>
+
         <div class="card hidden" id="detailCard">
           <div class="detail-head">
-            <h2 id="detailTitle">报告详情</h2>
+            <div class="detail-title-wrap">
+              <span class="card-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                  <polyline points="10 9 9 9 8 9"/>
+                </svg>
+              </span>
+              <h2 id="detailTitle">报告详情</h2>
+            </div>
             <div class="actions">
-              <a id="openOriginal" class="button ghost" target="_blank" rel="noreferrer noopener">原始报告</a>
-              <a id="downloadJson" class="button ghost" download>JSON</a>
-              <a id="downloadRaw" class="button ghost" download>原始 HTML</a>
+              <a id="openOriginal" class="button ghost" target="_blank" rel="noreferrer noopener">
+                <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                <span>原始报告</span>
+              </a>
+              <a id="downloadJson" class="button ghost" download>
+                <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span>JSON</span>
+              </a>
+              <a id="downloadRaw" class="button ghost" download>
+                <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span>原始 HTML</span>
+              </a>
             </div>
           </div>
           <div id="detailWarnings"></div>
@@ -109,23 +275,48 @@
 
       <section id="view-compare" class="view">
         <div class="card">
-          <h2>选择同一节点的两份报告</h2>
-          <div class="row-form">
-            <select id="compareNode"></select>
-            <select id="compareBase"></select>
-            <select id="compareCurrent"></select>
-            <button id="runCompare" class="primary" type="button">对比</button>
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="card-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M16 3h5v5"/>
+                  <path d="m21 3-7 7"/>
+                  <path d="M8 21H3v-5"/>
+                  <path d="m3 21 7-7"/>
+                </svg>
+              </span>
+              <h2>两份历史报告对比</h2>
+            </div>
+            <p class="hint">对比同节点在不同时间的测试数据。“当前 − 基础”，延迟/丢包越低越好，测速带宽越高越好</p>
           </div>
-          <p class="hint">变化按“当前报告 − 基础报告”计算。延迟、丢包、速度含义不同，请结合数值判断好坏。</p>
+          <div class="compare-form-grid">
+            <div class="compare-field">
+              <label for="compareNode">对比节点</label>
+              <select id="compareNode"></select>
+            </div>
+            <div class="compare-field">
+              <label for="compareBase">基准报告 (Before)</label>
+              <select id="compareBase"></select>
+            </div>
+            <div class="compare-vs">VS</div>
+            <div class="compare-field">
+              <label for="compareCurrent">当前报告 (After)</label>
+              <select id="compareCurrent"></select>
+            </div>
+            <button id="runCompare" class="primary compare-btn" type="button">开始对比</button>
+          </div>
         </div>
+
         <div class="card hidden" id="compareResult">
-          <h2 id="compareTitle">变化明细</h2>
+          <div class="card-header">
+            <h2 id="compareTitle">变化明细</h2>
+          </div>
           <div class="filters">
             <select id="changeFilter"></select>
             <select id="changeDirection">
               <option value="all">全部变化</option>
-              <option value="up">上升</option>
-              <option value="down">下降</option>
+              <option value="up">数值上升</option>
+              <option value="down">数值下降</option>
               <option value="same">无变化</option>
             </select>
             <label class="inline"><input type="checkbox" id="onlyChanged" checked> 仅显示有变化的项</label>

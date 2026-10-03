@@ -10,17 +10,16 @@ export function systemTheme() {
   return matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 export function effectiveTheme() {
+  const urlTheme = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('theme') : null;
+  if (urlTheme === 'light' || urlTheme === 'dark') return urlTheme;
   return savedTheme() ?? systemTheme();
 }
 function apply(theme) {
-  // 仅手动选择过的主题写入 data-theme；跟随系统时移除，让 CSS media query 接管
-  if (savedTheme()) document.documentElement.dataset.theme = theme;
+  if (theme) document.documentElement.dataset.theme = theme;
   else delete document.documentElement.dataset.theme;
 }
 function paintToggle(button, theme) {
   // 图标显示"点击后将切换到"的目标模式：当前亮 → 显示月亮。
-  // 注意 svg 是 SVGElement，没有 hidden IDL 反射，必须用 attribute 操作，
-  // 否则 .hidden=false 只是 expando，CSS [hidden] 规则纹丝不动。
   const toDark = theme === 'light';
   button.querySelector('.icon-sun').toggleAttribute('hidden', toDark);
   button.querySelector('.icon-moon').toggleAttribute('hidden', !toDark);
@@ -30,11 +29,12 @@ function paintToggle(button, theme) {
 }
 export function setupThemeToggle(button) {
   if (!button) return () => effectiveTheme();
+  apply(effectiveTheme());
   paintToggle(button, effectiveTheme());
   button.addEventListener('click', () => {
     const next = effectiveTheme() === 'light' ? 'dark' : 'light';
     document.cookie = `${COOKIE}=${next}; Path=/; Max-Age=${YEAR}; SameSite=Lax`;
-    document.documentElement.dataset.theme = next;
+    apply(next);
     paintToggle(button, next);
   });
   // 手动未选择时，系统切换即时生效

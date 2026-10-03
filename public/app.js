@@ -122,7 +122,7 @@ function renderNodes() {
     label.type = 'button';
     label.className = 'node-group' + (collapsed ? ' collapsed' : '');
     label.setAttribute('aria-expanded', String(!collapsed));
-    label.innerHTML = `<span class="caret">▾</span><span>${escapeHtml(city)}</span><span class="group-count">${nodes.length}</span>`;
+    label.innerHTML = `<span class="caret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg></span><span class="group-name">${escapeHtml(city)}</span><span class="group-count">${nodes.length}</span>`;
     label.addEventListener('click', () => toggleGroup(city, collapsed));
     list.append(label);
     if (collapsed) continue;
@@ -131,7 +131,7 @@ function renderNodes() {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'node' + (node.id === state.selectedNodeId ? ' active' : '') + (count ? '' : ' idle');
-      button.innerHTML = `<span>${escapeHtml(node.name)}</span><span class="count">${count ? `${count} 份` : ''}</span>`;
+      button.innerHTML = `<span class="node-title"><span class="node-dot ${count ? 'active' : 'idle'}"></span><span class="node-name-text">${escapeHtml(node.name)}</span></span><span class="count">${count ? `${count} 份` : ''}</span>`;
       button.addEventListener('click', () => selectNode(node.id));
       list.append(button);
     }
@@ -204,9 +204,7 @@ function drawTrends(points) {
   }
 }
 function svgForSeries(points, serie) {
-  // viewBox 定死 320×72，配合 preserveAspectRatio=none 自动伸缩填满格子；
-  // 因为图形本身全靠百分比坐标，拉伸是纯视觉的，不影响真值
-  const W = 320, H = 72, PAD = 8;
+  const W = 320, H = 76, PAD = 10;
   const usableW = W - PAD * 2;
   const usableH = H - PAD * 2;
   const present = serie.values.filter(value => value !== null);
@@ -216,13 +214,15 @@ function svgForSeries(points, serie) {
   const coords = serie.values.map((value, index) => {
     if (value === null) return null;
     const x = points.length === 1 ? W / 2 : PAD + (index / total) * usableW;
-    // 纵向按比例铺满整个图区，让"波动大"和"波动小"一眼可分
     const y = points.length === 1 ? H / 2 : H - PAD - ((value - min) / spread) * usableH;
     return { x, y, index, value };
   }).filter(Boolean);
   const path = coords.length >= 2 ? `M${coords.map(point => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' L')}` : '';
-  // 首尾对比：起终两点的相对变化足够醒目时给一个摘要箭头，否则省略省得分散注意力。
-  // 阈值 8% 足够大，只有"变了一截"才值得报；低于这个幅度就算不上趋势
+  const areaPath = coords.length >= 2 
+    ? `M${coords[0].x.toFixed(1)},${H - PAD} L${coords.map(point => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' L')} L${coords.at(-1).x.toFixed(1)},${H - PAD} Z` 
+    : '';
+  const gradId = `trendGrad_${serie.key}_${Math.random().toString(36).slice(2, 8)}`;
+
   let summary = '';
   if (coords.length >= 2) {
     const first = coords[0], last = coords.at(-1);
@@ -230,10 +230,10 @@ function svgForSeries(points, serie) {
     if (Math.abs(delta) >= Math.max(spread * 0.08, 1)) {
       const worse = serie.lowerBetter ? delta > 0 : delta < 0;
       const arrow = delta > 0 ? '↑' : '↓';
-      summary = `<span class="trend-delta ${worse ? 'bad' : 'good'}">${arrow}${Math.abs(Math.round(delta))}${escapeHtml(serie.unit)}</span>`;
+      summary = `<span class="trend-delta ${worse ? 'bad' : 'good'}">${arrow} ${Math.abs(Math.round(delta))}${escapeHtml(serie.unit)}</span>`;
     }
   }
-  const range = spread > 1 ? `${Math.round(min)}–${Math.round(max)}${serie.unit}` : '—';
+  const range = spread > 1 ? `${Math.round(min)}–${Math.round(max)}${serie.unit}` : `${Math.round(min)}${serie.unit}`;
   const dots = serie.values.map((value, index) => {
     const report = points[index];
     const title = `${fmtShort(report.testedAt)} · ${value === null ? '无数据' : `${value}${serie.unit}`}`;
@@ -245,12 +245,19 @@ function svgForSeries(points, serie) {
       <span class="trend-note">${escapeHtml(serie.note)}</span>
     </div>
     <svg class="trend-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-hidden="true">
+      <defs>
+        <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--teal)" stop-opacity="0.32"/>
+          <stop offset="100%" stop-color="var(--teal)" stop-opacity="0.0"/>
+        </linearGradient>
+      </defs>
+      ${areaPath ? `<path class="trend-area" fill="url(#${gradId})" d="${areaPath}"/>` : ''}
       ${path ? `<path class="trend-line" d="${path}"/>` : ''}
-      ${coords.map(point => `<circle class="tp l${serie.levels[point.index] || 'na'}" cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="4"/>`).join('')}
+      ${coords.map(point => `<circle class="tp l${serie.levels[point.index] || 'na'}" cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="4.5"/>`).join('')}
     </svg>
     <div class="trend-dots">${dots}</div>
     <div class="trend-foot">
-      <span class="trend-range">${escapeHtml(range)}</span>
+      <span class="trend-range">波动区间 ${escapeHtml(range)}</span>
       ${summary}
     </div>
   </div>`;
@@ -260,7 +267,7 @@ function renderHistory() {
   dropForeignDetail();
   if (!state.selectedNodeId) {
     el('historyTitle').textContent = '请选择节点';
-    list.innerHTML = '<p class="empty">从左侧选择一个节点，查看它历次的 TQ 报告。</p>';
+    list.innerHTML = '<p class="empty">从左侧选择一个节点，查看它历次的 TQ 评测历史与走势。</p>';
     el('detailCard').classList.add('hidden');
     el('trendPanel').classList.add('hidden');
     el('trendPanel').innerHTML = '';
@@ -269,7 +276,7 @@ function renderHistory() {
   const reports = state.reports.filter(report => report.nodeId === state.selectedNodeId).sort((left, right) => right.testedAt.localeCompare(left.testedAt));
   el('historyTitle').textContent = `${nodeName(state.selectedNodeId)} · ${reports.length} 份报告`;
   if (!reports.length) {
-    list.innerHTML = '<p class="empty">该节点还没有报告，去“导入报告”粘贴链接。</p>';
+    list.innerHTML = '<p class="empty">该节点还没有报告，可前往“导入报告”粘贴链接进行初次归档。</p>';
     el('detailCard').classList.add('hidden');
     el('trendPanel').classList.add('hidden');
     el('trendPanel').innerHTML = '';
@@ -277,30 +284,38 @@ function renderHistory() {
   }
   list.innerHTML = '';
   renderTrends(reports);
-  // 指标徽标：每份报告单独异步填充，拉到数据后原地刷新。失败就保持占位
   for (const [index, report] of reports.entries()) {
     const warnCount = report.warnings?.length || 0;
     const item = document.createElement('div');
-    item.className = 'item';
-    item.innerHTML = `<div class="title"><strong>${fmtTime(report.testedAt)}</strong>
-      <span class="meta">${report.recordCount} 条指标 · ${escapeHtml(report.identity || '未知线路')}${warnCount ? ` · ${warnCount} 条解析提示` : ''}</span></div>
-      <span class="metrics" data-report="${report.id}"><span class="metric pending">载入指标…</span></span>`;
-    const actions = document.createElement('div');
-    actions.className = 'actions';
-    const open = document.createElement('button');
-    open.type = 'button';
-    open.textContent = '查看数据';
+    item.className = 'item history-item';
+    item.innerHTML = `<div class="history-main">
+      <div class="title">
+        <div class="history-title-row">
+          <strong class="time-title">${fmtTime(report.testedAt)}</strong>
+          ${report.identity ? `<span class="ident-pill">${escapeHtml(report.identity)}</span>` : ''}
+          <span class="record-pill">${report.recordCount} 条指标</span>
+          ${warnCount ? `<span class="warn-pill">${warnCount} 条提示</span>` : ''}
+        </div>
+      </div>
+      <div class="metrics" data-report="${report.id}"><span class="metric pending">载入指标…</span></div>
+    </div>
+    <div class="actions history-actions">
+      <button class="primary small open-btn" type="button">
+        <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span>查看数据</span>
+      </button>
+      <a class="button ghost small" href="${report.sourceUrl}" target="_blank" rel="noreferrer noopener">
+        <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        <span>原报告</span>
+      </a>
+      <button class="danger small del-btn" type="button" title="删除归档">
+        <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        <span>删除</span>
+      </button>
+    </div>`;
+    const open = item.querySelector('.open-btn');
     open.addEventListener('click', () => openDetail(report.id));
-    const raw = document.createElement('a');
-    raw.className = 'button ghost';
-    raw.href = report.sourceUrl;
-    raw.target = '_blank';
-    raw.rel = 'noreferrer noopener';
-    raw.textContent = '原报告';
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.className = 'danger';
-    remove.textContent = '删除';
+    const remove = item.querySelector('.del-btn');
     remove.addEventListener('click', async () => {
       if (!confirm(`删除 ${fmtTime(report.testedAt)} 的归档？原始报告 HTML 也会一并删除，且无法恢复。`)) return;
       remove.disabled = true;
@@ -312,30 +327,26 @@ function renderHistory() {
         await refresh();
       } catch (error) { toast(error.message, true); remove.disabled = false; }
     });
-    actions.append(open, raw, remove);
-    item.append(actions);
     list.append(item);
-    fillMetrics(report, index, reports.length);
+    const metricsHost = item.querySelector('.metrics');
+    fillMetrics(metricsHost, report.id);
   }
 }
-// 徽标行：把这份报告的核心档位压缩成一行彩色标签，扫一眼就知道好坏。
-// 颜色档位复用 insight 卡片的 level（good/fair/bad），与详情视图同源。
 const BADGE_DEFS = [
-  { key: 'latency', short: '延迟' },
-  { key: 'loss', short: '丢包' },
-  { key: 'speed', short: '回程' }
+  { key: 'latency', short: '延迟', icon: '⚡' },
+  { key: 'loss', short: '丢包', icon: '📉' },
+  { key: 'speed', short: '回程', icon: '🚀' }
 ];
-async function fillMetrics(report, index, total) {
-  const host = document.querySelector(`[data-report="${report.id}"]`);
+async function fillMetrics(host, reportId) {
   if (!host) return;
   try {
-    const detail = await fetchDetail(report.id);
+    const detail = await fetchDetail(reportId);
     if (!host.isConnected) return;
     const cards = new Map((detail.insight?.cards || []).map(card => [card.id, card]));
     host.innerHTML = BADGE_DEFS.map(def => {
       const card = cards.get(def.key);
-      if (!card || typeof card.value !== 'number') return `<span class="metric na">${def.short} —</span>`;
-      return `<span class="metric l${card.level || 'na'}">${def.short} ${card.value}${escapeHtml(card.unit || '')}</span>`;
+      if (!card || typeof card.value !== 'number') return `<span class="metric na"><span class="m-icon">${def.icon}</span>${def.short} —</span>`;
+      return `<span class="metric l${card.level || 'na'}"><span class="m-icon">${def.icon}</span>${def.short} ${card.value}${escapeHtml(card.unit || '')}</span>`;
     }).join('');
   } catch {
     host.innerHTML = '<span class="metric na">指标暂不可用</span>';
@@ -346,16 +357,28 @@ async function fillMetrics(report, index, total) {
 function renderInsight(insight) {
   if (!insight) { el('detailSummary').innerHTML = ''; return; }
   state.insight = insight;
+  const levelNames = { good: '优秀', fair: '一般', bad: '异常', info: '正常' };
   const cards = insight.cards.map(card => `<div class="icard ${card.level || ''}">
-    <div class="label">${escapeHtml(card.label)}</div>
+    <div class="icard-header">
+      <span class="label">${escapeHtml(card.label)}</span>
+      <span class="icard-badge ${card.level || 'info'}">${levelNames[card.level] || '指标'}</span>
+    </div>
     <div class="value">${escapeHtml(card.value ?? '—')}<span class="unit">${escapeHtml(card.unit || '')}</span></div>
     <div class="note">${escapeHtml(card.note || '')}</div>
   </div>`).join('');
   const levels = { danger: '异常', warn: '注意', info: '提示' };
+  const levelIcons = {
+    danger: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+  };
   const anomalies = insight.anomalies.length
     ? `<div class="insight-block"><h3 class="section-title">需要关注的点 · ${insight.anomalies.length} 条</h3>
-        ${insight.anomalies.map(item => `<div class="anomaly ${item.level}"><span class="tag">${levels[item.level] || '提示'}</span><span>${escapeHtml(item.text)}</span></div>`).join('')}</div>`
-    : '<div class="insight-block"><div class="ok">未检出丢包、重传、速度离群或骨干异常。</div></div>';
+        <div class="anomalies-list">${insight.anomalies.map(item => `<div class="anomaly ${item.level}">
+          <span class="anomaly-icon">${levelIcons[item.level] || levelIcons.info}</span>
+          <div class="anomaly-body"><span class="tag">${levels[item.level] || '提示'}</span><span class="text">${escapeHtml(item.text)}</span></div>
+        </div>`).join('')}</div></div>`
+    : '<div class="insight-block"><div class="ok"><svg class="inline-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>未检出丢包、重传、速度离群或骨干异常，网络表现平稳。</div></div>';
   const region = insight.region || { label: '未知区域', good: '', fair: '' };
   const regions = insight.regions.length
     ? `<div class="insight-block"><h3 class="section-title">大区聚合 · 看是区域性劣化还是个别省份</h3>
@@ -524,10 +547,23 @@ function renderRecent() {
   for (const report of recent) {
     const item = document.createElement('button');
     item.type = 'button';
-    item.className = 'title-link';
-    item.innerHTML = `<div class="title"><strong>${escapeHtml(nodeName(report.nodeId))}</strong>
-      <span class="meta">测试于 ${fmtTime(report.testedAt)} · ${report.recordCount} 条指标</span></div>
-      <span class="meta">导入于 ${fmtTime(report.importedAt)}</span>`;
+    item.className = 'title-link recent-item';
+    item.innerHTML = `
+      <div class="recent-main">
+        <div class="recent-top">
+          <span class="recent-node">${escapeHtml(nodeName(report.nodeId))}</span>
+          <span class="recent-badge count-badge">${report.recordCount} 条指标</span>
+          ${report.identity ? `<span class="recent-badge ident-badge">${escapeHtml(report.identity)}</span>` : ''}
+        </div>
+        <div class="recent-meta">
+          <span>测速时间：${fmtTime(report.testedAt)}</span>
+          <span class="meta-dot">·</span>
+          <span>归档时间：${fmtShort(report.importedAt)}</span>
+        </div>
+      </div>
+      <div class="recent-arrow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+      </div>`;
     item.addEventListener('click', () => {
       state.selectedNodeId = report.nodeId;
       renderNodes();
@@ -540,7 +576,7 @@ function renderRecent() {
 }
 // ============ 看板：一屏看全局 ============
 // 数据全部来自现有：概览用 /api/state，告警和健康表用 insight.cards
-// （与详情页同源，避免维护两套口径）。异步逐个填充，不阻塞页面。
+// 并行获取指标，避免逐行串行加载
 let dashRequestToken = 0;
 async function renderDashboard() {
   const stats = el('dashStats');
@@ -550,19 +586,66 @@ async function renderDashboard() {
   // 概览数字：全量、覆盖、最近一次测试时间
   const withReports = new Set(state.reports.map(report => report.nodeId));
   const latest = [...state.reports].sort((left, right) => right.testedAt.localeCompare(left.testedAt))[0];
+  const activeNodesCount = state.nodes.filter(node => !node.archived).length;
+  const coveragePercent = activeNodesCount > 0 ? ((withReports.size / activeNodesCount) * 100).toFixed(0) : '0';
+
   stats.innerHTML = `
-    <div class="dash-stat"><span class="num">${state.nodes.filter(node => !node.archived).length}</span><span class="lbl">探针节点</span></div>
-    <div class="dash-stat"><span class="num">${withReports.size}</span><span class="lbl">有报告的节点</span></div>
-    <div class="dash-stat"><span class="num">${state.reports.length}</span><span class="lbl">总报告数</span></div>
-    <div class="dash-stat"><span class="num">${latest ? fmtShort(latest.testedAt) : '—'}</span><span class="lbl">最近一次测试</span></div>
+    <div class="dash-stat">
+      <div class="dash-stat-top">
+        <span class="stat-icon-wrap stat-icon-server">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
+        </span>
+        <span class="lbl">探针节点</span>
+      </div>
+      <div class="dash-stat-bottom">
+        <span class="num">${activeNodesCount}</span>
+        <span class="stat-sub">当前可见节点</span>
+      </div>
+    </div>
+    <div class="dash-stat">
+      <div class="dash-stat-top">
+        <span class="stat-icon-wrap stat-icon-target">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </span>
+        <span class="lbl">覆盖节点</span>
+      </div>
+      <div class="dash-stat-bottom">
+        <span class="num">${withReports.size}</span>
+        <span class="stat-sub">评测覆盖率 ${coveragePercent}%</span>
+      </div>
+    </div>
+    <div class="dash-stat">
+      <div class="dash-stat-top">
+        <span class="stat-icon-wrap stat-icon-report">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </span>
+        <span class="lbl">总报告数</span>
+      </div>
+      <div class="dash-stat-bottom">
+        <span class="num">${state.reports.length}</span>
+        <span class="stat-sub">份实测质量归档</span>
+      </div>
+    </div>
+    <div class="dash-stat">
+      <div class="dash-stat-top">
+        <span class="stat-icon-wrap stat-icon-clock">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </span>
+        <span class="lbl">最新测试</span>
+      </div>
+      <div class="dash-stat-bottom">
+        <span class="num num-time">${latest ? fmtShort(latest.testedAt) : '—'}</span>
+        <span class="stat-sub">最近一次测试记录</span>
+      </div>
+    </div>
   `;
+
   // 按节点聚合出"每个节点最近的一份报告"，拉详情取 insight.cards
   const byNode = new Map();
   for (const report of state.reports) {
     if (!byNode.has(report.nodeId) || byNode.get(report.nodeId).testedAt < report.testedAt) byNode.set(report.nodeId, report);
   }
   const latestPerNode = [...byNode.values()].sort((left, right) => right.testedAt.localeCompare(left.testedAt));
-  // 没有报告的节点先给个提示行
   const idleNodes = state.nodes.filter(node => !node.archived && !withReports.has(node.id));
   const healthRows = [];
   healthBox.innerHTML = '';
@@ -572,9 +655,16 @@ async function renderDashboard() {
     row.className = 'dash-row';
     row.dataset.node = report.nodeId;
     row.dataset.report = report.id;
-    row.innerHTML = `<span class="dash-cell name">${escapeHtml(nodeName(report.nodeId))}</span>
-      <span class="dash-cell time">${fmtShort(report.testedAt)}</span>
-      <span class="dash-cell metrics"><span class="metric pending">载入…</span></span>`;
+    row.innerHTML = `
+      <div class="dash-cell name">
+        <span class="cell-node-dot"></span>
+        <span class="cell-node-name">${escapeHtml(nodeName(report.nodeId))}</span>
+      </div>
+      <div class="dash-cell time">${fmtShort(report.testedAt)}</div>
+      <div class="dash-cell metrics"><span class="metric pending">载入…</span></div>
+      <div class="dash-cell action">
+        <svg class="chevron-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+      </div>`;
     row.addEventListener('click', () => {
       state.selectedNodeId = report.nodeId;
       renderNodes();
@@ -587,35 +677,46 @@ async function renderDashboard() {
   if (idleNodes.length) {
     const idle = document.createElement('p');
     idle.className = 'empty dash-idle';
-    idle.textContent = `另有 ${idleNodes.length} 个节点还没有 TQ 报告`;
+    idle.textContent = `另有 ${idleNodes.length} 个节点暂无 TQ 报告记录`;
     healthBox.append(idle);
   }
-  // 逐行异步填徽标，与详情页同源，避免复制 insight 算法到前端
+
+  // 并行获取所有节点的最近详情，大幅减少等待时间
   const token = ++dashRequestToken;
+  const results = await Promise.all(
+    healthRows.map(async ({ row, report }) => {
+      try {
+        const detail = await fetchDetail(report.id);
+        return { row, report, detail };
+      } catch {
+        return { row, report, error: true };
+      }
+    })
+  );
+  if (token !== dashRequestToken) return;
+
   const alerts = [];
-  for (const { row, report } of healthRows) {
-    try {
-      const detail = await fetchDetail(report.id);
-      if (token !== dashRequestToken) return;
-      const cards = new Map((detail.insight?.cards || []).map(card => [card.id, card]));
-      const latency = cards.get('latency');
-      const loss = cards.get('loss');
-      const speed = cards.get('speed');
-      row.querySelector('.metrics').innerHTML = `
-        ${latency && typeof latency.value === 'number' ? `<span class="metric l${latency.level}">延迟 ${latency.value}${latency.unit}</span>` : ''}
-        ${loss && typeof loss.value === 'number' ? `<span class="metric l${loss.level}">丢包 ${loss.value}${loss.unit}</span>` : ''}
-        ${speed && typeof speed.value === 'number' ? `<span class="metric l${speed.level}">回程 ${speed.value}${speed.unit}</span>` : ''}
-      `;
-      // "需要关注"标准：延迟/丢包任一到了 bad 档（最严重），或两者都是 fair
-      const worst = [latency, loss, speed].reduce((acc, card) => {
-        if (!card || typeof card.value !== 'number') return acc;
-        return Math.max(acc, card.level === 'bad' ? 2 : card.level === 'fair' ? 1 : 0);
-      }, 0);
-      if (worst > 0) alerts.push({ report, latency, loss, speed, worst });
-    } catch {
+  for (const { row, report, detail, error } of results) {
+    if (error || !detail) {
       row.querySelector('.metrics').innerHTML = '<span class="metric na">指标不可用</span>';
+      continue;
     }
+    const cards = new Map((detail.insight?.cards || []).map(card => [card.id, card]));
+    const latency = cards.get('latency');
+    const loss = cards.get('loss');
+    const speed = cards.get('speed');
+    row.querySelector('.metrics').innerHTML = `
+      ${latency && typeof latency.value === 'number' ? `<span class="metric l${latency.level}"><span class="m-icon">⚡</span>延迟 ${latency.value}${latency.unit}</span>` : ''}
+      ${loss && typeof loss.value === 'number' ? `<span class="metric l${loss.level}"><span class="m-icon">📉</span>丢包 ${loss.value}${loss.unit}</span>` : ''}
+      ${speed && typeof speed.value === 'number' ? `<span class="metric l${speed.level}"><span class="m-icon">🚀</span>带宽 ${speed.value}${speed.unit}</span>` : ''}
+    `;
+    const worst = [latency, loss, speed].reduce((acc, card) => {
+      if (!card || typeof card.value !== 'number') return acc;
+      return Math.max(acc, card.level === 'bad' ? 2 : card.level === 'fair' ? 1 : 0);
+    }, 0);
+    if (worst > 0) alerts.push({ report, latency, loss, speed, worst });
   }
+
   // 需要关注的节点：最严重的排前面，同级再看时间
   alerts.sort((left, right) => right.worst - left.worst || right.report.testedAt.localeCompare(left.report.testedAt));
   if (!alerts.length) {
@@ -628,12 +729,24 @@ async function renderDashboard() {
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'title-link dash-alert';
-    item.innerHTML = `<div class="title"><strong>${escapeHtml(nodeName(report.nodeId))}</strong>
-      <span class="meta">测试于 ${fmtTime(report.testedAt)}</span></div>
-      <div class="metrics">
-        ${latency && typeof latency.value === 'number' ? `<span class="metric l${latency.level}">延迟 ${latency.value}${latency.unit}</span>` : ''}
-        ${loss && typeof loss.value === 'number' ? `<span class="metric l${loss.level}">丢包 ${loss.value}${loss.unit}</span>` : ''}
-        ${speed && typeof speed.value === 'number' ? `<span class="metric l${speed.level}">回程 ${speed.value}${speed.unit}</span>` : ''}
+    item.innerHTML = `
+      <div class="alert-left">
+        <div class="title">
+          <div class="alert-title-row">
+            <strong>${escapeHtml(nodeName(report.nodeId))}</strong>
+            <span class="alert-tag">注意</span>
+          </div>
+          <span class="meta">评测时间：${fmtTime(report.testedAt)}</span>
+        </div>
+        <div class="metrics">
+          ${latency && typeof latency.value === 'number' ? `<span class="metric l${latency.level}"><span class="m-icon">⚡</span>延迟 ${latency.value}${latency.unit}</span>` : ''}
+          ${loss && typeof loss.value === 'number' ? `<span class="metric l${loss.level}"><span class="m-icon">📉</span>丢包 ${loss.value}${loss.unit}</span>` : ''}
+          ${speed && typeof speed.value === 'number' ? `<span class="metric l${speed.level}"><span class="m-icon">🚀</span>带宽 ${speed.value}${speed.unit}</span>` : ''}
+        </div>
+      </div>
+      <div class="alert-arrow">
+        <span>直达详情</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
       </div>`;
     item.addEventListener('click', () => {
       state.selectedNodeId = report.nodeId;
@@ -682,7 +795,11 @@ function renderPreview(report, token, suggestion) {
 function renderCompareSelectors() {
   const nodeSelect = el('compareNode');
   nodeSelect.innerHTML = state.nodes.map(node => `<option value="${node.id}">${escapeHtml(node.name)}</option>`).join('');
-  const target = state.selectedNodeId || state.nodes[0]?.id || '';
+  const reportsOf = reportsByNode();
+  const firstWithMultiple = state.nodes.find(n => (reportsOf.get(n.id) || []).length >= 2)?.id;
+  const target = (state.selectedNodeId && (reportsOf.get(state.selectedNodeId) || []).length >= 2)
+    ? state.selectedNodeId
+    : (firstWithMultiple || state.selectedNodeId || state.nodes[0]?.id || '');
   nodeSelect.value = target;
   const reports = state.reports.filter(report => report.nodeId === target).sort((left, right) => right.testedAt.localeCompare(left.testedAt));
   const options = reports.map(report => `<option value="${report.id}">${fmtTime(report.testedAt)}</option>`).join('');
@@ -738,6 +855,29 @@ async function refresh() {
   renderRecent();
   renderDashboard();
   renderCompareSelectors();
+
+  // 支持 URL 参数直达指定视图、节点或报告详情
+  const params = new URLSearchParams(location.search);
+  const targetNode = params.get('node');
+  const targetReport = params.get('report');
+  const targetView = params.get('view') || params.get('tab');
+  if (targetNode) {
+    const found = state.nodes.find(n => n.id === targetNode || n.name.includes(targetNode));
+    if (found) selectNode(found.id);
+  }
+  if (targetReport) {
+    const rep = state.reports.find(r => r.id === targetReport);
+    if (rep) {
+      state.selectedNodeId = rep.nodeId;
+      renderNodes();
+      renderHistory();
+    }
+    showView('history');
+    openDetail(targetReport);
+  }
+  if (targetView && !targetReport) {
+    showView(targetView);
+  }
 }
 for (const tab of document.querySelectorAll('.tab')) tab.addEventListener('click', () => showView(tab.dataset.view));
 el('nodeFilter').addEventListener('input', renderNodes);
@@ -772,4 +912,11 @@ el('logoutButton').addEventListener('click', async () => {
 });
 setupThemeToggle(el('themeToggle'));
 setupBind();
+window.addEventListener('keydown', event => {
+  if (event.key === '/' && document.activeElement !== el('nodeFilter') && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
+    event.preventDefault();
+    el('nodeFilter').focus();
+    el('nodeFilter').select();
+  }
+});
 refresh().catch(error => toast(error.message, true));
