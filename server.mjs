@@ -1,8 +1,8 @@
 import http from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { parseReport, compareReports, metricNames } from './lib/parser.mjs';
 import { loadProbeNodes } from './lib/probe.mjs';
 import { createStore } from './lib/store.mjs';
@@ -118,6 +118,36 @@ async function downloadReport(input) {
   for await (const chunk of response.body) { size += chunk.length; if (size > 4 * 1024 * 1024) throw new Error('报告超过 4MB 限制'); chunks.push(chunk); }
   return { html: Buffer.concat(chunks).toString('utf8'), url: url.href };
 }
+// ─── 静态资源版本号 ─────────────────────────────────────────────────────
+// 反代 / CDN 会把 js、css 改成长缓存（线上 Cloudflare 改写为 max-age=14400 并在边缘缓存），
+// 发版后页面是新的、脚本却还是旧的。HTML 本身不缓存，由它引用带内容版本号的地址即可绕过各层缓存。
+// 版本号放在路径里（/v/<hash>/app.js）：部分 CDN 配置会忽略查询参数。
+const versionedAssets = ['app.js', 'style.css', 'theme.js', 'picker.js', 'login.js', 'keys.js', 'favicon.svg'];
+const assetReference = new RegExp(`(["'])/(${versionedAssets.map(name => name.replace(/\./g, '\\.')).join('|')})\\1`, 'g');
+const assetFiles = new Map();
+async function assetFile(name) {
+  const file = join(root, 'public', name);
+  const { mtimeMs, size } = await stat(file);
+  const hit = assetFiles.get(name);
+  if (hit && hit.mtimeMs === mtimeMs && hit.size === size) return hit;
+  const content = await readFile(file, 'utf8');
+  const deps = [...new Set([...content.matchAll(assetReference)].map(match => match[2]))].filter(dep => dep !== name);
+  const info = { mtimeMs, size, hash: createHash('sha256').update(content).digest('hex'), deps };
+  assetFiles.set(name, info);
+  return info;
+}
+// 版本 = 自身内容 + 所引用资源的版本：只改 picker.js 时 app.js 的地址也会变，缓存里的旧 app.js 不会再引用旧 picker.js
+async function assetVersion(name, trail = []) {
+  const info = await assetFile(name);
+  const deps = trail.includes(name) ? [] : await Promise.all(info.deps.map(dep => assetVersion(dep, [...trail, name])));
+  return createHash('sha256').update(info.hash + deps.join('')).digest('hex').slice(0, 10);
+}
+async function withAssetVersions(text) {
+  const names = [...new Set([...text.matchAll(assetReference)].map(match => match[2]))];
+  const versions = Object.fromEntries(await Promise.all(names.map(async name => [name, await assetVersion(name)])));
+  return text.replace(assetReference, (_, quote, name) => `${quote}/v/${versions[name]}/${name}${quote}`);
+}
+
 const server = http.createServer(async (request, response) => {
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
@@ -127,6 +157,8 @@ const server = http.createServer(async (request, response) => {
     if (!allowedHosts.has(request.headers.host)) return send(response, 403, { error: '仅允许本机访问' });
     if (request.method === 'POST' && request.headers.origin && !allowedOrigins.has(request.headers.origin)) return send(response, 403, { error: '不允许跨站请求' });
     const url = new URL(request.url, `http://127.0.0.1:${port}`);
+    // 带版本号的静态资源地址还原成原路径，后续的公开路径判断与文件查找不受影响
+    url.pathname = url.pathname.replace(/^\/v\/[\da-f]{10}(?=\/)/, '');
 
     if (request.method === 'POST' && url.pathname === '/api/login') {
       const ip = request.socket.remoteAddress || 'unknown';
@@ -367,6 +399,7 @@ const server = http.createServer(async (request, response) => {
     const asset = assets[url.pathname];
     if (!asset) return send(response, 404, { error: '页面不存在' });
     let page = await readFile(join(root, 'public', asset[0]), 'utf8');
+    if (asset[1] === 'text/html' || asset[1] === 'text/javascript') page = await withAssetVersions(page);
     // 主题选择存于 cookie：服务端注入 data-theme，页面首帧即为正确配色，无闪烁
     const theme = (request.headers.cookie || '').match(/(?:^|;\s*)tq_theme=(light|dark)/)?.[1];
     if (theme) page = page.replace('<html lang="zh-CN">', `<html lang="zh-CN" data-theme="${theme}">`);

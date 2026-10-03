@@ -972,6 +972,22 @@ async function refresh() {
 }
 for (const tab of document.querySelectorAll('.tab')) tab.addEventListener('click', () => showView(tab.dataset.view));
 el('dashPending').addEventListener('click', () => showView('import'));
+// 页面只在打开时加载一次数据。服务器上跑完脚本、切回浏览器时自动检查待绑定队列：
+// 只在队列有变化时重绘这一块，不整页刷新，避免打断正在进行的选择或切走当前视图
+let pendingCheckedAt = 0;
+async function syncPending() {
+  if (document.visibilityState !== 'visible' || Date.now() - pendingCheckedAt < 5000) return;
+  pendingCheckedAt = Date.now();
+  try {
+    const data = await api('/api/state');
+    const ids = list => list.map(item => item.id).sort().join(',');
+    if (ids(data.pending || []) === ids(state.pending)) return;
+    state.pending = data.pending || [];
+    renderPending();
+  } catch { /* 网络抖动时忽略，下次切回再查 */ }
+}
+document.addEventListener('visibilitychange', syncPending);
+window.addEventListener('focus', syncPending);
 el('nodeFilter').addEventListener('input', renderNodes);
 el('syncButton').addEventListener('click', async () => {
   const button = el('syncButton');
