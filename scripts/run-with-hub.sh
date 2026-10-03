@@ -4,74 +4,110 @@
 # 其他参数（-c 100 / -v4 / --route / --speedtest…）保持和原脚本完全一致。
 #
 # 用法：
+#   bash run-with-hub.sh --hub=https://hub.example.com --key=XXXX [ -c100 -v4 --route --speedtest ...]
 #   TQ_HUB=https://hub.example.com bash run-with-hub.sh
 #   TQ_HUB=https://hub.example.com bash run-with-hub.sh -c 100 -v4
-#   TQ_HUB=https://hub.example.com bash run-with-hub.sh --route
 #
 # 干的事：
 #   1. 计算出 “我们自己的上传接收端” = $TQ_HUB/api/upload-csv
-#   2. 仅用环境变量让官方脚本把整个上传 U-turn 过来：不去 tcpquality.ibsgss.uk
-#      - TCPQUALITY_REPORT_API=…       (覆盖上传目标)
-#      - TCPQUALITY_RANK_SESSION_API=… (把排行榜禁掉，不然仍会 call 官方)
-#      - GET_NODES_URL=…               (节点列表仍然求官方，除非你自建）
-#   3. 原样透传参数，用官方 runTcpQuality.sh 正常跑
-#   4. 跑完后读一遍报告链接，并打印「CSV 已上传到的地址」
+#   2. 下载 core 脚本一次到缓存目录（默认 ~/.cache/tq-archive/)，没有才拉
+#   3. 直接运行 core，原样透传参数（-c100 / -v4 / --route / --speedtest…）
+#   4. 跑完后读 RESULT_DIR → POST CSV 到我们的 hub → 清理临时目录
 #
-# 无论成功失败，这个 wrapper 都会原样退出 runTcpQuality 的退出码，返回值绝无瞒报。
+# 无论成功失败，这个 wrapper 都会原样传输 runTcpQuality 的退出码，返回值绝无谎报。
 
 set -Eeuo pipefail
 
-# ─── 参数 ────────────────────────────────────────────────────────────────
-TQ_HUB="${TQ_HUB:-http://127.0.0.1:4173}"
-[[ "$TQ_HUB" =~ ^https?:// ]] || { echo "[X] TQ_HUB 必须是 http(s)://…"; exit 2; }
+# ─── 参数解析 ──────────────────────────────────────────────────────────
+TQ_HUB="${TQ_HUB:-}"
+TQ_KEY="${TQ_KEY:-}"
+TQ_ARGS=()
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --hub=*)   TQ_HUB="${1#*=}"  ; shift ;;
+    --key=*)   TQ_KEY="${1#*=}"  ; shift ;;
+    --hub)     TQ_HUB="$2"       ; shift 2 ;;
+    --key)     TQ_KEY="$2"       ; shift 2 ;;
+    *)          TQ_ARGS+=("$1"); shift ;;
+  esac
+done
+
+: "${TQ_HUB:=http://127.0.0.1:4173}"
+[[ "$TQ_HUB" =~ ^https?:// ]] || { echo "[X] --hub / TQ_HUB 必须是 http(s)://…"; exit 2; }
 UPLOAD_API="${TQ_HUB%/}/api/upload-csv"
 
-# 让 TQ 打向我们的 hub。getNodes 还是官方（除非你自建另一个）
 export TCPQUALITY_REPORT_API="$UPLOAD_API"
-# 排行榜会产生额外 session API 调用，直接设成不可到达，把 rank 禁掉即可禁干净
 export TCPQUALITY_RANK_SESSION_API="http://127.0.0.1/nonrank"
-# 如果你不想把 getNodes 也改走自己（第一期保留官方）
-# export GET_NODES_URL="https://tcpquality.ibsgss.uk/getNodes"
 
-# ─── 起官方脚本 ─────────────────────────────────────────────────────────
-RUNNER="${TCPQUALITY_RAW_BASE:-https://raw.githubusercontent.com/ibsgss/TcpQuality/main}/runTcpQuality.sh"
+UPLOAD_HEADERS=()
+[ -n "$TQ_KEY" ] && UPLOAD_HEADERS=(-H "X-TQ-Key: $TQ_KEY")
+
+# ─── 下载 core 到缓存 ──────────────────────────────────────────────────
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/tq-archive"
+mkdir -p "$CACHE_DIR"
+CORE="$CACHE_DIR/runTcpQuality-core.sh"
+RAW_BASE="${TCPQUALITY_RAW_BASE:-https://raw.githubusercontent.com/ibsgss/TcpQuality/main}"
+
+if [ ! -f "$CORE" ]; then
+  echo -e "\\033[36m[TQ-Hub]\\033[0m 首次运行，下载 core 脚本…" >&2
+  curl -fsSL --connect-timeout 10 --max-time 60 "$RAW_BASE/runTcpQuality-core.sh" -o "$CORE"
+  chmod 0755 "$CORE"
+fi
+
+# ─── 跑 core ───────────────────────────────────────────────────────────
 LOG="$(mktemp "${TMPDIR:-/tmp}/tq-with-hub.XXXXXX.log")"
 cleanup() { [ -n "${LOG:-}" ] && rm -f -- "$LOG"; }
 trap cleanup EXIT
 
-echo -e "\033[36m[TQ-Hub]\033[0m 使用 hub: $UPLOAD_API"
-echo -e "\033[36m[TQ-Hub]\033[0m 开始 TcpQuality 检测…"
+echo -e "\\033[36m[TQ-Hub]\\033[0m 目标 hub: $UPLOAD_API" >&2
+echo -e "\\033[36m[TQ-Hub]\\033[0m 开始 TcpQuality 检测…" >&2
 
 set +e
-if [ "$#" -gt 0 ]; then
-  bash <(curl -fsSL "$RUNNER") "$@" 2>&1 | tee "$LOG"
+if [ "${#TQ_ARGS[@]}" -gt 0 ]; then
+  bash "$CORE" "${TQ_ARGS[@]}" 2>&1 | tee "$LOG"
 else
-  bash <(curl -fsSL "$RUNNER") 2>&1 | tee "$LOG"
+  bash "$CORE" 2>&1 | tee "$LOG"
 fi
 STATUS="${PIPESTATUS[0]}"
 set -e
 
-# ─── 收尾 ───────────────────────────────────────────────────────────────
-REPORT_URL="$(grep -oE 'https://tcpquality\.ibsgss\.uk/r/[A-Za-z0-9]+' "$LOG" | tail -1 || true)"
+# ─── 收尾：找到 CSV 并上传 ───────────────────────────────────────────────
+# 抓最近的 zstatic_nping_* 目录，stdout 的 grep 可能被 ANSI 搅乱
+RESULT_DIR=""
+if [ -d /tmp ]; then
+  for d in /tmp/zstatic_nping_*; do
+    [ -d "$d" ] || continue
+    ts=$(stat -c %Y "$d" 2>/dev/null || stat -f %m "$d" 2>/dev/null || echo 0)
+    entry="$ts $d"
+    if [ -z "$RESULT_DIR" ] || [ "$entry" \> "$RESULT_DIR" ]; then
+      RESULT_DIR="$entry"
+    fi
+  done
+  RESULT_DIR=$(echo "$RESULT_DIR" | awk '{print $2}')
+fi
 
-echo
-echo -e "\033[36m[TQ-Hub]\033[0m 上传地址: \033[4m$UPLOAD_API\033[0m"
+CSV_PATH=""
+if [ -n "$RESULT_DIR" ]; then
+  CSV_PATH="$RESULT_DIR/$(basename "$RESULT_DIR").csv"
+fi
 
-if [ -n "$REPORT_URL" ]; then
-  echo -e "\033[36m[TQ-Hub]\033[0m 检测过程中官方返回了报告链接（仅供参考，本次 CSV 已经直传我们的 hub）:"
-  echo -e "  \033[4m$REPORT_URL\033[0m"
+if [ -z "$RESULT_DIR" ] || [ -z "$CSV_PATH" ] || [ ! -f "$CSV_PATH" ]; then
+  echo -e "\\033[31m[TQ-Hub][X]\\033[0m 没找到 CSV 输出（$RESULT_DIR）。可能本次脚本用了 --route 未生成最终报告，或被 --no-rank-upload 跳过." >&2
+  exit 1
+fi
+
+echo -e "\\033[36m[TQ-Hub]\\033[0m 上传 CSV $CSV_PATH" >&2
+curl -fsS -X POST -H "Content-Type: text/csv" "${UPLOAD_HEADERS[@]}" --data-binary "@$CSV_PATH" "$UPLOAD_API"
+EXIT_CODE=$?
+
+# 清理
+rm -f "$LOG"
+[ -n "$RESULT_DIR" ] && rm -rf "$RESULT_DIR"
+
+if [ "$EXIT_CODE" -eq 0 ]; then
+  echo -e "\\033[36m[TQ-Hub]\\033[0m ✔️ 完成" >&2
 else
-  echo -e "\033[33m[TQ-Hub][!]\033[0m 官方输出里没有”报告链接:URL”，这是正常的：你的 hub 现在直接吃 CSV，不生成 ibsgss 的报告页"
+  echo -e "\\033[31m[TQ-Hub][X]\\033[0m 服务器返回错误码 $EXIT_CODE" >&2
 fi
-
-if grep -q "SVG\|上传失败" "$LOG"; then
-  echo -e "\033[33m[TQ-Hub][!]\033[0m 检测到 TQ 本体曾出现 SVG / 上传相关警告，请滚动上面日志查看"
-fi
-
-if [ "$STATUS" -eq 0 ]; then
-  echo -e "\033[36m[TQ-Hub]\033[0m ✔️  全部完成"
-else
-  echo -e "\033[31m[TQ-Hub][X]\033[0m TQ 本体退出码非 0（$STATUS），请检查上面日志"
-fi
-
-exit "$STATUS"
+exit "$EXIT_CODE"

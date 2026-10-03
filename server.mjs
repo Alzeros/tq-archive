@@ -140,8 +140,15 @@ const server = http.createServer(async (request, response) => {
       return send(response, 201, summary(report));
     }
     if (request.method === 'POST' && url.pathname === '/api/upload-csv') {
+      // 校验 API Key：没配 AUTH_KEY 时放行（本地用），配了就要 & 必须正确
+      if (process.env.AUTH_KEY) {
+        const key = request.headers['x-tq-key'];
+        if (typeof key !== 'string' || key.trim() !== process.env.AUTH_KEY) {
+          return send(response, 401, { error: 'API Key 错误或缺失' });
+        }
+      }
+
       // 由服务器上跑的 runTcpQuality.sh 直传过来：Content-Type 必须是 text/csv
-      // 现在先只落盘，不做解析 → 之后可以在其他页里挑/绑节点
       const ctype = request.headers['content-type'] || '';
       if (!/text\/csv|text\/plain|application\/octet-stream/i.test(ctype)) {
         return send(response, 400, { error: '请使用 text/csv 上传，勿用 JSON' });
