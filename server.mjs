@@ -102,7 +102,10 @@ const server = http.createServer(async (request, response) => {
     }
 
     const session = auth.currentSession(request);
-    if (!session.ok) {
+    // upload-csv 是脚本机用 API Key 鉴权的接口（无 cookie），不走登录拦截；
+    // 它的 key 校验在处理函数内部完成。
+    const keyAuthedPaths = new Set(['/api/upload-csv']);
+    if (!session.ok && !keyAuthedPaths.has(url.pathname)) {
       // 接口返回 401 由前端跳转；页面请求直接送到登录页
       if (url.pathname.startsWith('/api/')) return send(response, 401, { error: '请先登录' });
       if (!publicPaths.has(url.pathname)) {
