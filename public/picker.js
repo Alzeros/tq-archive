@@ -5,6 +5,8 @@ export function nodePicker({ container, nodes, reportsOf, selectedId, suggestion
   container.innerHTML = '';
   const state = { nodes, selectedId: null };
   const nodeName = id => nodes.find(node => node.id === id)?.name || id;
+  // 未启用的节点平时不出现，只在搜索时可找到；归档报告到它时服务端会自动启用
+  const isEnabled = node => node.enabled !== false;
 
   const input = document.createElement('input');
   input.type = 'search';
@@ -40,15 +42,15 @@ export function nodePicker({ container, nodes, reportsOf, selectedId, suggestion
   }
   function renderList(keyword) {
     list.innerHTML = '';
-    const pool = sortNodes(nodes).filter(node => match(node, keyword));
-    if (!pool.length) { list.innerHTML = '<p class="picker-empty">没有匹配的节点</p>'; return; }
+    const pool = sortNodes(nodes).filter(node => (keyword || isEnabled(node)) && match(node, keyword));
+    if (!pool.length) { list.innerHTML = `<p class="picker-empty">${keyword ? '没有匹配的节点' : '还没有启用的节点，输入名称可搜索全部节点'}</p>`; return; }
     for (const node of pool) {
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'picker-item' + (node.id === state.selectedId ? ' active' : '');
       const isSuggested = suggestion && node.id === suggestion.nodeId;
       const count = (reportsOf.get(node.id) || []).length;
-      item.innerHTML = `<span>${escape(node.name)}${isSuggested ? ' <em class="picker-badge">推荐</em>' : ''}</span><span class="picker-meta">${count ? `${count} 份` : '无数据'}</span>`;
+      item.innerHTML = `<span>${escape(node.name)}${isSuggested ? ' <em class="picker-badge">推荐</em>' : ''}${isEnabled(node) ? '' : ' <em class="picker-badge off">未启用</em>'}</span><span class="picker-meta">${count ? `${count} 份` : '无数据'}</span>`;
       item.addEventListener('click', () => {
         state.selectedId = node.id;
         input.value = node.name;
@@ -61,6 +63,12 @@ export function nodePicker({ container, nodes, reportsOf, selectedId, suggestion
   function renderHint() {
     hint.classList.add('hidden');
     if (!state.selectedId) return;
+    const selected = nodes.find(node => node.id === state.selectedId);
+    if (selected && !isEnabled(selected)) {
+      hint.textContent = '该节点未启用，归档后会自动启用';
+      hint.className = 'picker-hint';
+      return;
+    }
     if (suggestion?.reason === 'same-exit' && suggestion.nodeId === state.selectedId) {
       hint.textContent = allowEmpty ? '已按同一台机器上次的归属自动选择' : '已按出口记录自动选择上次归档的节点';
       hint.className = 'picker-hint ok';
@@ -87,7 +95,7 @@ export function nodePicker({ container, nodes, reportsOf, selectedId, suggestion
   input.addEventListener('blur', () => setTimeout(() => list.classList.add('hidden'), 150));
 
   // 初始选中：推荐节点（来自出口记忆，比"上次浏览的节点"更贴近这份报告的归属）> 侧边栏当前选中 > 第一个
-  state.selectedId = suggestion?.nodeId || selectedId || (allowEmpty ? null : nodes[0]?.id) || null;
+  state.selectedId = suggestion?.nodeId || selectedId || (allowEmpty ? null : nodes.find(isEnabled)?.id) || null;
   input.value = state.selectedId ? nodeName(state.selectedId) : '';
   renderHint();
 

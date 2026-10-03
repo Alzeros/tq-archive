@@ -60,8 +60,8 @@ function renderKeys(keys) {
       <td class="keys-meta">${formatDate(k.createdAt)}</td>
       <td class="keys-meta">${k.lastUsedAt ? formatDate(k.lastUsedAt) : '从未使用'}</td>
       <td class="keys-actions">
-        <button type="button" class="keys-btn" data-act="toggle" data-enabled="${k.enabled}">${k.enabled ? '禁用' : '启用'}</button>
-        <button type="button" class="keys-btn danger" data-act="delete">删除</button>
+        <button type="button" class="sub-btn" data-act="toggle" data-enabled="${k.enabled}">${k.enabled ? '禁用' : '启用'}</button>
+        <button type="button" class="sub-btn danger" data-act="delete">删除</button>
       </td>
     </tr>
   `).join('');

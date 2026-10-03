@@ -61,7 +61,8 @@ async function readText(request, limit) {
   return Buffer.concat(chunks).toString('utf8');
 }
 async function body(request) {
-  return JSON.parse((await readText(request, 10000)) || '{}');
+  // 批量启停节点会带上全部节点 id，上限给到 64KB
+  return JSON.parse((await readText(request, 64 * 1024)) || '{}');
 }
 // ─── 脚本直传 ───────────────────────────────────────────────────────────
 function apiKey(request) {
@@ -122,7 +123,7 @@ async function downloadReport(input) {
 // 反代 / CDN 会把 js、css 改成长缓存（线上 Cloudflare 改写为 max-age=14400 并在边缘缓存），
 // 发版后页面是新的、脚本却还是旧的。HTML 本身不缓存，由它引用带内容版本号的地址即可绕过各层缓存。
 // 版本号放在路径里（/v/<hash>/app.js）：部分 CDN 配置会忽略查询参数。
-const versionedAssets = ['app.js', 'style.css', 'theme.js', 'picker.js', 'login.js', 'keys.js', 'favicon.svg'];
+const versionedAssets = ['app.js', 'style.css', 'theme.js', 'picker.js', 'login.js', 'keys.js', 'nodes.js', 'favicon.svg'];
 const assetReference = new RegExp(`(["'])/(${versionedAssets.map(name => name.replace(/\./g, '\\.')).join('|')})\\1`, 'g');
 const assetFiles = new Map();
 async function assetFile(name) {
@@ -202,6 +203,11 @@ const server = http.createServer(async (request, response) => {
       if (syncing) throw new Error('正在同步，请稍候');
       syncing = true;
       try { store.sync(await loadProbeNodes()); return send(response, 200, { count: store.database.nodes.filter(node => !node.archived).length }); } finally { syncing = false; }
+    }
+    if (request.method === 'PATCH' && url.pathname === '/api/nodes') {
+      const { ids, enabled } = await body(request);
+      if (!Array.isArray(ids) || !ids.length || typeof enabled !== 'boolean') throw new Error('参数不正确');
+      return send(response, 200, { nodes: store.setNodesEnabled(ids.map(String), enabled) });
     }
     if (request.method === 'POST' && url.pathname === '/api/preview') {
       if (importing) throw new Error('正在解析另一份报告，请稍候');
@@ -394,6 +400,8 @@ const server = http.createServer(async (request, response) => {
       '/login.js': ['login.js', 'text/javascript'],
       '/keys.html': ['keys.html', 'text/html'],
       '/keys.js': ['keys.js', 'text/javascript'],
+      '/nodes.html': ['nodes.html', 'text/html'],
+      '/nodes.js': ['nodes.js', 'text/javascript'],
       '/favicon.svg': ['favicon.svg', 'image/svg+xml']
     };
     const asset = assets[url.pathname];

@@ -9,19 +9,19 @@
 </head>
 <body>
   <div id="toast" class="toast"></div>
-  <div class="keys-page">
-    <header class="keys-header">
+  <div class="sub-page">
+    <header class="sub-header">
       <div>
-        <h1 class="keys-title">API Key 管理</h1>
-        <p class="keys-sub">用于 <code>run-with-hub.sh</code> 直传 CSV 的鉴权凭证，密钥只在创建时显示一次。</p>
+        <h1 class="sub-title">API Key 管理</h1>
+        <p class="sub-desc">用于 <code>run-with-hub.sh</code> 直传 CSV 的鉴权凭证，密钥只在创建时显示一次。</p>
       </div>
-      <a href="/" class="button ghost keys-back">← 返回首页</a>
+      <a href="/" class="button ghost sub-back">← 返回首页</a>
     </header>
 
-    <section class="keys-card">
-      <h2 class="keys-card-title">生成新 Key</h2>
+    <section class="sub-card">
+      <h2 class="sub-card-title">生成新 Key</h2>
       <div class="keys-form">
-        <input id="keyName" class="keys-input" type="text" placeholder="Key 名称（例如：服务器A）" maxlength="50" autocomplete="off">
+        <input id="keyName" class="sub-input" type="text" placeholder="Key 名称（例如：服务器A）" maxlength="50" autocomplete="off">
         <button id="generateBtn" class="primary" type="button">生成</button>
       </div>
       <div id="secretDisplay" class="keys-secret" hidden>
@@ -33,8 +33,8 @@
       </div>
     </section>
 
-    <section class="keys-card">
-      <h2 class="keys-card-title">已有密钥</h2>
+    <section class="sub-card">
+      <h2 class="sub-card-title">已有密钥</h2>
       <div class="keys-table-wrap">
         <table class="keys-table">
           <thead>
@@ -54,7 +54,6 @@
     </section>
   </div>
 
-  <script src="/theme.js"></script>
   <script src="/keys.js"></script>
 </body>
 </html>

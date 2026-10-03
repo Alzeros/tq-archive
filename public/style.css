@@ -1873,22 +1873,20 @@ input:focus, select:focus {
   .dash-cell.action { display: none; }
 }
 
-/* ============ 侧边栏 API Key 入口 ============ */
-.keys-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  text-decoration: none;
-}
+/* ============ 侧边栏设置入口（节点管理 / API Key） ============ */
+.side-actions { display: flex; gap: 8px; }
+.side-action { flex: 1; min-width: 0; padding: 6px 8px; gap: 6px; }
+.side-action .btn-svg { width: 14px; height: 14px; }
+.empty a { color: var(--teal); text-decoration: none; font-weight: 600; }
+.empty a:hover { text-decoration: underline; }
 
 /* ============ API Key 管理页 ============ */
-.keys-page {
+.sub-page {
   max-width: 880px;
   margin: 0 auto;
   padding: 40px 24px 80px;
 }
-.keys-header {
+.sub-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
@@ -1896,18 +1894,20 @@ input:focus, select:focus {
   margin-bottom: 24px;
   flex-wrap: wrap;
 }
-.keys-title { margin: 0; font-size: 24px; letter-spacing: 0.01em; }
-.keys-sub { margin: 6px 0 0; color: var(--muted); font-size: 13.5px; }
-.keys-sub code {
+.sub-title { margin: 0; font-size: 24px; letter-spacing: 0.01em; }
+.sub-desc { margin: 6px 0 0; color: var(--muted); font-size: 13.5px; }
+.sub-desc code {
   background: var(--input-bg);
   border: 1px solid var(--border);
   padding: 1px 6px;
   border-radius: 6px;
   font-size: 12px;
 }
-.keys-back { flex: none; text-decoration: none; }
+.sub-back { flex: none; text-decoration: none; }
+/* 说明文字较长时在左侧换行，返回按钮保持在右上 */
+.sub-header > div:first-child { flex: 1 1 360px; min-width: 0; }
 
-.keys-card {
+.sub-card {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -1915,10 +1915,10 @@ input:focus, select:focus {
   box-shadow: var(--card-shadow);
   margin-bottom: 20px;
 }
-.keys-card-title { margin: 0 0 16px; font-size: 15px; color: var(--text-secondary); font-weight: 600; }
+.sub-card-title { margin: 0 0 16px; font-size: 15px; color: var(--text-secondary); font-weight: 600; }
 
 .keys-form { display: flex; gap: 10px; }
-.keys-input {
+.sub-input {
   flex: 1;
   min-width: 0;
   background: var(--input-bg);
@@ -1930,8 +1930,8 @@ input:focus, select:focus {
   outline: none;
   transition: border-color 0.15s, background 0.15s;
 }
-.keys-input::placeholder { color: var(--placeholder); }
-.keys-input:focus { border-color: var(--teal-border); background: var(--input-focus-bg); }
+.sub-input::placeholder { color: var(--placeholder); }
+.sub-input:focus { border-color: var(--teal-border); background: var(--input-focus-bg); }
 
 .keys-secret { margin-top: 16px; }
 .keys-secret-head {
@@ -2002,7 +2002,7 @@ input:focus, select:focus {
 .keys-badge.off { background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn-text); }
 
 .keys-actions { display: flex; gap: 8px; justify-content: flex-end; }
-.keys-btn {
+.sub-btn {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-secondary);
@@ -2013,12 +2013,12 @@ input:focus, select:focus {
   transition: all 0.15s;
   white-space: nowrap;
 }
-.keys-btn:hover { border-color: var(--border-hover); color: var(--text); }
-.keys-btn.danger { color: var(--red); border-color: var(--danger-border); }
-.keys-btn.danger:hover { background: var(--warn-bg); }
+.sub-btn:hover { border-color: var(--border-hover); color: var(--text); }
+.sub-btn.danger { color: var(--red); border-color: var(--danger-border); }
+.sub-btn.danger:hover { background: var(--warn-bg); }
 
 @media (max-width: 640px) {
-  .keys-header { align-items: flex-start; flex-direction: column; }
+  .sub-header { align-items: flex-start; flex-direction: column; }
   .keys-form { flex-direction: column; }
 }
 
@@ -2097,4 +2097,75 @@ input:focus, select:focus {
   .pending-item { flex-direction: column; }
   .pending-actions { width: 100%; flex-wrap: wrap; }
   .pending-picker { width: 100%; min-width: 0; flex: 1 1 100%; }
+}
+
+/* ============ 节点管理 ============ */
+.nodes-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+.nodes-head .sub-card-title { margin-bottom: 4px; }
+.nodes-summary { margin: 0; color: var(--muted); font-size: 12.5px; }
+.nodes-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.nodes-bulk { display: flex; gap: 6px; flex-wrap: wrap; }
+.nodes-scope { margin: 8px 0 0; font-size: 12px; color: var(--fair-text); }
+.nodes-groups { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
+.nodes-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0 4px 6px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.nodes-group-count { font-size: 11.5px; font-weight: 500; color: var(--muted); }
+.node-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 6px;
+  border-bottom: 1px solid var(--row-border);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background .15s;
+}
+.node-row:hover { background: var(--panel-2); }
+.node-row-name { font-size: 13.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.node-row.on .node-row-name { color: var(--text); font-weight: 600; }
+.node-row-meta { font-size: 12px; color: var(--muted); white-space: nowrap; grid-column: 4; }
+/* 开关：复选框外观改造，键盘与读屏语义不变 */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 34px;
+  height: 20px;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--panel-3);
+  border: 1px solid var(--border-hover);
+  position: relative;
+  cursor: pointer;
+  flex: none;
+  transition: background .18s ease, border-color .18s ease;
+}
+.switch::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform .18s ease;
+}
+.switch:checked { background: var(--primary-bg); border-color: var(--primary-border); }
+.switch:checked::before { transform: translateX(14px); }
+.switch:focus-visible { outline: 2px solid var(--teal-border); outline-offset: 2px; }
+.switch:disabled { opacity: .55; cursor: progress; }
+.picker-badge.off { color: var(--muted); background: var(--panel-2); border: 1px dashed var(--border-hover); }
+@media (max-width: 640px) {
+  .node-row { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .node-row-meta { grid-column: 2 / -1; }
 }

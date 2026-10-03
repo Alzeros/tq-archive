@@ -1,7 +1,8 @@
 import { setupThemeToggle } from '/theme.js';
 import { nodePicker } from '/picker.js';
 
-const state = { nodes: [], reports: [], pending: [], metricNames: {}, selectedNodeId: null, detail: null, insight: null, heatmap: { matrixId: null, metricId: null }, compare: { node: '', result: null } };
+// nodes / reports 只含已启用的节点及其报告，界面各处直接用；allNodes / allReports 供选择器搜索全部节点
+const state = { nodes: [], reports: [], allNodes: [], allReports: [], pending: [], metricNames: {}, selectedNodeId: null, detail: null, insight: null, heatmap: { matrixId: null, metricId: null }, compare: { node: '', result: null } };
 // 选择器实例：预览导入的归属选择与详情页改绑各持一个，避免互相覆盖
 let previewPicker = null;
 let bindPicker = null;
@@ -31,7 +32,7 @@ const fmtShort = iso => {
   const pad = value => String(value).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
-const nodeName = id => state.nodes.find(node => node.id === id)?.name || id;
+const nodeName = id => state.allNodes.find(node => node.id === id)?.name || id;
 const metricLabel = key => state.metricNames[key] || key;
 const metricText = measurement => {
   if (!measurement) return '—';
@@ -69,9 +70,9 @@ function toggleGroup(city, currentlyCollapsed) {
   renderNodes();
 }
 
-function reportsByNode() {
+function reportsByNode(reports = state.reports) {
   const map = new Map();
-  for (const report of state.reports) {
+  for (const report of reports) {
     if (!map.has(report.nodeId)) map.set(report.nodeId, []);
     map.get(report.nodeId).push(report);
   }
@@ -101,7 +102,8 @@ function renderNodes() {
   }
   const list = el('nodeList');
   list.innerHTML = '';
-  if (!state.nodes.length) { list.innerHTML = '<p class="empty">先同步探针节点。</p>'; return; }
+  if (!state.allNodes.length) { list.innerHTML = '<p class="empty">还没有节点，先到 <a href="/nodes.html">节点管理</a> 从探针同步。</p>'; return; }
+  if (!state.nodes.length) { list.innerHTML = '<p class="empty">还没有启用的节点，到 <a href="/nodes.html">节点管理</a> 打开要测试的节点。</p>'; return; }
   if (!visible.length) { list.innerHTML = '<p class="empty">没有匹配的节点。</p>'; return; }
   const ordered = [...groups.entries()].sort(([, aNodes], [, bNodes]) => {
     const latest = nodes => nodes.reduce((max, node) => { const t = lastTested(node.id); return t > max ? t : max; }, '');
@@ -525,8 +527,8 @@ function setupBind() {
     el('bindPanel').classList.remove('hidden');
     bindPicker = nodePicker({
       container: el('bindPicker'),
-      nodes: state.nodes,
-      reportsOf: reportsByNode(),
+      nodes: state.allNodes,
+      reportsOf: reportsByNode(state.allReports),
       selectedId: state.detail.nodeId
     });
   });
@@ -604,11 +606,11 @@ async function renderDashboard() {
         <span class="stat-icon-wrap stat-icon-server">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
         </span>
-        <span class="lbl">探针节点</span>
+        <span class="lbl">启用节点</span>
       </div>
       <div class="dash-stat-bottom">
         <span class="num">${activeNodesCount}</span>
-        <span class="stat-sub">当前可见节点</span>
+        <span class="stat-sub">探针共同步 ${state.allNodes.filter(node => !node.archived).length} 个</span>
       </div>
     </div>
     <div class="dash-stat">
@@ -782,7 +784,7 @@ function renderPending() {
     return;
   }
   list.innerHTML = '';
-  const reportsOf = reportsByNode();
+  const reportsOf = reportsByNode(state.allReports);
   for (const entry of [...state.pending].sort((left, right) => right.testedAt.localeCompare(left.testedAt))) {
     const counts = entry.sectionCounts || {};
     const present = new Set(entry.sections.map(section => section.id));
@@ -821,7 +823,7 @@ function renderPending() {
         <button class="danger small discard-btn" type="button">丢弃</button>
       </div>`;
     if (!entry.error) {
-      const picker = nodePicker({ container: item.querySelector('.pending-picker'), nodes: state.nodes, reportsOf, selectedId: null, suggestion: entry.suggestion, allowEmpty: true });
+      const picker = nodePicker({ container: item.querySelector('.pending-picker'), nodes: state.allNodes, reportsOf, selectedId: null, suggestion: entry.suggestion, allowEmpty: true });
       const bind = item.querySelector('.bind-btn');
       bind.addEventListener('click', async () => {
         const nodeId = picker.value;
@@ -861,8 +863,8 @@ function renderPreview(report, token, suggestion) {
   box.classList.remove('hidden');
   previewPicker = nodePicker({
     container: el('previewPicker'),
-    nodes: state.nodes,
-    reportsOf: reportsByNode(),
+    nodes: state.allNodes,
+    reportsOf: reportsByNode(state.allReports),
     selectedId: state.selectedNodeId,
     suggestion
   });
@@ -933,13 +935,17 @@ function showView(view) {
 }
 async function refresh() {
   const data = await api('/api/state');
-  state.nodes = data.nodes;
-  state.reports = data.reports;
+  state.allNodes = data.nodes;
+  state.allReports = data.reports;
+  // 停用的节点连同它的报告一起从界面隐藏（报告不删除，重新启用即恢复）
+  state.nodes = data.nodes.filter(node => node.enabled !== false);
+  const enabledIds = new Set(state.nodes.map(node => node.id));
+  state.reports = data.reports.filter(report => enabledIds.has(report.nodeId));
   state.pending = data.pending || [];
   state.metricNames = data.metricNames;
   // 未启用认证时没有"登录"概念，退出按钮不应出现（否则登出会被登录页立即送回）
   el('logoutButton').hidden = !data.authEnabled;
-  el('syncState').textContent = data.syncedAt ? `已同步 ${data.nodes.filter(node => !node.archived).length} 个节点 · ${fmtTime(data.syncedAt)}` : '未同步节点';
+  el('syncState').textContent = data.syncedAt ? `启用 ${state.nodes.length} / ${data.nodes.filter(node => !node.archived).length} 个节点` : '未同步节点';
   renderNodes();
   renderHistory();
   renderRecent();
@@ -989,16 +995,6 @@ async function syncPending() {
 document.addEventListener('visibilitychange', syncPending);
 window.addEventListener('focus', syncPending);
 el('nodeFilter').addEventListener('input', renderNodes);
-el('syncButton').addEventListener('click', async () => {
-  const button = el('syncButton');
-  button.disabled = true;
-  button.textContent = '同步中…';
-  try {
-    const data = await api('/api/sync', { method: 'POST' });
-    toast(`已同步 ${data.count} 个节点`);
-    await refresh();
-  } catch (error) { toast(error.message, true); } finally { button.disabled = false; button.textContent = '从探针同步节点'; }
-});
 el('previewForm').addEventListener('submit', async event => {
   event.preventDefault();
   const button = event.target.querySelector('button');
