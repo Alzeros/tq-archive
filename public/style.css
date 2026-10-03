@@ -393,6 +393,104 @@ tbody tr:hover td { background: var(--panel-2); }
 .detail-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .detail-head .actions { display: flex; gap: 8px; }
 
+/* ============ 历史趋势 ============ */
+/* 跨报告的时间轴视图：三张小图分别盯延迟/丢包/速度。
+   趋势只在该节点有 ≥2 份报告时出现；单份报告意义不大反而抢视觉。 */
+.trend { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 10px 0 14px; }
+.trend.hidden { display: none; }
+.trend-cell { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+.trend-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.trend-label { color: var(--text); font-size: 13px; font-weight: 600; }
+.trend-note { color: var(--muted); font-size: 11px; text-align: right; }
+.trend-svg { width: 100%; height: 72px; display: block; }
+.trend-line { fill: none; stroke: var(--teal); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+/* 点颜色报告档位：好=绿，一般=黄，差=红。na=缺失保持中性 */
+.trend-svg circle.tp.lgood { fill: var(--green); }
+.trend-svg circle.tp.lfair { fill: var(--yellow); }
+.trend-svg circle.tp.lbad { fill: var(--red); }
+.trend-svg circle.tp.linfo { fill: var(--teal); }
+.trend-svg circle.tp.lna { fill: var(--muted); opacity: .5; }
+.trend-svg circle.tp { stroke: var(--panel); stroke-width: 1.5; }
+/* 透明热点层：SVG 里的圆点太小不好戳，额外铺一层按钮覆盖在图区下方。
+   每个按钮等宽均分部宽，视觉上对齐各自的数据点。 */
+.trend-dots { display: flex; margin-top: -2px; padding: 0 2px; }
+.trend-dots .tp {
+  flex: 1;
+  height: 10px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background .12s ease;
+}
+.trend-dots .tp:hover { background: var(--teal); opacity: .15; }
+.trend-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; margin-top: 4px; }
+.trend-range { color: var(--muted); font-size: 11px; }
+.trend-delta { font-size: 11px; font-variant-numeric: tabular-nums; }
+.trend-delta.bad { color: var(--red); }
+.trend-delta.good { color: var(--green); }
+.trend-loading { color: var(--muted); font-size: 13px; padding: 6px 0; }
+
+/* ============ 历史报告徽标 ============ */
+/* 每份报告一行的彩色档位标签，替代"点进去才知道怎么样"的盲扫 */
+.item .metrics { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.metric { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid transparent; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.metric.lgood { color: var(--green); background: var(--ok-bg); border-color: var(--ok-border); }
+.metric.lfair { color: var(--yellow); background: var(--warn-bg); border-color: var(--warn-border); }
+.metric.lbad { color: var(--red); background: var(--warn-bg); border-color: var(--warn-border); }
+.metric.linfo { color: var(--teal); background: var(--ok-bg); border-color: var(--ok-border); }
+.metric.na { color: var(--muted); background: var(--panel-2); border-color: var(--border); }
+.metric.pending { color: var(--placeholder); background: transparent; border-color: transparent; }
+
+/* ============ 看板 ============ */
+.dash-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 8px; }
+.dash-stat { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.dash-stat .num { font-size: 22px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.dash-stat .lbl { font-size: 11px; color: var(--muted); }
+/* 健康表：复用 .node 的 hover 体感，但是 grid 布局让多列对齐 */
+.dash-health { display: flex; flex-direction: column; gap: 4px; }
+.dash-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(120px, 1fr) minmax(0, 2fr);
+  gap: 12px;
+  align-items: center;
+  padding: 9px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background .12s ease, border-color .12s ease;
+}
+.dash-row:hover { background: var(--panel-2); border-color: var(--border); }
+.dash-cell.name { font-weight: 500; }
+.dash-cell.time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.dash-cell.metrics { display: flex; gap: 6px; flex-wrap: wrap; }
+.dash-idle { margin-top: 6px; }
+.dash-alert { text-align: left; width: 100%; background: transparent; }
+.dash-alert .metrics { margin-top: 6px; }
+
+/* 可点击的条目：整行可点，hover 时用主色背景和左边框给反馈 */
+.title-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: background .12s ease, border-color .12s ease, border-left-color .12s ease;
+}
+.title-link:hover { background: var(--panel-2); border-left-color: var(--teal); }
+.title-link strong { color: var(--text); }
+
 /* ============ 洞察视图 ============ */
 /* 把 278 行表格压成结论：指标卡给客观数字，异常清单给相对离群，热力图给分布对比 */
 .insight-block { margin: 14px 0 18px; }

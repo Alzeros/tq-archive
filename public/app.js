@@ -43,6 +43,18 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '
 
 const COLLAPSED_KEY = 'tq_collapsed_groups';
 const collapsedGroups = new Set(readCollapsed());
+// 同一轮渲染里 trends 会为已打开的详情重复请求 /api/reports/:id，
+// 用 Map 做个会话级小缓存把往返压到每份报告一次
+const detailCache = new Map();
+function fetchDetail(id) {
+  if (!detailCache.has(id)) {
+    detailCache.set(id, api(`/api/reports/${id}`).catch(error => {
+      detailCache.delete(id);
+      throw error;
+    }));
+  }
+  return detailCache.get(id);
+}
 function readCollapsed() {
   try { return JSON.parse(localStorage.getItem(COLLAPSED_KEY) || '[]'); } catch { return []; }
 }
@@ -143,6 +155,106 @@ function dropForeignDetail() {
   el('detailCard').classList.add('hidden');
   el('bindPanel').classList.add('hidden');
 }
+// ============ 历史趋势：跨报告的时间轴视图 ============
+// 历史列表按报告排列，看不出"这条路是不是越来越差"。把每份报告的
+// 核心指标（延迟 p50 / 丢包数 / 回程速度）抽出来按测试时间连成三个
+// 小图：线连数据走势，点的颜色按报告的档位（绿=好，黄=一般，红=差）。
+// 点击任一点打开该报告的详情。首尾对比超过 8% 时给个箭头摘要。
+const TREND_DEFS = [
+  { key: 'latency', label: '国内回程延迟', note: 'p50 · 越低越好', lowerBetter: true },
+  { key: 'loss', label: '丢包/重传', note: '严重优先 · 越低越好', lowerBetter: true },
+  { key: 'speed', label: '回程速度', note: '回程 · 越高越好', lowerBetter: false }
+];
+let trendRequestToken = 0;
+async function renderTrends(reports) {
+  const panel = el('trendPanel');
+  const token = ++trendRequestToken;
+  if (reports.length < 2) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+  panel.classList.remove('hidden');
+  panel.innerHTML = '<p class="trend-loading">载入趋势…</p>';
+  try {
+    const details = await Promise.all(reports.map(report => fetchDetail(report.id)));
+    if (token !== trendRequestToken) return;
+    drawTrends([...details].sort((left, right) => left.testedAt.localeCompare(right.testedAt)));
+  } catch (error) {
+    if (token !== trendRequestToken) return;
+    panel.innerHTML = `<p class="empty">趋势加载失败：${escapeHtml(error.message)}</p>`;
+  }
+}
+function drawTrends(points) {
+  const panel = el('trendPanel');
+  // 每个图至少要有 2 个有数值的点才有"走势"可言。单线/全空时整格隐藏
+  const series = TREND_DEFS.map(def => {
+    const cardList = points.map(report => (report.insight?.cards || []).find(card => card.id === def.key));
+    const values = cardList.map(card => (card && typeof card.value === 'number') ? card.value : null);
+    const present = values.filter(value => value !== null);
+    // 有 2 个及以上数据点就画，哪怕数值完全一样——长期平稳本身就是信息
+    if (present.length < 2) return null;
+    return {
+      ...def,
+      values,
+      levels: cardList.map(card => card?.level || null),
+      unit: cardList.find(card => card?.unit)?.unit || ''
+    };
+  }).filter(Boolean);
+  if (!series.length) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
+  panel.innerHTML = series.map(serie => svgForSeries(points, serie)).join('');
+  for (const button of panel.querySelectorAll('button.tp')) {
+    button.addEventListener('click', () => openDetail(button.dataset.id));
+  }
+}
+function svgForSeries(points, serie) {
+  // viewBox 定死 320×72，配合 preserveAspectRatio=none 自动伸缩填满格子；
+  // 因为图形本身全靠百分比坐标，拉伸是纯视觉的，不影响真值
+  const W = 320, H = 72, PAD = 8;
+  const usableW = W - PAD * 2;
+  const usableH = H - PAD * 2;
+  const present = serie.values.filter(value => value !== null);
+  const min = Math.min(...present), max = Math.max(...present);
+  const spread = Math.max(1e-9, max - min);
+  const total = Math.max(1, points.length - 1);
+  const coords = serie.values.map((value, index) => {
+    if (value === null) return null;
+    const x = points.length === 1 ? W / 2 : PAD + (index / total) * usableW;
+    // 纵向按比例铺满整个图区，让"波动大"和"波动小"一眼可分
+    const y = points.length === 1 ? H / 2 : H - PAD - ((value - min) / spread) * usableH;
+    return { x, y, index, value };
+  }).filter(Boolean);
+  const path = coords.length >= 2 ? `M${coords.map(point => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' L')}` : '';
+  // 首尾对比：起终两点的相对变化足够醒目时给一个摘要箭头，否则省略省得分散注意力。
+  // 阈值 8% 足够大，只有"变了一截"才值得报；低于这个幅度就算不上趋势
+  let summary = '';
+  if (coords.length >= 2) {
+    const first = coords[0], last = coords.at(-1);
+    const delta = last.value - first.value;
+    if (Math.abs(delta) >= Math.max(spread * 0.08, 1)) {
+      const worse = serie.lowerBetter ? delta > 0 : delta < 0;
+      const arrow = delta > 0 ? '↑' : '↓';
+      summary = `<span class="trend-delta ${worse ? 'bad' : 'good'}">${arrow}${Math.abs(Math.round(delta))}${escapeHtml(serie.unit)}</span>`;
+    }
+  }
+  const range = spread > 1 ? `${Math.round(min)}–${Math.round(max)}${serie.unit}` : '—';
+  const dots = serie.values.map((value, index) => {
+    const report = points[index];
+    const title = `${fmtShort(report.testedAt)} · ${value === null ? '无数据' : `${value}${serie.unit}`}`;
+    return `<button type="button" class="tp" data-id="${report.id}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"></button>`;
+  }).join('');
+  return `<div class="trend-cell">
+    <div class="trend-head">
+      <span class="trend-label">${escapeHtml(serie.label)}</span>
+      <span class="trend-note">${escapeHtml(serie.note)}</span>
+    </div>
+    <svg class="trend-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-hidden="true">
+      ${path ? `<path class="trend-line" d="${path}"/>` : ''}
+      ${coords.map(point => `<circle class="tp l${serie.levels[point.index] || 'na'}" cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="4"/>`).join('')}
+    </svg>
+    <div class="trend-dots">${dots}</div>
+    <div class="trend-foot">
+      <span class="trend-range">${escapeHtml(range)}</span>
+      ${summary}
+    </div>
+  </div>`;
+}
 function renderHistory() {
   const list = el('historyList');
   dropForeignDetail();
@@ -150,6 +262,8 @@ function renderHistory() {
     el('historyTitle').textContent = '请选择节点';
     list.innerHTML = '<p class="empty">从左侧选择一个节点，查看它历次的 TQ 报告。</p>';
     el('detailCard').classList.add('hidden');
+    el('trendPanel').classList.add('hidden');
+    el('trendPanel').innerHTML = '';
     return;
   }
   const reports = state.reports.filter(report => report.nodeId === state.selectedNodeId).sort((left, right) => right.testedAt.localeCompare(left.testedAt));
@@ -157,15 +271,20 @@ function renderHistory() {
   if (!reports.length) {
     list.innerHTML = '<p class="empty">该节点还没有报告，去“导入报告”粘贴链接。</p>';
     el('detailCard').classList.add('hidden');
+    el('trendPanel').classList.add('hidden');
+    el('trendPanel').innerHTML = '';
     return;
   }
   list.innerHTML = '';
-  for (const report of reports) {
+  renderTrends(reports);
+  // 指标徽标：每份报告单独异步填充，拉到数据后原地刷新。失败就保持占位
+  for (const [index, report] of reports.entries()) {
     const warnCount = report.warnings?.length || 0;
     const item = document.createElement('div');
     item.className = 'item';
     item.innerHTML = `<div class="title"><strong>${fmtTime(report.testedAt)}</strong>
-      <span class="meta">${report.recordCount} 条指标 · ${escapeHtml(report.identity || '未知线路')}${warnCount ? ` · ${warnCount} 条解析提示` : ''}</span></div>`;
+      <span class="meta">${report.recordCount} 条指标 · ${escapeHtml(report.identity || '未知线路')}${warnCount ? ` · ${warnCount} 条解析提示` : ''}</span></div>
+      <span class="metrics" data-report="${report.id}"><span class="metric pending">载入指标…</span></span>`;
     const actions = document.createElement('div');
     actions.className = 'actions';
     const open = document.createElement('button');
@@ -187,6 +306,7 @@ function renderHistory() {
       remove.disabled = true;
       try {
         await api(`/api/reports/${report.id}`, { method: 'DELETE' });
+        detailCache.delete(report.id);
         if (state.detail?.id === report.id) { state.detail = null; el('detailCard').classList.add('hidden'); }
         toast('已删除该份归档');
         await refresh();
@@ -195,6 +315,30 @@ function renderHistory() {
     actions.append(open, raw, remove);
     item.append(actions);
     list.append(item);
+    fillMetrics(report, index, reports.length);
+  }
+}
+// 徽标行：把这份报告的核心档位压缩成一行彩色标签，扫一眼就知道好坏。
+// 颜色档位复用 insight 卡片的 level（good/fair/bad），与详情视图同源。
+const BADGE_DEFS = [
+  { key: 'latency', short: '延迟' },
+  { key: 'loss', short: '丢包' },
+  { key: 'speed', short: '回程' }
+];
+async function fillMetrics(report, index, total) {
+  const host = document.querySelector(`[data-report="${report.id}"]`);
+  if (!host) return;
+  try {
+    const detail = await fetchDetail(report.id);
+    if (!host.isConnected) return;
+    const cards = new Map((detail.insight?.cards || []).map(card => [card.id, card]));
+    host.innerHTML = BADGE_DEFS.map(def => {
+      const card = cards.get(def.key);
+      if (!card || typeof card.value !== 'number') return `<span class="metric na">${def.short} —</span>`;
+      return `<span class="metric l${card.level || 'na'}">${def.short} ${card.value}${escapeHtml(card.unit || '')}</span>`;
+    }).join('');
+  } catch {
+    host.innerHTML = '<span class="metric na">指标暂不可用</span>';
   }
 }
 // ============ 洞察视图：把 278 行表格压缩成「结论」 ============
@@ -309,7 +453,7 @@ function renderWarnings(report) {
     </div>`;
 }
 async function openDetail(reportId) {
-  const report = await api(`/api/reports/${reportId}`);
+  const report = await fetchDetail(reportId);
   state.detail = report;
   el('detailCard').classList.remove('hidden');
   el('detailTitle').textContent = `报告详情 · ${nodeName(report.nodeId)} · ${fmtShort(report.testedAt)}`;
@@ -374,9 +518,132 @@ function setupBind() {
 }
 function renderRecent() {
   const recent = [...state.reports].sort((left, right) => right.importedAt.localeCompare(left.importedAt)).slice(0, 5);
-  el('recentImports').innerHTML = recent.length
-    ? recent.map(report => `<div class="item"><div class="title"><strong>${escapeHtml(nodeName(report.nodeId))}</strong><span class="meta">测试于 ${fmtTime(report.testedAt)} · ${report.recordCount} 条指标</span></div><span class="meta">导入于 ${fmtTime(report.importedAt)}</span></div>`).join('')
-    : '<p class="empty">还没有导入记录。</p>';
+  const host = el('recentImports');
+  host.innerHTML = '';
+  if (!recent.length) { host.innerHTML = '<p class="empty">还没有导入记录。</p>'; return; }
+  for (const report of recent) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'title-link';
+    item.innerHTML = `<div class="title"><strong>${escapeHtml(nodeName(report.nodeId))}</strong>
+      <span class="meta">测试于 ${fmtTime(report.testedAt)} · ${report.recordCount} 条指标</span></div>
+      <span class="meta">导入于 ${fmtTime(report.importedAt)}</span>`;
+    item.addEventListener('click', () => {
+      state.selectedNodeId = report.nodeId;
+      renderNodes();
+      renderHistory();
+      showView('history');
+      openDetail(report.id);
+    });
+    host.append(item);
+  }
+}
+// ============ 看板：一屏看全局 ============
+// 数据全部来自现有：概览用 /api/state，告警和健康表用 insight.cards
+// （与详情页同源，避免维护两套口径）。异步逐个填充，不阻塞页面。
+let dashRequestToken = 0;
+async function renderDashboard() {
+  const stats = el('dashStats');
+  const alertsBox = el('dashAlerts');
+  const alertCard = el('dashAlertCard');
+  const healthBox = el('dashHealth');
+  // 概览数字：全量、覆盖、最近一次测试时间
+  const withReports = new Set(state.reports.map(report => report.nodeId));
+  const latest = [...state.reports].sort((left, right) => right.testedAt.localeCompare(left.testedAt))[0];
+  stats.innerHTML = `
+    <div class="dash-stat"><span class="num">${state.nodes.filter(node => !node.archived).length}</span><span class="lbl">探针节点</span></div>
+    <div class="dash-stat"><span class="num">${withReports.size}</span><span class="lbl">有报告的节点</span></div>
+    <div class="dash-stat"><span class="num">${state.reports.length}</span><span class="lbl">总报告数</span></div>
+    <div class="dash-stat"><span class="num">${latest ? fmtShort(latest.testedAt) : '—'}</span><span class="lbl">最近一次测试</span></div>
+  `;
+  // 按节点聚合出"每个节点最近的一份报告"，拉详情取 insight.cards
+  const byNode = new Map();
+  for (const report of state.reports) {
+    if (!byNode.has(report.nodeId) || byNode.get(report.nodeId).testedAt < report.testedAt) byNode.set(report.nodeId, report);
+  }
+  const latestPerNode = [...byNode.values()].sort((left, right) => right.testedAt.localeCompare(left.testedAt));
+  // 没有报告的节点先给个提示行
+  const idleNodes = state.nodes.filter(node => !node.archived && !withReports.has(node.id));
+  const healthRows = [];
+  healthBox.innerHTML = '';
+  for (const report of latestPerNode) {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'dash-row';
+    row.dataset.node = report.nodeId;
+    row.dataset.report = report.id;
+    row.innerHTML = `<span class="dash-cell name">${escapeHtml(nodeName(report.nodeId))}</span>
+      <span class="dash-cell time">${fmtShort(report.testedAt)}</span>
+      <span class="dash-cell metrics"><span class="metric pending">载入…</span></span>`;
+    row.addEventListener('click', () => {
+      state.selectedNodeId = report.nodeId;
+      renderNodes();
+      renderHistory();
+      showView('history');
+    });
+    healthBox.append(row);
+    healthRows.push({ row, report });
+  }
+  if (idleNodes.length) {
+    const idle = document.createElement('p');
+    idle.className = 'empty dash-idle';
+    idle.textContent = `另有 ${idleNodes.length} 个节点还没有 TQ 报告`;
+    healthBox.append(idle);
+  }
+  // 逐行异步填徽标，与详情页同源，避免复制 insight 算法到前端
+  const token = ++dashRequestToken;
+  const alerts = [];
+  for (const { row, report } of healthRows) {
+    try {
+      const detail = await fetchDetail(report.id);
+      if (token !== dashRequestToken) return;
+      const cards = new Map((detail.insight?.cards || []).map(card => [card.id, card]));
+      const latency = cards.get('latency');
+      const loss = cards.get('loss');
+      const speed = cards.get('speed');
+      row.querySelector('.metrics').innerHTML = `
+        ${latency && typeof latency.value === 'number' ? `<span class="metric l${latency.level}">延迟 ${latency.value}${latency.unit}</span>` : ''}
+        ${loss && typeof loss.value === 'number' ? `<span class="metric l${loss.level}">丢包 ${loss.value}${loss.unit}</span>` : ''}
+        ${speed && typeof speed.value === 'number' ? `<span class="metric l${speed.level}">回程 ${speed.value}${speed.unit}</span>` : ''}
+      `;
+      // "需要关注"标准：延迟/丢包任一到了 bad 档（最严重），或两者都是 fair
+      const worst = [latency, loss, speed].reduce((acc, card) => {
+        if (!card || typeof card.value !== 'number') return acc;
+        return Math.max(acc, card.level === 'bad' ? 2 : card.level === 'fair' ? 1 : 0);
+      }, 0);
+      if (worst > 0) alerts.push({ report, latency, loss, speed, worst });
+    } catch {
+      row.querySelector('.metrics').innerHTML = '<span class="metric na">指标不可用</span>';
+    }
+  }
+  // 需要关注的节点：最严重的排前面，同级再看时间
+  alerts.sort((left, right) => right.worst - left.worst || right.report.testedAt.localeCompare(left.report.testedAt));
+  if (!alerts.length) {
+    alertCard.classList.add('hidden');
+    return;
+  }
+  alertCard.classList.remove('hidden');
+  alertsBox.innerHTML = '';
+  for (const { report, latency, loss, speed } of alerts) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'title-link dash-alert';
+    item.innerHTML = `<div class="title"><strong>${escapeHtml(nodeName(report.nodeId))}</strong>
+      <span class="meta">测试于 ${fmtTime(report.testedAt)}</span></div>
+      <div class="metrics">
+        ${latency && typeof latency.value === 'number' ? `<span class="metric l${latency.level}">延迟 ${latency.value}${latency.unit}</span>` : ''}
+        ${loss && typeof loss.value === 'number' ? `<span class="metric l${loss.level}">丢包 ${loss.value}${loss.unit}</span>` : ''}
+        ${speed && typeof speed.value === 'number' ? `<span class="metric l${speed.level}">回程 ${speed.value}${speed.unit}</span>` : ''}
+      </div>`;
+    item.addEventListener('click', () => {
+      state.selectedNodeId = report.nodeId;
+      renderNodes();
+      renderHistory();
+      showView('history');
+      openDetail(report.id);
+    });
+    alertsBox.append(item);
+  }
 }
 function renderPreview(report, token, suggestion) {
   const counts = report.sectionCounts || {};
@@ -469,6 +736,7 @@ async function refresh() {
   renderNodes();
   renderHistory();
   renderRecent();
+  renderDashboard();
   renderCompareSelectors();
 }
 for (const tab of document.querySelectorAll('.tab')) tab.addEventListener('click', () => showView(tab.dataset.view));

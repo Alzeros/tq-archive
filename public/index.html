@@ -36,12 +36,34 @@
 
     <main class="content">
       <nav class="tabs">
+        <button class="tab active" data-view="dashboard" type="button">看板</button>
         <button class="tab active" data-view="import" type="button">导入报告</button>
         <button class="tab" data-view="history" type="button">历史报告</button>
         <button class="tab" data-view="compare" type="button">变化对比</button>
       </nav>
 
-      <section id="view-import" class="view active">
+      <section id="view-dashboard" class="view active">
+        <div class="card">
+          <h2>概览</h2>
+          <div id="dashStats" class="dash-stats"></div>
+        </div>
+        <div class="card hidden" id="dashAlertCard">
+          <h2>需要关注的节点</h2>
+          <p class="hint">最近一份报告里出现了"差"档指标，点行直接打开详情。</p>
+          <div id="dashAlerts" class="list"></div>
+        </div>
+        <div class="card">
+          <h2>节点健康</h2>
+          <p class="hint">按最近一次测试时间排序。延迟/丢包/回程速度与详情页徽标同源。</p>
+          <div id="dashHealth" class="dash-health"></div>
+        </div>
+        <div class="card">
+          <h2>最近导入</h2>
+          <div id="recentImports" class="list"></div>
+        </div>
+      </section>
+
+      <section id="view-import" class="view">
         <div class="card">
           <h2>粘贴 TQ 报告链接</h2>
           <p class="hint">先解析并预览，确认无误后再绑定到节点。重复报告会被拒绝。</p>
@@ -51,15 +73,12 @@
           </form>
           <div id="previewResult" class="preview hidden"></div>
         </div>
-        <div class="card">
-          <h2>最近导入</h2>
-          <div id="recentImports" class="list"></div>
-        </div>
       </section>
 
       <section id="view-history" class="view">
         <div class="card">
           <h2 id="historyTitle">请选择节点</h2>
+          <div id="trendPanel" class="trend hidden"></div>
           <div id="historyList" class="list"></div>
         </div>
         <div class="card hidden" id="detailCard">
