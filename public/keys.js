@@ -21,35 +21,25 @@ async function loadKeys() {
     renderKeys(data.keys);
   } catch (err) {
     console.error('加载 keys 失败:', err);
-    document.getElementById('keysList').innerHTML = '<tr><td colspan="5" class="empty-state">加载失败</td></tr>';
+    document.getElementById('keysList').innerHTML = '<tr><td colspan="5" class="keys-empty">加载失败，请刷新重试</td></tr>';
   }
 }
 
 function renderKeys(keys) {
   const tbody = document.getElementById('keysList');
   if (keys.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">还没有 API Key，点击上方"生成"按钮创建</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="keys-empty">还没有 API Key，点击上方「生成」创建第一个</td></tr>';
     return;
   }
   tbody.innerHTML = keys.map(k => `
     <tr>
-      <td>
-        <div class="key-name">${escapeHtml(k.name)}</div>
-      </td>
-      <td>
-        <span class="key-status ${k.enabled ? 'enabled' : 'disabled'}">
-          ${k.enabled ? '● 已启用' : '○ 已禁用'}
-        </span>
-      </td>
-      <td class="key-meta">${formatDate(k.createdAt)}</td>
-      <td class="key-meta">${k.lastUsedAt ? formatDate(k.lastUsedAt) : '从未使用'}</td>
-      <td class="key-actions">
-        <button class="btn-small" onclick="toggleKey('${k.id}', ${!k.enabled})">
-          ${k.enabled ? '禁用' : '启用'}
-        </button>
-        <button class="btn-small danger" onclick="deleteKey('${k.id}', '${escapeHtml(k.name)}')">
-          删除
-        </button>
+      <td><span class="keys-name">${escapeHtml(k.name)}</span></td>
+      <td><span class="keys-badge ${k.enabled ? 'on' : 'off'}">${k.enabled ? '已启用' : '已禁用'}</span></td>
+      <td class="keys-meta">${formatDate(k.createdAt)}</td>
+      <td class="keys-meta">${k.lastUsedAt ? formatDate(k.lastUsedAt) : '从未使用'}</td>
+      <td class="keys-actions">
+        <button class="keys-btn" onclick="toggleKey('${k.id}', ${!k.enabled})">${k.enabled ? '禁用' : '启用'}</button>
+        <button class="keys-btn danger" onclick="deleteKey('${k.id}', '${escapeHtml(k.name)}')">删除</button>
       </td>
     </tr>
   `).join('');
@@ -92,12 +82,11 @@ async function generateKey() {
     }
     const data = await res.json();
 
-    // 显示 secret（仅此一次）
+    // 显示 secret（仅此一次）：用 hidden 属性控制，而非 class
     document.getElementById('secretValue').textContent = data.secret;
-    document.getElementById('secretDisplay').classList.add('show');
-
-    // 滚动到 secret 显示区
-    document.getElementById('secretDisplay').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const display = document.getElementById('secretDisplay');
+    display.hidden = false;
+    display.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
     // 清空输入框并刷新列表
     input.value = '';

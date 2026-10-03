@@ -1872,3 +1872,152 @@ input:focus, select:focus {
   .dash-cell.metrics { grid-column: span 2; }
   .dash-cell.action { display: none; }
 }
+
+/* ============ 侧边栏 API Key 入口 ============ */
+.keys-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+/* ============ API Key 管理页 ============ */
+.keys-page {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+.keys-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.keys-title { margin: 0; font-size: 24px; letter-spacing: 0.01em; }
+.keys-sub { margin: 6px 0 0; color: var(--muted); font-size: 13.5px; }
+.keys-sub code {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.keys-back { flex: none; text-decoration: none; }
+
+.keys-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: var(--card-shadow);
+  margin-bottom: 20px;
+}
+.keys-card-title { margin: 0 0 16px; font-size: 15px; color: var(--text-secondary); font-weight: 600; }
+
+.keys-form { display: flex; gap: 10px; }
+.keys-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 9px 13px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+.keys-input::placeholder { color: var(--placeholder); }
+.keys-input:focus { border-color: var(--teal-border); background: var(--input-focus-bg); }
+
+.keys-secret { margin-top: 16px; }
+.keys-secret-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.keys-secret-badge {
+  background: var(--ok-bg);
+  border: 1px solid var(--ok-border);
+  color: var(--ok-text);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+.keys-secret-tip { color: var(--red); font-size: 12.5px; }
+.keys-secret-value {
+  display: block;
+  background: var(--input-bg);
+  border: 1px solid var(--ok-border);
+  border-radius: 10px;
+  padding: 13px 15px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: var(--ok-text);
+  word-break: break-all;
+  user-select: all;
+}
+
+.keys-table-wrap { overflow-x: auto; }
+.keys-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.keys-table th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.keys-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--row-border);
+  vertical-align: middle;
+}
+.keys-table tbody tr:last-child td { border-bottom: none; }
+.keys-col-actions { text-align: right; }
+.keys-name { font-weight: 600; }
+.keys-meta { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+.keys-empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 44px 16px !important;
+}
+
+.keys-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.keys-badge.on { background: var(--ok-bg); border: 1px solid var(--ok-border); color: var(--ok-text); }
+.keys-badge.off { background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn-text); }
+
+.keys-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.keys-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  padding: 4px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.keys-btn:hover { border-color: var(--border-hover); color: var(--text); }
+.keys-btn.danger { color: var(--red); border-color: var(--danger-border); }
+.keys-btn.danger:hover { background: var(--warn-bg); }
+
+@media (max-width: 640px) {
+  .keys-header { align-items: flex-start; flex-direction: column; }
+  .keys-form { flex-direction: column; }
+}

@@ -6,77 +6,52 @@
   <title>API Key 管理 · TQ Hub</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/style.css">
-  <style>
-    .keys-container { max-width: 900px; margin: 40px auto; padding: 0 20px; }
-    .keys-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .keys-header h1 { margin: 0; font-size: 24px; }
-    .keys-table { width: 100%; border-collapse: collapse; background: var(--card-bg); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .keys-table th { background: var(--bg-secondary); padding: 12px; text-align: left; font-weight: 600; font-size: 13px; color: var(--text-secondary); }
-    .keys-table td { padding: 12px; border-top: 1px solid var(--border); font-size: 14px; }
-    .keys-table tr:hover { background: var(--bg-hover); }
-    .key-name { font-weight: 500; }
-    .key-meta { color: var(--text-secondary); font-size: 12px; }
-    .key-status { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
-    .key-status.enabled { background: var(--green-bg); color: var(--green); }
-    .key-status.disabled { background: var(--red-bg); color: var(--red); }
-    .key-actions { display: flex; gap: 8px; }
-    .btn-small { padding: 4px 12px; font-size: 12px; border-radius: 4px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-primary); cursor: pointer; transition: all 0.2s; }
-    .btn-small:hover { background: var(--bg-hover); }
-    .btn-small.danger { color: var(--red); border-color: var(--red-bg); }
-    .btn-small.danger:hover { background: var(--red-bg); }
-    .generate-form { background: var(--card-bg); padding: 20px; border-radius: 8px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .generate-form h2 { margin: 0 0 16px 0; font-size: 18px; }
-    .form-row { display: flex; gap: 12px; align-items: center; }
-    .form-row input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary); }
-    .form-row button { padding: 8px 16px; }
-    .secret-display { background: var(--bg-secondary); padding: 16px; border-radius: 4px; margin-top: 16px; border-left: 3px solid var(--green); display: none; }
-    .secret-display.show { display: block; }
-    .secret-display h3 { margin: 0 0 8px 0; font-size: 14px; color: var(--green); }
-    .secret-value { font-family: monospace; font-size: 13px; word-break: break-all; background: var(--bg-primary); padding: 12px; border-radius: 4px; user-select: all; }
-    .secret-warning { color: var(--red); font-size: 12px; margin-top: 8px; }
-    .back-link { color: var(--text-secondary); text-decoration: none; font-size: 14px; }
-    .back-link:hover { color: var(--text-primary); }
-    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
-    .toast { position: fixed; top: 20px; right: 20px; background: var(--card-bg); color: var(--text-primary); padding: 12px 20px; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none; z-index: 1000; }
-    .toast.show { display: block; animation: slideIn 0.3s; }
-    @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-  </style>
 </head>
 <body>
   <div id="toast" class="toast"></div>
-  <div class="keys-container">
-    <div class="keys-header">
-      <h1>🔑 API Key 管理</h1>
-      <a href="/" class="back-link">← 返回首页</a>
-    </div>
+  <div class="keys-page">
+    <header class="keys-header">
+      <div>
+        <h1 class="keys-title">API Key 管理</h1>
+        <p class="keys-sub">用于 <code>run-with-hub.sh</code> 直传 CSV 的鉴权凭证，密钥只在创建时显示一次。</p>
+      </div>
+      <a href="/" class="secondary keys-back">← 返回首页</a>
+    </header>
 
-    <div class="generate-form">
-      <h2>生成新 Key</h2>
-      <div class="form-row">
-        <input type="text" id="keyName" placeholder="Key 名称（例如：服务器A）" maxlength="50">
+    <section class="keys-card">
+      <h2 class="keys-card-title">生成新 Key</h2>
+      <div class="keys-form">
+        <input id="keyName" class="keys-input" type="text" placeholder="Key 名称（例如：服务器A）" maxlength="50" autocomplete="off">
         <button id="generateBtn" class="primary" type="button">生成</button>
       </div>
-      <div id="secretDisplay" class="secret-display">
-        <h3>✅ Key 已生成（请立即复制保存）</h3>
-        <div class="secret-value" id="secretValue"></div>
-        <div class="secret-warning">⚠️ 这是唯一一次显示 secret，之后无法再查看。请妥善保存。</div>
+      <div id="secretDisplay" class="keys-secret" hidden>
+        <div class="keys-secret-head">
+          <span class="keys-secret-badge">✔ 已生成</span>
+          <span class="keys-secret-tip">仅此一次显示，请立即复制保存</span>
+        </div>
+        <code class="keys-secret-value" id="secretValue"></code>
       </div>
-    </div>
+    </section>
 
-    <table class="keys-table">
-      <thead>
-        <tr>
-          <th>名称</th>
-          <th>状态</th>
-          <th>创建时间</th>
-          <th>最后使用</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody id="keysList">
-        <tr><td colspan="5" class="empty-state">加载中...</td></tr>
-      </tbody>
-    </table>
+    <section class="keys-card">
+      <h2 class="keys-card-title">已有密钥</h2>
+      <div class="keys-table-wrap">
+        <table class="keys-table">
+          <thead>
+            <tr>
+              <th>名称</th>
+              <th>状态</th>
+              <th>创建时间</th>
+              <th>最后使用</th>
+              <th class="keys-col-actions">操作</th>
+            </tr>
+          </thead>
+          <tbody id="keysList">
+            <tr><td colspan="5" class="keys-empty">加载中…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
 
   <script src="/theme.js"></script>
