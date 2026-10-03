@@ -221,6 +221,7 @@
 .hidden { display: none !important; }
 
 html, body { height: 100%; }
+/* 主界面由侧栏与内容区各自滚动，body 不滚；独立页面（节点管理、API Key、登录）是普通长页面，需要恢复滚动 */
 body {
   margin: 0;
   background: var(--bg);
@@ -1756,6 +1757,7 @@ input:focus, select:focus {
 }
 
 /* ============ 登录页面 ============ */
+body.sub-body, body.login-body { overflow-y: auto; }
 .login-body {
   display: grid;
   place-items: center;
