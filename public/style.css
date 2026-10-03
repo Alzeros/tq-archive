@@ -529,20 +529,25 @@ button.danger:disabled { opacity: .5; cursor: not-allowed; }
   align-items: center;
   gap: 8px;
   min-width: 0;
+  flex: 1;
+}
+.node-name-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 .node-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   flex: none;
+  margin: 0 2px;
   transition: background .2s ease;
 }
 .node-dot.active {
   background: var(--green);
-  box-shadow: 0 0 8px var(--green);
+  box-shadow: 0 0 6px var(--green);
 }
 .node-dot.idle {
   background: var(--muted);
