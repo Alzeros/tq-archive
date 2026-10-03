@@ -52,6 +52,14 @@ async function body(request) {
   for await (const chunk of request) { text += chunk; if (text.length > 10000) throw new Error('请求过大'); }
   return JSON.parse(text || '{}');
 }
+async function rawBody(request, limit = 4 * 1024 * 1024) {
+  let text = '';
+  for await (const chunk of request) {
+    text += chunk;
+    if (text.length > limit) throw new Error('请求过大');
+  }
+  return text;
+}
 async function downloadReport(input) {
   const url = new URL(input);
   if (url.origin !== 'https://tcpquality.ibsgss.uk' || url.username || url.password || !/^\/r\/[A-Za-z0-9_-]+\/?$/.test(url.pathname)) throw new Error('请填写 tcpquality.ibsgss.uk/r/… 格式的报告链接');
@@ -130,6 +138,23 @@ const server = http.createServer(async (request, response) => {
       const report = store.insert(nodeId, preview.parsed, preview.html);
       previews.delete(token);
       return send(response, 201, summary(report));
+    }
+    if (request.method === 'POST' && url.pathname === '/api/upload-csv') {
+      // 由服务器上跑的 runTcpQuality.sh 直传过来：Content-Type 必须是 text/csv
+      // 现在先只落盘，不做解析 → 之后可以在其他页里挑/绑节点
+      const ctype = request.headers['content-type'] || '';
+      if (!/text\/csv|text\/plain|application\/octet-stream/i.test(ctype)) {
+        return send(response, 400, { error: '请使用 text/csv 上传，勿用 JSON' });
+      }
+      const csv = await rawBody(request);
+      // Basique sanity check：至少要看到「网络,IP版本,省份,运营商」这行头，避免误传
+      if (!/^﻿?网络,IP版本,省份,运营商/.test(csv.slice(0, 100))) {
+        return send(response, 400, { error: 'CSV 头部不匹配，可能不是 TcpQuality 输出' });
+      }
+      // 给这个 csv 一个唯一 ID 并存到 csv-pool（不复用 detailPath，让 original imported JSONs 李下完全清晰）
+      const id = randomUUID();
+      await store.write('csv-pool', `${id}.csv`, csv);
+      return send(response, 202, { id, filename: `${id}.csv`, bytes: csv.length, status: 'queued' });
     }
     if (request.method === 'GET' && url.pathname === '/api/compare') {
       const current = store.detail(url.searchParams.get('current'));
