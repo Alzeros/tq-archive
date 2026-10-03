@@ -8,6 +8,7 @@ import { loadProbeNodes } from './lib/probe.mjs';
 import { createStore } from './lib/store.mjs';
 import { summarize } from './lib/insight.mjs';
 import { createAuth } from './lib/auth.mjs';
+import { listKeys, getKey, createKey, updateKey, deleteKey, touchKey } from './lib/keys.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const store = createStore(process.env.DATA_DIR || join(root, 'data'));
@@ -140,13 +141,19 @@ const server = http.createServer(async (request, response) => {
       return send(response, 201, summary(report));
     }
     if (request.method === 'POST' && url.pathname === '/api/upload-csv') {
-      // 校验 API Key：没配 AUTH_KEY 时放行（本地用），配了就要 & 必须正确
-      if (process.env.AUTH_KEY) {
-        const key = request.headers['x-tq-key'];
-        if (typeof key !== 'string' || key.trim() !== process.env.AUTH_KEY) {
-          return send(response, 401, { error: 'API Key 错误或缺失' });
-        }
+      // 校验 API Key：从 data/keys.json 里查
+      const key = request.headers['x-tq-key'];
+      if (!key || typeof key !== 'string') {
+        return send(response, 401, { error: 'API Key 缺失' });
       }
+      const keyRecord = getKey(key.trim());
+      if (!keyRecord) {
+        return send(response, 401, { error: 'API Key 错误' });
+      }
+      if (!keyRecord.enabled) {
+        return send(response, 401, { error: '该 API Key 已被禁用' });
+      }
+      touchKey(keyRecord.id); // 更新 lastUsedAt
 
       // 由服务器上跑的 runTcpQuality.sh 直传过来：Content-Type 必须是 text/csv
       const ctype = request.headers['content-type'] || '';
@@ -162,6 +169,77 @@ const server = http.createServer(async (request, response) => {
       const id = randomUUID();
       await store.write('csv-pool', `${id}.csv`, csv);
       return send(response, 202, { id, filename: `${id}.csv`, bytes: csv.length, status: 'queued' });
+    }
+
+    // ─── API Key 管理接口（仅登录用户可用）─────────────────────────────
+    if (url.pathname === '/api/keys') {
+      const session = auth.currentSession(request);
+      if (!session.ok) return send(response, 401, { error: '请先登录' });
+
+      if (request.method === 'GET') {
+        const keys = listKeys().map(k => ({
+          id: k.id,
+          name: k.name,
+          enabled: k.enabled,
+          createdAt: k.createdAt,
+          lastUsedAt: k.lastUsedAt
+          // 注意：不返回 secret
+        }));
+        return send(response, 200, { keys });
+      }
+
+      if (request.method === 'POST') {
+        const { name } = await body(request);
+        if (!name || typeof name !== 'string' || !name.trim()) {
+          return send(response, 400, { error: '请填写 Key 名称' });
+        }
+        const newKey = createKey(name.trim());
+        // 只在创建时返回 secret，之后永远看不到
+        return send(response, 201, {
+          id: newKey.id,
+          name: newKey.name,
+          secret: newKey.secret, // 仅此一次显示
+          enabled: newKey.enabled,
+          createdAt: newKey.createdAt
+        });
+      }
+
+      return send(response, 405, { error: 'Method Not Allowed' });
+    }
+
+    const keyMatch = url.pathname.match(/^\/api\/keys\/([a-f\d-]+)$/);
+    if (keyMatch) {
+      const session = auth.currentSession(request);
+      if (!session.ok) return send(response, 401, { error: '请先登录' });
+      const id = keyMatch[1];
+
+      if (request.method === 'PATCH') {
+        const updates = await body(request);
+        // 只允许改 name 和 enabled
+        const allowed = {};
+        if (updates.name !== undefined) allowed.name = String(updates.name).trim();
+        if (updates.enabled !== undefined) allowed.enabled = Boolean(updates.enabled);
+        if (Object.keys(allowed).length === 0) {
+          return send(response, 400, { error: '没有可更新的字段' });
+        }
+        const updated = updateKey(id, allowed);
+        if (!updated) return send(response, 404, { error: 'Key 不存在' });
+        return send(response, 200, {
+          id: updated.id,
+          name: updated.name,
+          enabled: updated.enabled,
+          createdAt: updated.createdAt,
+          lastUsedAt: updated.lastUsedAt
+        });
+      }
+
+      if (request.method === 'DELETE') {
+        const deleted = deleteKey(id);
+        if (!deleted) return send(response, 404, { error: 'Key 不存在' });
+        return send(response, 200, { id, deleted: true });
+      }
+
+      return send(response, 405, { error: 'Method Not Allowed' });
     }
     if (request.method === 'GET' && url.pathname === '/api/compare') {
       const current = store.detail(url.searchParams.get('current'));
@@ -200,6 +278,8 @@ const server = http.createServer(async (request, response) => {
       '/picker.js': ['picker.js', 'text/javascript'],
       '/login': ['login.html', 'text/html'],
       '/login.js': ['login.js', 'text/javascript'],
+      '/keys.html': ['keys.html', 'text/html'],
+      '/keys.js': ['keys.js', 'text/javascript'],
       '/favicon.svg': ['favicon.svg', 'image/svg+xml']
     };
     const asset = assets[url.pathname];
