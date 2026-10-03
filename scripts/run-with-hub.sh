@@ -73,27 +73,20 @@ STATUS="${PIPESTATUS[0]}"
 set -e
 
 # ─── 收尾：找到 CSV 并上传 ───────────────────────────────────────────────
-# 抓最近的 zstatic_nping_* 目录，stdout 的 grep 可能被 ANSI 搅乱
-RESULT_DIR=""
-if [ -d /tmp ]; then
-  for d in /tmp/zstatic_nping_*; do
-    [ -d "$d" ] || continue
-    ts=$(stat -c %Y "$d" 2>/dev/null || stat -f %m "$d" 2>/dev/null || echo 0)
-    entry="$ts $d"
-    if [ -z "$RESULT_DIR" ] || [ "$entry" \> "$RESULT_DIR" ]; then
-      RESULT_DIR="$entry"
-    fi
-  done
-  RESULT_DIR=$(echo "$RESULT_DIR" | awk '{print $2}')
-fi
-
+# core 写的是单个 CSV 文件 /tmp/zstatic_nping_<时间戳>.csv。按修改时间取最新。
 CSV_PATH=""
-if [ -n "$RESULT_DIR" ]; then
-  CSV_PATH="$RESULT_DIR/$(basename "$RESULT_DIR").csv"
-fi
+LATEST_TS=0
+for f in /tmp/zstatic_nping_*.csv; do
+  [ -f "$f" ] || continue
+  ts=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)
+  # 同秒则文件名 z 序更大者
+  if [ "$ts" -gt "$LATEST_TS" ] || { [ "$ts" -eq "$LATEST_TS" ] && [ -n "$CSV_PATH" ] && [ "$f" \> "$CSV_PATH" ]; }; then
+    CSV_PATH="$f"; LATEST_TS="$ts"
+  fi
+done
 
-if [ -z "$RESULT_DIR" ] || [ -z "$CSV_PATH" ] || [ ! -f "$CSV_PATH" ]; then
-  echo -e "\\033[31m[TQ-Hub][X]\\033[0m 没找到 CSV 输出（$RESULT_DIR）。可能本次脚本用了 --route 未生成最终报告，或被 --no-rank-upload 跳过." >&2
+if [ -z "$CSV_PATH" ] || [ ! -f "$CSV_PATH" ]; then
+  echo -e "\\033[31m[TQ-Hub][X]\\033[0m 没找到 CSV 输出（/tmp/zstatic_nping_*.csv）。可能本次脚本用了 --route 未生成最终报告，或被 --no-rank-upload 跳过." >&2
   exit 1
 fi
 
@@ -103,7 +96,7 @@ EXIT_CODE=$?
 
 # 清理
 rm -f "$LOG"
-[ -n "$RESULT_DIR" ] && rm -rf "$RESULT_DIR"
+rm -f "$CSV_PATH"
 
 if [ "$EXIT_CODE" -eq 0 ]; then
   echo -e "\\033[36m[TQ-Hub]\\033[0m ✔️ 完成" >&2
