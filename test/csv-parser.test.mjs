@@ -55,16 +55,64 @@ test('探测失败的 0 延迟按失败处理，不被当成最优线路', () =>
   assert.ok(parse(text).warnings.some(text => text.includes('不按零处理')));
 });
 
-test('国际互联与测速行暂不入库，但保留原始行并给出提示', () => {
-  const text = [header, ...rowsOf('三网,IPv4,'),
-    '国际互联,IPv4,Google,常用网站,www.google.com,1.1.1.1,OK,15,15,0.00,2.000,TCP443',
-    '三网单线程速度,IPv4,电信,上海,1234,,OK,300,0.10,500,,,10,20,30,40'].join('\n');
+// 一次完整测试（菜单一路回车）的真实样本：三网 / 大包 / 教育网 / 国际互联 / 单线程测速都在同一份 CSV 里
+const full = readFileSync(new URL('./fixtures/tq-full.csv', import.meta.url), 'utf8');
+const find = (report, section, group, target, carrier = '') => report.records.find(record => record.section === section && record.group === group && record.target === target && record.carrier === carrier);
+const values = record => Object.fromEntries(Object.entries(record.metrics).map(([key, metric]) => [key, metric.status === 'unknown' ? null : metric.value]));
+
+test('完整 CSV 解析出五个维度，唯一提示是 IPv6 国际节点全部失败', () => {
+  const report = parse(full);
+  assert.deepEqual(report.sections.map(section => section.id), ['ipv4', 'large4', 'cernet', 'intl', 'speedtest']);
+  assert.equal(report.records.length, 290);
+  // 12 个 IPv6 国际节点 × 4 项指标均为 FAIL
+  assert.deepEqual(report.warnings, ['48 个指标为缺失、失败或未知格式，已保留原值，不按零处理']);
+});
+
+test('完整 CSV 的 key 与单位和网页报告一致：五个维度都能做变化对比', () => {
+  const fromCsv = parse(full);
+  const fromHtml = parseReport(html, 'https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM');
+  const htmlKeys = new Set(fromHtml.records.map(record => record.key));
+  // 网页样本是单栈报告，没有 IPv6 国际节点；其余每个 key 都必须对得上
+  assert.deepEqual(fromCsv.records.filter(record => !htmlKeys.has(record.key)).map(record => `${record.group}/${record.carrier}`), Array(12).fill('国际节点/IPv6'));
+  const comparable = {};
+  for (const change of compareReports(fromCsv, fromHtml)) comparable[change.section] = (comparable[change.section] || 0) + 1;
+  assert.deepEqual(comparable, { ipv4: 186, large4: 186, cernet: 62, intl: 126, speedtest: 50 });
+});
+
+test('单线程测速：上传为回程、下载为去程，延迟取 TLS 握手耗时的一半', () => {
+  const report = parse(full);
+  // 原始行：北京,电信,…,OK,492.2,0.00%,3.0,,,338,368,358,368
+  assert.deepEqual(values(find(report, 'speedtest', 'IPv4', '北京电信')), { returnRetrans: 0, returnSpeed: 492.2, outboundSpeed: 3, returnLatency: 184, outboundLatency: 184 });
+  // Apple 行字段顺序不同：发送=上传，收到=下载重传，丢包率列=下载；…,520.7,0.00%,431.0,,,5,74,4,187
+  assert.deepEqual(values(find(report, 'speedtest', '国际方向', 'Apple IPv4')), { downloadRetransRate: 0, downloadSpeed: 431, uploadSpeed: 520.7, downloadLatency: 93.5, uploadLatency: 37 });
+});
+
+test('测速失败或 TLS 缺失：速度记为未知，延迟退回连接耗时', () => {
+  const text = [header,
+    '三网单线程速度,上海,电信,上海,,,FAIL,failed,-,failed,,,300,-,-,-',
+    '三网单线程速度,IPv6,深圳移动,深圳移动,240e::1,,OK,100.5,1.20%,20.0,,,200,220,210,230'].join('\n');
   const report = parse(text);
-  assert.ok(report.records.every(record => !['intl', 'speedtest'].includes(record.section)));
-  assert.deepEqual(report.sections.map(section => section.id), ['ipv4', 'intl', 'speedtest']);
-  assert.equal(report.rawRows.intl.length, 1);
-  assert.ok(report.warnings.some(text => text.startsWith('国际互联 1 行暂未解析')));
-  assert.ok(report.warnings.some(text => text.startsWith('单线程测速 1 行暂未解析')));
+  assert.deepEqual(values(find(report, 'speedtest', 'IPv4', '上海电信')), { returnRetrans: null, returnSpeed: null, outboundSpeed: null, returnLatency: 150, outboundLatency: null });
+  assert.deepEqual(values(find(report, 'speedtest', 'IPv6', '深圳移动')), { returnRetrans: 1.2, returnSpeed: 100.5, outboundSpeed: 20, returnLatency: 110, outboundLatency: 115 });
+});
+
+test('国际节点的上传、下载两行合并成一条，IPv6 单独成行', () => {
+  const report = parse(full);
+  assert.deepEqual(values(find(report, 'intl', '国际节点', '加拿大-蒙特利尔', 'IPv4')), { downloadLatency: 62.6, downloadRetrans: 0, uploadLatency: 62.5, uploadRetrans: 0 });
+  assert.deepEqual(values(find(report, 'intl', '国际节点', '加拿大-蒙特利尔', 'IPv6')), { downloadLatency: null, downloadRetrans: null, uploadLatency: null, uploadRetrans: null });
+  const duplicate = parse([header,
+    '国际互联,IPv4,香港,延迟,hk.example,1.1.1.1,OK,0,0,0.00,146.000,iPerf3,亚洲,asia,,,0,upload',
+    '国际互联,IPv4,香港,延迟,hk.example,1.1.1.1,OK,0,0,0.00,150.000,iPerf3,亚洲,asia,,,0,upload'].join('\n'));
+  assert.equal(find(duplicate, 'intl', '国际节点', '香港', 'IPv4').metrics.uploadLatency.value, 146);
+  assert.ok(duplicate.warnings.some(text => text.includes('上传方向出现重复记录')));
+});
+
+test('网站与 CDN：可达性按状态标记，延迟保留 CSV 原精度', () => {
+  const report = parse([header,
+    '国际互联,IPv4,Adobe Assets,网站,assets.adobe.com,1.1.1.1,OK,30,30,0.00,2.180,TCP443',
+    '国际互联,IPv4,Akamai Edge,CDN,a.example,1.1.1.1,FAIL,15,0,100.00,0.000,TCP443'].join('\n'));
+  assert.deepEqual(values(find(report, 'intl', '常用网站', 'Adobe Assets')), { domain: 'assets.adobe.com', reachable: '✓', latency: 2.18, retrans: 0 });
+  assert.deepEqual(values(find(report, 'intl', '常用 CDN', 'Akamai Edge')), { domain: 'a.example', reachable: '✗', latency: null, retrans: 100 });
 });
 
 test('BOM 与换行风格不影响指纹：同一份数据重传能被识别', () => {
@@ -73,8 +121,8 @@ test('BOM 与换行风格不影响指纹：同一份数据重传能被识别', (
   assert.equal(parse(csv).fingerprint, csvFingerprint(crlf));
 });
 
-test('没有回程数据、缺列、缺测试时间时拒绝解析', () => {
-  assert.throws(() => parse([header, '三网单线程速度,IPv4,电信,上海,1234,,OK,300,0.10,500,,'].join('\n')), /没有可解析的回程数据/);
+test('没有可识别的数据、缺列、缺测试时间时拒绝解析', () => {
+  assert.throws(() => parse([header, '未知类型,IPv4,河北,电信,x,,OK,1,1,0,1,'].join('\n')), /没有可解析的数据/);
   assert.throws(() => parse('网络,IP版本,省份\n三网,IPv4,河北'), /缺少/);
   assert.throws(() => parseTqCsv(csv, { ...meta, testedAt: '' }), /测试时间/);
 });

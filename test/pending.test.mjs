@@ -103,3 +103,20 @@ test('旧数据库没有队列字段时自动补齐，不影响已有报告', ()
   store.addPending(entry(), csv);
   assert.equal(JSON.parse(readFileSync(join(directory, 'database.json'), 'utf8')).pending.length, 1);
 });
+
+test('解析规则升级后可批量替换报告明细与待绑定条目，索引同步更新', () => {
+  const { store } = setup();
+  store.addPending(entry(), csv);
+  const report = store.bindPending(ID, 'a', parsed(), csv);
+  const upgraded = { ...store.detail(report.id), csvParserVersion: 99, records: store.detail(report.id).records.slice(0, 10) };
+  store.refreshReports([upgraded]);
+  assert.equal(store.database.reports[0].csvParserVersion, 99);
+  assert.equal(store.database.reports[0].recordCount, 10);
+  assert.equal(store.detail(report.id).records.length, 10);
+  assert.equal(store.database.reports[0].nodeId, 'a', '归属不能因重新解析丢失');
+
+  const other = '1c6d4b4f-2222-4333-8444-a55566667777';
+  store.addPending({ ...entry(other), fingerprint: 'x' }, csv);
+  store.refreshPending([{ ...entry(other), fingerprint: 'x', recordCount: 7 }]);
+  assert.equal(store.database.pending[0].recordCount, 7);
+});

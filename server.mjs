@@ -9,7 +9,7 @@ import { createStore } from './lib/store.mjs';
 import { summarize } from './lib/insight.mjs';
 import { createAuth } from './lib/auth.mjs';
 import { listKeys, getKey, createKey, updateKey, deleteKey, touchKey } from './lib/keys.mjs';
-import { parseTqCsv, csvFingerprint } from './lib/csv-parser.mjs';
+import { parseTqCsv, csvFingerprint, CSV_PARSER_VERSION } from './lib/csv-parser.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const store = createStore(process.env.DATA_DIR || join(root, 'data'));
@@ -94,7 +94,7 @@ function reportTime(epochHeader, fallbackMs) {
 // 解析失败也照样排队：原始 CSV 比一条报错更有价值，界面上会说明原因
 function pendingEntry(id, csv, meta) {
   const identity = [meta.hostname, meta.sourceIp].filter(Boolean).join(' · ');
-  const base = { ...meta, id, identity, bytes: Buffer.byteLength(csv), fingerprint: csvFingerprint(csv) };
+  const base = { ...meta, id, identity, bytes: Buffer.byteLength(csv), fingerprint: csvFingerprint(csv), csvParserVersion: CSV_PARSER_VERSION };
   try {
     const parsed = parseTqCsv(csv, { sourceUrl: `csv:${id}`, testedAt: meta.testedAt, identity });
     const { cards } = summarize(parsed);
@@ -379,6 +379,19 @@ const server = http.createServer(async (request, response) => {
 for (const orphan of store.orphanPoolFiles()) {
   store.addPending(pendingEntry(orphan.id, orphan.csv, { receivedAt: new Date(orphan.mtimeMs).toISOString(), testedAt: beijingIso(orphan.mtimeMs), timeSource: 'upload', hostname: '', sourceIp: '', keyName: '', filename: '' }), orphan.csv);
 }
+// 解析规则升级后，用留存的原始 CSV 重新解析已有直传报告：之前没解析的维度自动补齐，不必删掉重传
+const pendingMeta = item => ({ receivedAt: item.receivedAt, testedAt: item.testedAt, timeSource: item.timeSource, hostname: item.hostname, sourceIp: item.sourceIp, keyName: item.keyName, filename: item.filename });
+const staleReports = [];
+for (const index of store.database.reports.filter(item => item.sourceType === 'csv' && (item.csvParserVersion || 0) < CSV_PARSER_VERSION)) {
+  try {
+    const old = store.detail(index.id);
+    const parsed = parseTqCsv(store.raw(index.id).content, { sourceUrl: old.sourceUrl, testedAt: old.testedAt, identity: old.identity });
+    staleReports.push({ ...parsed, id: old.id, nodeId: old.nodeId, rawExt: old.rawExt, upload: old.upload, importedAt: old.importedAt });
+  } catch (error) { console.warn(`直传报告 ${index.id} 重新解析失败，保留原结果：${error.message}`); }
+}
+if (staleReports.length) { store.refreshReports(staleReports); console.log(`已按新规则重新解析 ${staleReports.length} 份直传报告`); }
+const stalePending = store.database.pending.filter(item => (item.csvParserVersion || 0) < CSV_PARSER_VERSION);
+if (stalePending.length) store.refreshPending(stalePending.map(item => pendingEntry(item.id, store.pendingCsv(item.id), pendingMeta(item))));
 server.listen(port, '127.0.0.1', () => {
   if (auth.enabled) console.log(`TQ Archive running at http://127.0.0.1:${port} (登录已启用，用户名 ${process.env.AUTH_USER})`);
   else console.log(`TQ Archive running at http://127.0.0.1:${port} (未配置账号，本机免登录；公网部署请设置 AUTH_USER / AUTH_PASSWORD)`);
