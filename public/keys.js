@@ -167,4 +167,42 @@ async function generateKey() {
 $('generateBtn').addEventListener('click', generateKey);
 $('keyName').addEventListener('keypress', e => { if (e.key === 'Enter') generateKey(); });
 
+// 整库备份：直接走浏览器下载，服务端一次性打好包（数据量在几十 MB 级，不必分片）。
+// 用 <a download> 而不是 window.open，避免被拦截成弹窗。
+async function exportBackup() {
+  const btn = $('exportBtn');
+  const state = $('exportState');
+  btn.disabled = true;
+  state.textContent = '正在打包…';
+  try {
+    const response = await fetch('/api/export');
+    if (response.status === 401) { location.replace('/login'); return; }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || `导出失败 (${response.status})`);
+    }
+    const blob = await response.blob();
+    // 文件名由服务端带在 Content-Disposition 里，含导出时间戳，便于同一天导出多份
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const name = disposition.match(/filename="([^"]+)"/)?.[1] || 'tq-hub-backup.tar.gz';
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    // 立刻 revoke 会让部分浏览器来不及取数据，留一点时间再释放
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    state.textContent = `已导出 ${name}（${(blob.size / 1024 / 1024).toFixed(2)} MB）`;
+    showToast('备份已开始下载，请存放到可信位置');
+  } catch (err) {
+    state.textContent = '';
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+$('exportBtn').addEventListener('click', exportBackup);
+
 loadKeys();

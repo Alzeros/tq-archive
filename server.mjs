@@ -12,9 +12,11 @@ import { significance, isSignificantChange } from './lib/thresholds.mjs';
 import { createAuth } from './lib/auth.mjs';
 import { listKeys, getKey, createKey, updateKey, deleteKey, touchKey, scopeOf, authorizeKey, keysLoadError, backupBrokenKeys } from './lib/keys.mjs';
 import { parseTqCsv, csvFingerprint, CSV_PARSER_VERSION } from './lib/csv-parser.mjs';
+import { packDirectory } from './lib/backup.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
-const store = createStore(process.env.DATA_DIR || join(root, 'data'));
+const dataDir = process.env.DATA_DIR || join(root, 'data');
+const store = createStore(dataDir);
 const previews = new Map();
 const port = Number(process.env.PORT || 4173);
 // 反代后浏览器发送的 Host 不含端口（标准 443/80），而本机直连带端口。
@@ -437,6 +439,41 @@ const server = http.createServer(async (request, response) => {
         return response.end(csv);
       }
       return send(response, 404, { error: '接口不存在' });
+    }
+
+    // ─── 整库备份导出（仅登录用户可用）─────────────────────────────────
+    // 这个工具的全部价值就是 data/ 里累积的历史，而在此之前唯一的备份手段是
+    // 手工 tar 整个目录。打包成 tar.gz 一次下载走，恢复就是解开覆盖 data/。
+    if (request.method === 'GET' && url.pathname === '/api/export') {
+      if (!session.ok) return send(response, 401, { error: '请先登录' });
+      const keys = listKeys();
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      const manifest = [
+        'TQ Hub 数据备份',
+        `导出时间：${new Date().toISOString()}`,
+        `报告数：${store.database.reports.length}`,
+        `节点数：${store.database.nodes.length}`,
+        `待绑定：${store.database.pending.length}`,
+        `API Key：${keys.length}（data/keys.json 内为明文 secret）`,
+        '',
+        '恢复方式：停掉服务，用本归档里的 data/ 覆盖目标机的 data/ 目录后重启。',
+        '目录说明：',
+        '  data/database.json  索引（节点、报告元信息、待绑定队列）',
+        '  data/reports/       每份报告的结构化明细，按 id 一文件',
+        '  data/raw/           原始报告 HTML / 上传的 CSV，解析规则升级后靠它重解析',
+        '  data/csv-pool/      尚未绑定节点的直传 CSV',
+        '  data/keys.json      脚本直传用的 API Key（明文），含上传与只读两种权限',
+        '',
+        '注意：归档内含 API Key 明文，以及待绑定队列里的主机名与出口 IP，不要外传。'
+      ].join('\n');
+      const archive = packDirectory(dataDir, [{ name: 'README-备份说明.txt', content: manifest }]);
+      response.writeHead(200, {
+        'Content-Type': 'application/gzip',
+        'Content-Disposition': `attachment; filename="tq-hub-backup-${stamp}.tar.gz"`,
+        'Content-Length': archive.length,
+        'Cache-Control': 'no-store'
+      });
+      return response.end(archive);
     }
 
     // ─── API Key 管理接口（仅登录用户可用）─────────────────────────────

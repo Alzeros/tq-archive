@@ -61,6 +61,21 @@
         </table>
       </div>
     </section>
+
+    <section class="sub-card">
+      <h2 class="sub-card-title">数据备份</h2>
+      <p class="keys-hint">
+        这个工具的全部价值就是 <code>data/</code> 里累积的历史：节点、报告明细、原始 HTML / CSV、待绑定队列与 API Key。
+        整库打包成 <code>tar.gz</code> 一次下载走，恢复就是把归档里的 <code>data/</code> 覆盖回目标机。
+      </p>
+      <div class="keys-form">
+        <button id="exportBtn" class="primary" type="button">导出整库备份 (.tar.gz)</button>
+        <span id="exportState" class="keys-hint"></span>
+      </div>
+      <p class="keys-hint keys-warn">
+        ⚠ 归档内含 <strong>API Key 明文</strong>，以及待绑定队列里的<strong>主机名与出口 IP</strong>。请只存放在可信位置，不要外传或提交到代码仓库。
+      </p>
+    </section>
   </div>
 
   <script src="/keys.js"></script>

@@ -109,6 +109,26 @@ curl -H "X-Tq-Key: $READ_KEY" 'https://你的域名/api/stats?group=carrier'
 - **国际互联用独立的全局档**：它测的是到全球 12 个节点的延迟，量级由目标分布决定，与机房离中国多远无关（各实测区域 p50 都在 140–180ms）。
 - 原始 HTML 一并留存，便于回溯核对；解析规则升级后启动时会自动重解析（HTML 与 CSV 各自按版本号判断）。
 
+## 备份与恢复
+
+这个工具的全部价值就是 `data/` 里累积的历史：节点、报告明细、原始 HTML / CSV、待绑定队列与 API Key。**API Key 管理页底部的「数据备份」**把整个 `data/` 打成 `tq-hub-backup-<时间>.tar.gz` 一次下载走（登录用户专用）：
+
+```bash
+# 也可以直接调接口，拿到归档文件
+curl -b cookie.txt -o backup.tar.gz https://你的域名/api/export
+```
+
+归档内的 `README-备份说明.txt` 记录了报告数、Key 数与目录含义。恢复就是把归档里的 `data/` 覆盖回目标机后重启：
+
+```bash
+sudo systemctl stop tq-archive
+tar -xzf tq-hub-backup-2026-10-05-04-41-28.tar.gz --strip-components=0 -C /tmp/restore
+sudo rsync -a --delete /tmp/restore/data/ /opt/tq-archive/data/
+sudo systemctl start tq-archive
+```
+
+> ⚠ 归档内含 **API Key 明文**（`data/keys.json`），以及待绑定队列里的**主机名与出口 IP**。请只存放在可信位置，不要外传或提交到代码仓库。想分享数据副本给别人分析，用只读 Key 调 `/api/reports` 或 `/api/stats`，不要给整库归档。
+
 ## 结构
 
 | 文件 | 作用 |
