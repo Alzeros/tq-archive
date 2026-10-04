@@ -15,7 +15,7 @@
     <header class="sub-header">
       <div>
         <h1 class="sub-title">API Key 管理</h1>
-        <p class="sub-desc">用于 <code>run-with-hub.sh</code> 直传 CSV 的鉴权凭证，密钥只在创建时显示一次。</p>
+        <p class="sub-desc">用于 <code>run-with-hub.sh</code> 直传 CSV 与自动化读取的鉴权凭证，明文保存、随时可查看复制。</p>
       </div>
       <a href="/" class="button ghost sub-back">← 返回首页</a>
     </header>
@@ -34,7 +34,7 @@
       <div id="secretDisplay" class="keys-secret" hidden>
         <div class="keys-secret-head">
           <span class="keys-secret-badge">✔ 已生成</span>
-          <span class="keys-secret-tip">仅此一次显示，请立即复制保存</span>
+          <span class="keys-secret-tip">密钥已加入下方列表，可随时查看复制</span>
         </div>
         <code class="keys-secret-value" id="secretValue"></code>
       </div>
@@ -48,6 +48,7 @@
             <tr>
               <th>名称</th>
               <th>权限</th>
+              <th>密钥</th>
               <th>状态</th>
               <th>创建时间</th>
               <th>最后使用</th>
@@ -55,7 +56,7 @@
             </tr>
           </thead>
           <tbody id="keysList">
-            <tr><td colspan="5" class="keys-empty">加载中…</td></tr>
+            <tr><td colspan="7" class="keys-empty">加载中…</td></tr>
           </tbody>
         </table>
       </div>

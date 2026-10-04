@@ -2005,6 +2005,9 @@ body.sub-body, body.login-body { overflow-y: auto; }
 .keys-badge.read { background: var(--info-bg); border: 1px solid var(--info-border); color: var(--info-text); }
 .keys-badge.up { background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); }
 .keys-hint { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+.keys-secret-cell { min-width: 300px; }
+.keys-secret-cell code { font-size: 11.5px; word-break: break-all; background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; color: var(--text); display: inline-block; vertical-align: middle; }
+.keys-secret-cell button { margin-left: 6px; }
 
 .keys-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .sub-btn {

@@ -335,14 +335,16 @@ const server = http.createServer(async (request, response) => {
       if (!session.ok) return send(response, 401, { error: '请先登录' });
 
       if (request.method === 'GET') {
+        // secret 一并返回：单用户自用、明文落盘，"只显示一次"没有对应的存储机制支撑，只会添麻烦。
+        // 将来开放多用户时再改成哈希存储 + 创建时仅显示一次。
         const keys = listKeys().map(k => ({
           id: k.id,
           name: k.name,
           scope: scopeOf(k),
+          secret: k.secret,
           enabled: k.enabled,
           createdAt: k.createdAt,
           lastUsedAt: k.lastUsedAt
-          // 注意：不返回 secret
         }));
         return send(response, 200, { keys });
       }
@@ -354,12 +356,11 @@ const server = http.createServer(async (request, response) => {
         }
         // 缺省 upload：老脚本不带 scope 字段，行为不变
         const newKey = createKey(name.trim(), scope === 'read' ? 'read' : 'upload');
-        // 只在创建时返回 secret，之后永远看不到
         return send(response, 201, {
           id: newKey.id,
           name: newKey.name,
           scope: newKey.scope,
-          secret: newKey.secret, // 仅此一次显示
+          secret: newKey.secret,
           enabled: newKey.enabled,
           createdAt: newKey.createdAt
         });

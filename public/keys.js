@@ -19,6 +19,20 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// clipboard API 只在安全上下文可用（https / localhost）；http 裸 IP 访问时退回 execCommand
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch {}
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;opacity:0';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch {}
+  ta.remove();
+  return ok;
+}
+
 function formatDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -42,7 +56,7 @@ async function loadKeys() {
   } catch (err) {
     if (err.message !== '未登录') {
       console.error('加载 keys 失败:', err);
-      $('keysList').innerHTML = '<tr><td colspan="6" class="keys-empty">加载失败，请刷新重试</td></tr>';
+      $('keysList').innerHTML = '<tr><td colspan="7" class="keys-empty">加载失败，请刷新重试</td></tr>';
     }
   }
 }
@@ -50,13 +64,14 @@ async function loadKeys() {
 function renderKeys(keys) {
   const tbody = $('keysList');
   if (!keys.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="keys-empty">还没有 API Key，点击上方「生成」创建第一个</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="keys-empty">还没有 API Key，点击上方「生成」创建第一个</td></tr>';
     return;
   }
   tbody.innerHTML = keys.map(k => `
     <tr data-id="${k.id}" data-name="${escapeHtml(k.name)}">
       <td><span class="keys-name">${escapeHtml(k.name)}</span></td>
       <td><span class="keys-badge ${k.scope === 'read' ? 'read' : 'up'}">${k.scope === 'read' ? '只读' : '上传'}</span></td>
+      <td class="keys-secret-cell"><code>${escapeHtml(k.secret)}</code><button type="button" class="sub-btn" data-act="copy" data-secret="${escapeHtml(k.secret)}">复制</button></td>
       <td><span class="keys-badge ${k.enabled ? 'on' : 'off'}">${k.enabled ? '已启用' : '已禁用'}</span></td>
       <td class="keys-meta">${formatDate(k.createdAt)}</td>
       <td class="keys-meta">${k.lastUsedAt ? formatDate(k.lastUsedAt) : '从未使用'}</td>
@@ -96,6 +111,11 @@ $('keysList').addEventListener('click', async e => {
     }
   }
 
+  if (btn.dataset.act === 'copy') {
+    const ok = await copyText(btn.dataset.secret);
+    showToast(ok ? '密钥已复制' : '复制失败，请手动选择复制', ok ? 'success' : 'error');
+  }
+
   if (btn.dataset.act === 'delete') {
     if (!confirm(`确定删除 Key「${name}」吗？删除后无法恢复。`)) return;
     try {
@@ -130,7 +150,7 @@ async function generateKey() {
     }
     const data = await res.json();
 
-    // 显示 secret（仅此一次）
+    // 生成后给醒目反馈；secret 长期保存在列表里，随时可看
     $('secretValue').textContent = data.secret || '';
     const display = $('secretDisplay');
     display.hidden = false;
@@ -138,7 +158,7 @@ async function generateKey() {
     $('keyScope').value = 'upload';
     loadKeys();
     display.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    showToast(`Key 已生成（${data.scope === 'read' ? '只读' : '上传'}），请立即复制下方密钥`, 'success');
+    showToast(`Key 已生成（${data.scope === 'read' ? '只读' : '上传'}）`, 'success');
   } catch (err) {
     if (err.message !== '未登录') showToast(err.message, 'error');
   } finally {
