@@ -43,22 +43,41 @@ bash <(curl -fsSL https://raw.githubusercontent.com/Alzeros/tq-archive/main/scri
 | 权限 | 能做什么 | 典型用途 |
 | --- | --- | --- |
 | `upload` | 仅 `POST /api/upload-csv`，往待绑定队列写 | 跑在服务器上的测试脚本 |
-| `read` | 仅 `GET /api/reports` 与 `GET /api/reports/{id}` | 自动化分析、导出数据 |
+| `read` | `GET /api/reports`、`/api/reports/{id}`、`/api/stats` | 自动化分析、导出数据 |
 
 - **权限精确匹配**：上传 key 读不到任何报告数据，只读 key 也上传不了、关不掉节点、碰不到 Key 管理。
 - 存量 key 没有权限字段，一律按 `upload` 处理 —— 升级不会让脚本机上的 key 凭空多出读权限。
 - 读接口刻意只给报告数据：**不含原始 HTML/CSV、不含待绑定队列**（那里面有主机名与出口 IP）。
 - 报告明细会剔除 `rawRows`（原始行文本，占体积大头且分析用不上）；需要原始文件请从网页下载。
 
-```bash
-# 列出报告索引（节点 + 报告元信息，约 7KB）
-curl -H "X-Tq-Key: $READ_KEY" 'https://你的域名/api/reports?limit=200'
+### 聚合查询 `/api/stats`
 
-# 取单份报告的完整指标记录 + 洞察结果
-curl -H "X-Tq-Key: $READ_KEY" 'https://你的域名/api/reports/<id>'
+明细接口要拉全量才能算账（17 份就是 2MB，换来十几个数字）。聚合接口把同样的口径搬到服务端，一次请求只回几十行。
+
+```bash
+# 区域横向对比：每台机器等权，不会被"报告多的机器"带偏
+curl -H "X-Tq-Key: $READ_KEY" 'https://你的域名/api/stats?group=region'
+
+# 某区域逐机明细，含分运营商 p50
+curl -H "X-Tq-Key: $READ_KEY" 'https://你的域名/api/stats?group=node&region=HK'
+
+# 单机时间序列（不展开 byCarrier，17 份 × 3 家太吵，需要时再用 group=node 看）
+curl -H "X-Tq-Key: $READ_KEY" 'https://你的域名/api/stats?group=report&node=<id>'
+
+# 跨机器看哪家运营商整体最差
+curl -H "X-Tq-Key: $READ_KEY" 'https://你的域名/api/stats?group=carrier'
 ```
 
-支持的查询参数：`node=<节点id>` 只看某台机器、`since=<ISO时间>` 只看某时间之后、`limit=<1..500>` 限制条数（默认 200，按测试时间取最近若干份）。
+| 参数 | 取值 |
+| --- | --- |
+| `group` | `node` / `region` / `carrier` / `report`（必填） |
+| `section` | `ipv4`（默认）/ `large4` / `ipv6` / `cernet` |
+| `since` / `until` | ISO 日期，如 `2026-10-01` |
+| `node` / `region` / `carrier` | 过滤 |
+
+**汇总口径**：基本单位是**机器** —— 一台机器名下所有报告的记录倒在一起算；跨机器再汇总时每台等权（取各机器 p50 的分布），这样报告多的机器不会把区域数字带偏。每组返回延迟分位与离散度、按区域基准判出的 `level`、分运营商 p50、丢包线路数与 ≥10% 的重度条数、回程/去程速度中位数，以及 `worstMachines`（最差三台，便于下钻）。
+
+`section` 只影响延迟与丢包：丢包在 `ipv4`/`ipv6`/`cernet` 取 `loss`、在 `large4` 取 `retrans`，两者口径不同不混算；速度始终取 `speedtest` 维度，与 `section` 无关。分位用 nearest-rank（下标 `floor(n×p)`，偶数样本取偏上的那个），与网页卡片同一套算法。
 
 ## 数据口径
 

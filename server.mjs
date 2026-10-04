@@ -7,6 +7,7 @@ import { parseReport, compareReports, metricNames, PARSER_VERSION } from './lib/
 import { loadProbeNodes } from './lib/probe.mjs';
 import { createStore } from './lib/store.mjs';
 import { summarize } from './lib/insight.mjs';
+import { aggregate, bandsOf, GROUPS, SECTIONS } from './lib/stats.mjs';
 import { createAuth } from './lib/auth.mjs';
 import { listKeys, getKey, createKey, updateKey, deleteKey, touchKey, scopeOf, authorizeKey } from './lib/keys.mjs';
 import { parseTqCsv, csvFingerprint, CSV_PARSER_VERSION } from './lib/csv-parser.mjs';
@@ -183,7 +184,7 @@ const server = http.createServer(async (request, response) => {
     // 用 API Key 鉴权的接口（无 cookie），不走登录拦截；各自的 key 权限在处理函数内部校验。
     // 白名单式列举：新增鉴权接口必须显式写进来，默认仍走登录，避免误开放。
     // 只读通道只豁免 GET：匿名 DELETE /api/reports/:id 若也被豁免，会落空进登录路由照样删库。
-    const keyAuthed = (path, method) => path === '/api/upload-csv' || (method === 'GET' && (path === '/api/reports' || /^\/api\/reports\/[a-f\d-]{36}$/.test(path)));
+    const keyAuthed = (path, method) => path === '/api/upload-csv' || (method === 'GET' && (path === '/api/stats' || path === '/api/reports' || /^\/api\/reports\/[a-f\d-]{36}$/.test(path)));
     if (!session.ok && !keyAuthed(url.pathname, request.method)) {
       // 接口返回 401 由前端跳转；页面请求直接送到登录页
       if (url.pathname.startsWith('/api/')) return send(response, 401, { error: '请先登录' });
@@ -261,6 +262,58 @@ const server = http.createServer(async (request, response) => {
       touchKey(record.id);
       return send(response, 202, { status: 'pending', id: entry.id, testedAt: entry.testedAt, recordCount: entry.recordCount, sections: entry.sections.map(section => section.name), warnings: entry.warnings, error: entry.error });
     }
+    // ─── 聚合查询（需要「只读」权限的 Key）─────────────────────────────
+    // 过去回答"哪个区域/哪台机器最慢"只能把所有明细拉下来本地算：17 份就是 2MB，
+    // 换来十几个数字。这里把同样的口径搬到服务端，一次请求只回几十行。
+    // 汇总单位固定是「机器」：一台机器名下所有报告的记录倒在一起算，
+    // 跨机器再汇总时每台等权，避免报告多的机器把区域数字带偏。
+    if (request.method === 'GET' && url.pathname === '/api/stats') {
+      const { error } = apiKey(request, 'read');
+      if (error) return send(response, 401, { error });
+      const group = url.searchParams.get('group') || '';
+      if (!GROUPS.includes(group)) return send(response, 400, { error: `group 只能是 ${GROUPS.join(' / ')}` });
+      const section = url.searchParams.get('section') || 'ipv4';
+      if (!SECTIONS.includes(section)) return send(response, 400, { error: `section 只能是 ${SECTIONS.join(' / ')}` });
+      const since = url.searchParams.get('since') || '';
+      const until = url.searchParams.get('until') || '';
+      if (since && !/^\d{4}-\d{2}-\d{2}/.test(since)) return send(response, 400, { error: 'since 需为 ISO 日期' });
+      if (until && !/^\d{4}-\d{2}-\d{2}/.test(until)) return send(response, 400, { error: 'until 需为 ISO 日期' });
+      // region 过滤也要在这里做：aggregate 内部同样过滤（幂等），
+      // 但 totals 统计的是 wanted/details 的规模，少这层过滤会与 groups 口径对不上
+      const regionParam = url.searchParams.get('region') || '';
+      const wanted = store.database.reports
+        .filter(report => (since ? report.testedAt >= since : true))
+        .filter(report => (until ? report.testedAt <= until : true))
+        .filter(report => (url.searchParams.get('node') ? report.nodeId === url.searchParams.get('node') : true))
+        .filter(report => (regionParam ? store.database.nodes.find(item => item.id === report.nodeId)?.region === regionParam : true));
+      // 明细要逐份读盘：报告多了会变慢，这是明接口的固有代价，
+      // 换来的是不必把 2MB 传给客户端再在本地重复算一遍
+      const details = [];
+      for (const report of wanted) {
+        const detail = store.detail(report.id);
+        if (detail) details.push(detail);
+      }
+      const groups = aggregate({
+        nodes: store.database.nodes,
+        reports: details,
+        group,
+        section,
+        since,
+        until,
+        node: url.searchParams.get('node') || '',
+        region: url.searchParams.get('region') || '',
+        carrier: url.searchParams.get('carrier') || ''
+      });
+      return send(response, 200, {
+        group,
+        section,
+        filters: { since: since || null, until: until || null, node: url.searchParams.get('node') || null, region: url.searchParams.get('region') || null, carrier: url.searchParams.get('carrier') || null },
+        regionBands: bandsOf(),
+        totals: { nodes: new Set(details.map(report => report.nodeId)).size, reports: details.length },
+        groups
+      });
+    }
+
     // ─── 只读数据通道（需要「只读」权限的 Key）─────────────────────────
     // 给自动化分析用。刻意只给报告数据：不开放原始 HTML/CSV、Key 管理、节点开关、
     // 待绑定队列，也不接受任何写方法。上传 key 即使拿到也读不到这里。
