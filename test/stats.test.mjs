@@ -186,6 +186,22 @@ test('group=node + carrier：顶层全部换成该运营商口径（n、p50、le
   assert.equal(machine.byCarrier['联通'].min, 300, 'byCarrier 保留全分位');
 });
 
+test('group=region：丢包字段必须为数值（曾经 spread 错字段名，NaN 落进 JSON 变 null）', () => {
+  const records = [{
+    id: 'rl1', nodeId: 'n1', testedAt: '2026-10-01T00:00:00+08:00',
+    records: [
+      { section: 'ipv4', group: '国内三网', target: '广东', carrier: '电信', metrics: { latency: lat(80), loss: lat(0) } },
+      { section: 'ipv4', group: '国内三网', target: '江苏', carrier: '联通', metrics: { latency: lat(90), loss: lat(48) } }
+    ]
+  }];
+  const region = aggregate({ nodes, reports: records, group: 'region', section: 'ipv4' })[0];
+  assert.equal(region.loss.lines, 1, '有丢包的线路要数出来，不能是 null');
+  assert.equal(region.loss.worst, 48);
+  assert.equal(region.loss.severe, 1, '48% ≥10% 要计入重度');
+  assert.equal(typeof region.loss.ratio, 'number');
+  JSON.parse(JSON.stringify(region)); // NaN 会在序列化时变成 null，这一行保证上面断言的是真实数值
+});
+
 test('group=carrier：worstMachines 的 level 与展示的 p50 同口径重判', () => {
   const records = [{
     id: 'w1', nodeId: 'n1', testedAt: '2026-10-01T00:00:00+08:00',
