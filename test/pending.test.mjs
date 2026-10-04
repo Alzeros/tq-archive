@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createStore } from '../lib/store.mjs';
@@ -102,6 +102,61 @@ test('旧数据库没有队列字段时自动补齐，不影响已有报告', ()
   assert.deepEqual(store.database.pending, []);
   store.addPending(entry(), csv);
   assert.equal(JSON.parse(readFileSync(join(directory, 'database.json'), 'utf8')).pending.length, 1);
+});
+
+// 一键接受全部推荐：多台机器 × 每周一次，逐台点"绑定"是纯重复劳动。
+// 但批量操作最容易出的事就是替用户猜归属，所以没有记忆的条目必须原地不动。
+test('批量接受推荐只动有同出口记忆的条目，没记忆的留给人决定', () => {
+  const { store } = setup();
+  const known = '11111111-1111-4111-8111-111111111111';
+  const unknown = '22222222-2222-4222-8222-222222222222';
+  // 先让 'a' 记住 vps 这个出口
+  store.addPending(entry(ID), csv);
+  store.bindPending(ID, 'a', parsed(), csv);
+
+  store.addPending({ ...entry(known), fingerprint: 'fk' }, csv);
+  store.addPending({ ...entry(unknown, '另一台 · 198.51.100.1'), fingerprint: 'fu' }, csv);
+  const bound = [];
+  const skipped = [];
+  for (const item of store.database.pending) {
+    const suggestion = store.rememberedNode(item.identity);
+    if (!suggestion) { skipped.push(item.id); continue; }
+    store.bindPending(item.id, suggestion.nodeId, { ...parsed(item.id, item.identity), fingerprint: `bound-${item.id}` }, store.pendingCsv(item.id));
+    bound.push(item.id);
+  }
+  assert.deepEqual(bound, [known], '只有有记忆的那份被自动归档');
+  assert.deepEqual(skipped, [unknown], '没记忆的必须留给人决定：批量猜错会成批绑错');
+  assert.equal(store.database.pending.length, 1);
+  assert.equal(store.database.pending[0].id, unknown);
+  assert.equal(store.database.reports.find(report => report.sourceUrl === `csv:${known}`).nodeId, 'a');
+});
+
+test('批量绑定中一条失败不影响其余条目', () => {
+  const { directory, store } = setup();
+  store.addPending(entry(ID), csv);
+  store.bindPending(ID, 'a', parsed(), csv);
+  const brokenId = '33333333-3333-4333-8333-333333333333';
+  const goodId = '44444444-4444-4444-8444-444444444444';
+  store.addPending({ ...entry(brokenId), fingerprint: 'fb' }, csv);
+  store.addPending({ ...entry(goodId), fingerprint: 'fg' }, csv);
+  // 第一份的源文件丢了：这一条会失败，但不能让后面那条也卡住
+  rmSync(join(directory, 'csv-pool', `${brokenId}.csv`), { force: true });
+  assert.equal(store.pendingCsv(brokenId), null);
+
+  const failed = [];
+  const bound = [];
+  for (const item of store.database.pending) {
+    const suggestion = store.rememberedNode(item.identity);
+    if (!suggestion) continue;
+    const source = store.pendingCsv(item.id);
+    if (source === null) { failed.push(item.id); continue; } // 与 server 的 bindOne 同分支
+    store.bindPending(item.id, suggestion.nodeId, { ...parsed(item.id, item.identity), fingerprint: `bound-${item.id}` }, source);
+    bound.push(item.id);
+  }
+  assert.deepEqual(bound, [goodId], '坏的那条不能拖住好的那条');
+  assert.deepEqual(failed, [brokenId]);
+  assert.equal(store.database.pending.length, 1, '失败的条目仍留在队列里，等用户丢弃');
+  assert.equal(store.database.pending[0].id, brokenId);
 });
 
 test('解析规则升级后可批量替换报告明细与待绑定条目，索引同步更新', () => {

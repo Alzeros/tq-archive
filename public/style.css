@@ -2109,6 +2109,19 @@ body.sub-body, body.login-body { overflow-y: auto; }
 .dash-pending-go { color: var(--fair-text); font-weight: 600; white-space: nowrap; }
 
 .pending-list { display: flex; flex-direction: column; gap: 10px; }
+/* 批量接受推荐：靠上放一条，避免每次跑完脚本还要逐台点 */
+.pending-bulk {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: var(--panel-2);
+}
+.pending-bulk .hint { margin: 0; }
 .pending-item {
   display: flex;
   justify-content: space-between;

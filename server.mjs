@@ -417,6 +417,44 @@ const server = http.createServer(async (request, response) => {
     }
 
     // 待绑定队列（需登录）：绑定到节点后成为正式报告，或直接丢弃
+    // 单条与批量共用：批量失败要逐条报告原因，不能一条出错整批回滚 ——
+    // 其余机器测了二十分钟的数据没理由陪着一起卡在队列里。
+    function bindOne(id, nodeId) {
+      const entry = store.database.pending.find(item => item.id === id);
+      if (!entry) throw new Error('待绑定记录不存在，可能已被处理');
+      // 不指定节点时用"同一台机器上次归到的节点"（主机名 + 出口 IP 记忆）
+      const target = nodeId || store.rememberedNode(entry.identity)?.nodeId;
+      if (!target) throw new Error('没有可用的归属建议，请手动选择节点');
+      const csv = store.pendingCsv(id);
+      // 源文件没了就没法归档：明确说清楚并提示丢弃，而不是让 parseTqCsv 去撞一个 null
+      if (csv === null) { store.markPendingBroken([id]); throw new Error('这份记录的 CSV 源文件已丢失，无法归档；请直接丢弃该条'); }
+      const parsed = parseTqCsv(csv, { sourceUrl: `csv:${id}`, testedAt: entry.testedAt, identity: entry.identity });
+      const upload = { hostname: entry.hostname, sourceIp: entry.sourceIp, keyName: entry.keyName, receivedAt: entry.receivedAt, timeSource: entry.timeSource };
+      return summary(store.bindPending(id, target, { ...parsed, upload }, csv));
+    }
+    // 一键接受全部推荐：推荐可信度已经很高（同出口记忆），但每次跑完脚本仍要手动点一步，
+    // 多台机器 × 每周一次就是纯重复劳动。
+    if (request.method === 'POST' && url.pathname === '/api/pending/bind-recommended') {
+      if (!session.ok) return send(response, 401, { error: '请先登录' });
+      const { ids } = await body(request);
+      // 不传 ids 就是"全部有推荐的"，传了则只处理指定的几条（前端按当前列表给的）
+      const queue = store.database.pending.filter(item => (Array.isArray(ids) && ids.length ? ids.includes(item.id) : true));
+      const bound = [];
+      const failed = [];
+      for (const item of queue) {
+        // suggestion 只有 /api/state 的响应里才有（那里是现算的），库里没有这个字段，
+        // 所以这里统一现算一次，与界面上显示的推荐完全同源
+        const suggestion = store.rememberedNode(item.identity);
+        if (!suggestion) continue; // 没有推荐的条目不动：批量操作绝不能替用户猜归属
+        try { bound.push({ id: item.id, report: bindOne(item.id, suggestion.nodeId) }); }
+        catch (error) { failed.push({ id: item.id, hostname: item.hostname || '', error: error.message }); }
+      }
+      return send(response, 200, {
+        bound: bound.map(item => ({ id: item.id, nodeId: item.report.nodeId, recordCount: item.report.recordCount })),
+        failed,
+        skipped: queue.length - bound.length - failed.length
+      });
+    }
     const pendingMatch = url.pathname.match(/^\/api\/pending\/([a-f\d-]{36})(\/(bind|raw))?$/);
     if (pendingMatch) {
       const id = pendingMatch[1];
@@ -426,14 +464,7 @@ const server = http.createServer(async (request, response) => {
       }
       if (request.method === 'POST' && pendingMatch[3] === 'bind') {
         const { nodeId } = await body(request);
-        const entry = store.database.pending.find(item => item.id === id);
-        if (!entry) throw new Error('待绑定记录不存在，可能已被处理');
-        const csv = store.pendingCsv(id);
-        // 源文件没了就没法归档：明确说清楚并提示丢弃，而不是让 parseTqCsv 去撞一个 null
-        if (csv === null) { store.markPendingBroken([id]); throw new Error('这份记录的 CSV 源文件已丢失，无法归档；请直接丢弃该条'); }
-        const parsed = parseTqCsv(csv, { sourceUrl: `csv:${id}`, testedAt: entry.testedAt, identity: entry.identity });
-        const upload = { hostname: entry.hostname, sourceIp: entry.sourceIp, keyName: entry.keyName, receivedAt: entry.receivedAt, timeSource: entry.timeSource };
-        return send(response, 201, summary(store.bindPending(id, nodeId, { ...parsed, upload }, csv)));
+        return send(response, 201, bindOne(id, nodeId));
       }
       if (request.method === 'GET' && pendingMatch[3] === 'raw') {
         const csv = store.pendingCsv(id);

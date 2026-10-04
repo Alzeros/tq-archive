@@ -859,6 +859,16 @@ function renderPending() {
   el('dashPendingText').textContent = `有 ${count} 份脚本直传的报告等待绑定节点`;
   el('dashPending').hidden = !count;
   const list = el('pendingList');
+  // 一键接受全部推荐：只统计"有推荐"的条目。推荐来自同出口记忆（主机名 + 出口 IP
+  // 在这台机器上绑定过一次），准确率已经很高，但多台机器每周一次仍是重复劳动。
+  const recommended = state.pending.filter(entry => !entry.broken && entry.suggestion?.nodeId);
+  const bulk = el('pendingBulk');
+  bulk.classList.toggle('hidden', !recommended.length);
+  if (recommended.length) {
+    el('bindRecommended').textContent = `一键接受全部推荐（${recommended.length} 份）`;
+    const names = [...new Set(recommended.map(entry => nodeName(entry.suggestion.nodeId)))];
+    el('pendingBulkHint').textContent = `按同出口记忆归到：${names.join('、')}；没有推荐的条目不会被自动处理`;
+  }
   if (!count) {
     list.innerHTML = '<p class="empty">暂无待绑定的报告。在服务器上执行 run-with-hub.sh，跑完会自动出现在这里。</p>';
     return;
@@ -881,7 +891,7 @@ function renderPending() {
     const notes = (entry.warnings || []).filter(text => !text.startsWith('报告没有') && !text.includes('暂未解析'));
     const source = [entry.hostname, entry.sourceIp].filter(Boolean).map(escapeHtml).join(' · ') || '来源未知（旧版脚本上传）';
     const item = document.createElement('div');
-    item.className = `pending-item${entry.error ? ' failed' : ''}`;
+    item.className = `pending-item${entry.error || entry.broken ? ' failed' : ''}`;
     item.innerHTML = `
       <div class="pending-main">
         <div class="pending-title-row">
@@ -890,19 +900,21 @@ function renderPending() {
           ${entry.keyName ? `<span class="record-pill">Key · ${escapeHtml(entry.keyName)}</span>` : ''}
         </div>
         <div class="pending-source">来源：${source}</div>
-        ${entry.error
-          ? `<div class="warn">无法解析：${escapeHtml(entry.error)}。原始 CSV 已保留，可下载查看后丢弃。</div>`
-          : `<div class="pending-sections">${pills}</div>
-             ${missing.length ? `<div class="pending-missing">本次未包含：${missing.map(escapeHtml).join('、')}</div>` : ''}
-             ${preview ? `<div class="metrics">${preview}</div>` : ''}
-             ${notes.length ? `<details class="pending-notes"><summary>${notes.length} 条解析提示</summary><ul>${notes.map(text => `<li>${escapeHtml(text)}</li>`).join('')}</ul></details>` : ''}`}
+        ${entry.broken
+          ? '<div class="warn">CSV 源文件已丢失（可能被清理或迁移不全），这份数据无法归档，也无法下载原文。请直接丢弃该条。</div>'
+          : entry.error
+            ? `<div class="warn">无法解析：${escapeHtml(entry.error)}。原始 CSV 已保留，可下载查看后丢弃。</div>`
+            : `<div class="pending-sections">${pills}</div>
+               ${missing.length ? `<div class="pending-missing">本次未包含：${missing.map(escapeHtml).join('、')}</div>` : ''}
+               ${preview ? `<div class="metrics">${preview}</div>` : ''}
+               ${notes.length ? `<details class="pending-notes"><summary>${notes.length} 条解析提示</summary><ul>${notes.map(text => `<li>${escapeHtml(text)}</li>`).join('')}</ul></details>` : ''}`}
       </div>
       <div class="pending-actions">
-        ${entry.error ? '' : '<div class="picker pending-picker"></div><button class="primary small bind-btn" type="button">绑定</button>'}
-        <a class="button ghost small" href="/api/pending/${entry.id}/raw" download title="下载原始 CSV">CSV</a>
+        ${entry.error || entry.broken ? '' : '<div class="picker pending-picker"></div><button class="primary small bind-btn" type="button">绑定</button>'}
+        ${entry.broken ? '' : `<a class="button ghost small" href="/api/pending/${entry.id}/raw" download title="下载原始 CSV">CSV</a>`}
         <button class="danger small discard-btn" type="button">丢弃</button>
       </div>`;
-    if (!entry.error) {
+    if (!entry.error && !entry.broken) {
       const picker = nodePicker({ container: item.querySelector('.pending-picker'), nodes: state.allNodes, reportsOf, selectedId: null, suggestion: entry.suggestion, allowEmpty: true });
       const bind = item.querySelector('.bind-btn');
       bind.addEventListener('click', async () => {
@@ -927,6 +939,27 @@ function renderPending() {
       } catch (error) { toast(error.message, true); discard.disabled = false; }
     });
     list.append(item);
+  }
+}
+// 一键接受全部推荐：只把"有推荐"的 id 交给服务端，没有推荐的条目仍由人决定归属
+async function bindRecommended() {
+  const ids = state.pending.filter(entry => !entry.broken && entry.suggestion?.nodeId).map(entry => entry.id);
+  if (!ids.length) return;
+  const button = el('bindRecommended');
+  button.disabled = true;
+  try {
+    const result = await api('/api/pending/bind-recommended', { method: 'POST', body: JSON.stringify({ ids }) });
+    const parts = [`已归档 ${result.bound.length} 份`];
+    if (result.failed.length) parts.push(`${result.failed.length} 份失败`);
+    if (result.skipped) parts.push(`${result.skipped} 份无推荐已跳过`);
+    toast(parts.join('，'), result.failed.length > 0);
+    // 失败原因逐条说清楚，否则用户只知道"有几份没成"却不知为什么
+    for (const item of result.failed) toast(`${item.hostname || item.id.slice(0, 8)}：${item.error}`, true);
+    await refresh();
+  } catch (error) {
+    toast(error.message, true);
+  } finally {
+    button.disabled = false;
   }
 }
 function renderPreview(report, token, suggestion) {
@@ -1075,6 +1108,7 @@ async function refresh() {
 }
 for (const tab of document.querySelectorAll('.tab')) tab.addEventListener('click', () => showView(tab.dataset.view));
 el('dashPending').addEventListener('click', () => showView('import'));
+el('bindRecommended').addEventListener('click', bindRecommended);
 // 页面只在打开时加载一次数据。服务器上跑完脚本、切回浏览器时自动检查待绑定队列：
 // 只在队列有变化时重绘这一块，不整页刷新，避免打断正在进行的选择或切走当前视图
 let pendingCheckedAt = 0;
