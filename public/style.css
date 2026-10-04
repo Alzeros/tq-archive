@@ -1586,6 +1586,17 @@ tbody tr:hover td { background: var(--panel-2); }
 .up { color: var(--red); font-weight: 600; }
 .down { color: var(--green); font-weight: 600; }
 .same { color: var(--muted); }
+/* 显著 / 抖动 标记：让"这条为什么值得看"在行内可见，不必回头数小数位 */
+.sig-mark, .sig-noise {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.sig-mark { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); font-weight: 600; }
+.sig-noise { background: var(--panel-2); color: var(--muted); }
 
 /* ============ 变化对比 (Compare) 模块 ============ */
 .compare-form-grid {

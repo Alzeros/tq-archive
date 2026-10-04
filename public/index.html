@@ -356,7 +356,9 @@
               <option value="same">无变化</option>
             </select>
             <label class="inline"><input type="checkbox" id="onlyChanged" checked> 仅显示有变化的项</label>
+            <label class="inline" title="延迟 ≥10ms、丢包/重传 ≥0.5%、速度 ≥5% 或 ≥20Mbps 才算显著"><input type="checkbox" id="onlySignificant" checked> 只看显著变化</label>
           </div>
+          <p class="hint" id="changeSummary"></p>
           <div id="changeBody" class="table-wrap"></div>
         </div>
       </section>

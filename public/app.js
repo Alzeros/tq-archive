@@ -921,13 +921,30 @@ function renderChanges() {
   const section = el('changeFilter').value;
   const direction = el('changeDirection').value;
   const onlyChanged = el('onlyChanged').checked;
-  const changes = result.changes.filter(change => (section === 'all' || change.section === section) && (direction === 'all' || change.direction === direction) && (!onlyChanged || change.delta !== 0));
-  if (!changes.length) { el('changeBody').innerHTML = '<p class="empty">当前筛选下没有符合条件的指标。</p>'; return; }
+  const onlySignificant = el('onlySignificant').checked;
+  // significant 由服务端按 lib/thresholds.mjs 的门槛标好，这里只做筛选
+  const matches = change => (section === 'all' || change.section === section) && (direction === 'all' || change.direction === direction);
+  const pool = result.changes.filter(matches);
+  const changed = onlyChanged ? pool.filter(change => change.delta !== 0) : pool;
+  const significant = changed.filter(change => change.significant);
+  const changes = onlySignificant ? significant : changed;
+  // 过滤掉多少要明说：否则用户会以为"这次没什么变化"，而实际是被门槛藏起来了
+  const hidden = changed.length - significant.length;
+  const summary = !changed.length
+    ? ''
+    : onlySignificant && hidden > 0
+      ? `共 ${changed.length} 项变化，其中 ${significant.length} 项显著；${hidden} 项在抖动范围内已折叠（取消勾选「只看显著变化」可查看）`
+      : `共 ${changed.length} 项变化，全部显示`;
+  el('changeSummary').textContent = summary;
+  if (!changes.length) {
+    el('changeBody').innerHTML = `<p class="empty">${changed.length ? '这些变化都还在抖动范围内，没有值得关注的项。' : '当前筛选下没有符合条件的指标。'}</p>`;
+    return;
+  }
   const rows = changes.map(change => {
     const sign = change.delta > 0 ? '+' : '';
-    return `<tr><td>${escapeHtml(sectionNames[change.section] || change.section)}</td><td>${escapeHtml(change.target)}</td><td>${escapeHtml(change.carrier || '—')}</td><td>${escapeHtml(metricLabel(change.metric))}</td><td>${change.before}${change.unit}</td><td>${change.after}${change.unit}</td><td class="${change.direction}">${sign}${change.delta}${change.unit}</td></tr>`;
+    return `<tr><td>${escapeHtml(sectionNames[change.section] || change.section)}</td><td>${escapeHtml(change.target)}</td><td>${escapeHtml(change.carrier || '—')}</td><td>${escapeHtml(metricLabel(change.metric))}</td><td>${change.before}${change.unit}</td><td>${change.after}${change.unit}</td><td class="${change.direction}">${sign}${change.delta}${change.unit}</td><td>${change.significant ? '<span class="sig-mark">显著</span>' : '<span class="sig-noise">抖动</span>'}</td></tr>`;
   }).join('');
-  el('changeBody').innerHTML = `<table><thead><tr><th>维度</th><th>对象</th><th>运营商</th><th>指标</th><th>基础报告</th><th>当前报告</th><th>变化</th></tr></thead><tbody>${rows}</tbody></table>`;
+  el('changeBody').innerHTML = `<table><thead><tr><th>维度</th><th>对象</th><th>运营商</th><th>指标</th><th>基础报告</th><th>当前报告</th><th>变化</th><th>判定</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 function showView(view) {
   for (const tab of document.querySelectorAll('.tab')) tab.classList.toggle('active', tab.dataset.view === view);
@@ -1010,7 +1027,7 @@ el('compareNode').addEventListener('change', event => { state.selectedNodeId = e
 el('compareBase').addEventListener('change', runCompare);
 el('compareCurrent').addEventListener('change', runCompare);
 el('runCompare').addEventListener('click', runCompare);
-for (const id of ['changeFilter', 'changeDirection', 'onlyChanged']) el(id).addEventListener('change', renderChanges);
+for (const id of ['changeFilter', 'changeDirection', 'onlyChanged', 'onlySignificant']) el(id).addEventListener('change', renderChanges);
 el('logoutButton').addEventListener('click', async () => {
   try { await api('/api/logout', { method: 'POST' }); } finally { location.replace('/login'); }
 });

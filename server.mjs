@@ -8,6 +8,7 @@ import { loadProbeNodes } from './lib/probe.mjs';
 import { createStore } from './lib/store.mjs';
 import { summarize } from './lib/insight.mjs';
 import { aggregate, bandsOf, GROUPS, SECTIONS } from './lib/stats.mjs';
+import { significance, isSignificantChange } from './lib/thresholds.mjs';
 import { createAuth } from './lib/auth.mjs';
 import { listKeys, getKey, createKey, updateKey, deleteKey, touchKey, scopeOf, authorizeKey, keysLoadError, backupBrokenKeys } from './lib/keys.mjs';
 import { parseTqCsv, csvFingerprint, CSV_PARSER_VERSION } from './lib/csv-parser.mjs';
@@ -517,7 +518,13 @@ const server = http.createServer(async (request, response) => {
       const previous = detailOf(url.searchParams.get('base'));
       if (!current || !previous || current.nodeId !== previous.nodeId || current.id === previous.id) throw new Error('请选择同一节点的两份不同报告');
       const changes = compareReports(current, previous);
-      return send(response, 200, { changes, currentTestedAt: current.testedAt, baseTestedAt: previous.testedAt, added: current.records.filter(record => !previous.records.some(old => old.key === record.key)).length, removed: previous.records.filter(record => !current.records.some(next => next.key === record.key)).length });
+      // 显著度在服务端标好：门槛表在 lib/thresholds.mjs，与档位判定同源。
+      // 前端只用这个布尔值，不必自己复制一份带数字的规则。
+      const marked = changes.map(change => ({
+        ...change,
+        significant: isSignificantChange(change.metric, change.delta, change.before, change.after)
+      }));
+      return send(response, 200, { changes: marked, significance, currentTestedAt: current.testedAt, baseTestedAt: previous.testedAt, added: current.records.filter(record => !previous.records.some(old => old.key === record.key)).length, removed: previous.records.filter(record => !current.records.some(next => next.key === record.key)).length });
     }
     const reportMatch = url.pathname.match(/^\/api\/reports\/([a-f\d-]+)(\/(export|raw|move))?$/);
     if (reportMatch) {
