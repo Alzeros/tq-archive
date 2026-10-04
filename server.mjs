@@ -676,6 +676,7 @@ const staleReports = [];
 for (const index of store.database.reports.filter(item => item.sourceType === 'csv' && (item.csvParserVersion || 0) < CSV_PARSER_VERSION)) {
   try {
     const old = store.detail(index.id);
+    if (!old) { console.warn(`直传报告 ${index.id} 的明细文件不可读，跳过重解析（首次访问时会从原始 CSV 重建）`); continue; }
     const parsed = parseTqCsv(store.raw(index.id).content, { sourceUrl: old.sourceUrl, testedAt: old.testedAt, identity: old.identity });
     staleReports.push({ ...parsed, id: old.id, nodeId: old.nodeId, rawExt: old.rawExt, upload: old.upload, importedAt: old.importedAt });
   } catch (error) { console.warn(`直传报告 ${index.id} 重新解析失败，保留原结果：${error.message}`); }
@@ -688,6 +689,9 @@ const staleHtml = [];
 for (const index of store.database.reports.filter(item => item.sourceType !== 'csv' && (item.parserVersion || 0) < PARSER_VERSION)) {
   try {
     const old = store.detail(index.id);
+    // 明细本身就读不出来时没有"原结果"可保留：说清楚它会按需重建，
+    // 否则日志里那句"保留原结果"会让人以为数据还在，实际是一份坏文件
+    if (!old) { console.warn(`报告 ${index.id} 的明细文件不可读，跳过重解析（首次访问时会从原始 HTML 重建）`); continue; }
     const parsed = parseReport(store.raw(index.id).content, old.sourceUrl);
     staleHtml.push({ ...parsed, id: old.id, nodeId: old.nodeId, upload: old.upload, importedAt: old.importedAt });
   } catch (error) { console.warn(`报告 ${index.id} 重新解析失败，保留原结果：${error.message}`); }
