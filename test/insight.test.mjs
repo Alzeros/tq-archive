@@ -23,6 +23,30 @@ test('热力图矩阵：行=省份，列=运营商，单元按矩阵内分位着
   assert.equal(matrix.routes[0][0], '4837', 'route 单独存一份，不随指标重复');
 });
 
+test('测速矩阵：运营商拆列，速率高为好，缺失值不着色', () => {
+  const speed = (target, metrics) => ({ ...rec('speedtest', target, '', Object.fromEntries(Object.entries(metrics).map(([key, value]) => [key, { value, unit: key.includes('Speed') ? 'Mbps' : key.includes('Retrans') ? '%' : 'ms', status: 'ok', raw: String(value) }]))), group: 'IPv4' });
+  const result = summarize(report([
+    speed('上海电信', { returnSpeed: 502.3, outboundSpeed: 310.5, returnLatency: 150, outboundLatency: 160, returnRetrans: 0 }),
+    speed('北京联通', { returnSpeed: 150, outboundSpeed: 90, returnLatency: 180, outboundLatency: 200, returnRetrans: 0.5 }),
+    speed('广州移动', { returnSpeed: 45, outboundSpeed: null, returnLatency: 200, outboundLatency: 220, returnRetrans: 12 })
+  ]));
+  const matrix = result.matrices.find(item => item.id === 'speedtest');
+  assert.ok(matrix, '测速记录应产出独立矩阵');
+  assert.deepEqual(matrix.rows, ['上海', '北京', '广州']);
+  assert.deepEqual(matrix.columns, ['电信', '联通', '移动']);
+  const returnSpeed = matrix.metrics.find(item => item.id === 'returnSpeed');
+  assert.equal(returnSpeed.unit, 'Mbps');
+  assert.equal(returnSpeed.cells[0][0].v, 502.3);
+  assert.equal(returnSpeed.cells[0][0].l, 0, '≥300Mbps 判好');
+  assert.equal(returnSpeed.cells[1][1].l, 2, '150Mbps 判一般');
+  assert.equal(returnSpeed.cells[2][2].l, 4, '45Mbps 判差');
+  assert.equal(returnSpeed.cells[0][1].v, null, '无记录的组合不能画成数值');
+  const outboundSpeed = matrix.metrics.find(item => item.id === 'outboundSpeed');
+  assert.equal(outboundSpeed.cells[2][2].v, null, '失败指标保持中性，不冒充最低速');
+  assert.equal(outboundSpeed.cells[2][2].l, null);
+  assert.ok(result.speedRule.good > result.speedRule.fair, '速率阈值随 payload 带给前端');
+});
+
 test('速度离群用相对倍数检出，不依赖绝对阈值', () => {
   const speed = (target, value) => rec('speedtest', target, '', { returnSpeed: { value, unit: 'Mbps', status: 'ok', raw: `${value}Mbps` } });
   const result = summarize(report([
