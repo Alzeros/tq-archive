@@ -69,6 +69,42 @@ test('group=carrier 跨机器看运营商整体质量', () => {
   assert.deepEqual(new Set(keys), new Set(['电信', '联通', '移动']));
 });
 
+test('split=carrier 在时间序列上逐家展开：趋势图靠它看"移动是不是一直绕"', () => {
+  // 一份报告：电信 60ms / 联通 80ms / 移动 200ms，只有移动这一家丢包
+  const one = [{
+    id: 's1', nodeId: 'n1', testedAt: '2026-10-01T00:00:00+08:00',
+    records: [
+      { section: 'ipv4', group: '国内三网', target: '广东', carrier: '电信', metrics: { latency: lat(60), loss: num(0) } },
+      { section: 'ipv4', group: '国内三网', target: '广东', carrier: '联通', metrics: { latency: lat(80), loss: num(0) } },
+      { section: 'ipv4', group: '国内三网', target: '广东', carrier: '移动', metrics: { latency: lat(200), loss: num(48) } }
+    ]
+  }];
+  const [stat] = aggregate({ nodes, reports: one, group: 'report', section: 'ipv4', splitCarrier: true });
+  assert.deepEqual(Object.keys(stat.carriers).sort(), ['移动', '联通', '电信'].sort());
+  assert.equal(stat.carriers.电信.latency, 60);
+  assert.equal(stat.carriers.移动.latency, 200, '绕路的那家要单独看得出来');
+  assert.equal(stat.carriers.移动.lines, 1, '丢包线路数按家算');
+  assert.equal(stat.carriers.移动.severe, 1, '48% 属重度');
+  assert.equal(stat.carriers.电信.lines, 0);
+  assert.equal(stat.carriers.联通.ratio, 0);
+  // 整机口径会把 200ms 那家平均掉，这正是需要拆分的原因
+  assert.ok(stat.latency.p50 <= 200 && stat.latency.p50 > 60);
+});
+
+test('不给 split 时时间序列保持精简，不带 carriers 字段', () => {
+  const [stat] = aggregate({ nodes, reports, group: 'report', section: 'ipv4' });
+  assert.equal(stat.carriers, undefined, '默认响应不该为趋势图之外的目的膨胀');
+});
+
+test('split=carrier 时该家没有数据就不出现在 carriers 里', () => {
+  const one = [{
+    id: 's2', nodeId: 'n1', testedAt: '2026-10-01T00:00:00+08:00',
+    records: [{ section: 'ipv4', group: '国内三网', target: '广东', carrier: '电信', metrics: { latency: lat(60), loss: num(0) } }]
+  }];
+  const [stat] = aggregate({ nodes, reports: one, group: 'report', section: 'ipv4', splitCarrier: true });
+  assert.deepEqual(Object.keys(stat.carriers), ['电信']);
+});
+
 test('group=carrier 每组用该运营商自己的数值，不能三个运营商返回同一个数', () => {
   // 回归守卫：曾经 rollUp 写死 machine.latency.p50（整机值），三个运营商结果完全相同
   const records = [makeReport('y1', 'n1', '2026-10-01T00:00:00+08:00', { 电信: [['广东', 80]], 联通: [['广东', 82]], 移动: [['广东', 201]] })];

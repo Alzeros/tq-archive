@@ -354,12 +354,15 @@ const server = http.createServer(async (request, response) => {
         until,
         node: nodeParam,
         region: regionParam,
-        carrier: url.searchParams.get('carrier') || ''
+        carrier: url.searchParams.get('carrier') || '',
+        // group=report 时逐份展开三家运营商，供趋势图看"某家什么时候开始变差"。
+        // 只在这个 group 下有意义，其余分组本来就有 byCarrier 的汇总口径。
+        splitCarrier: url.searchParams.get('split') === 'carrier' && group === 'report'
       });
       return send(response, 200, {
         group,
         section,
-        filters: { since: since || null, until: until || null, node: nodeParam || null, region: regionParam || null, carrier: url.searchParams.get('carrier') || null },
+        filters: { since: since || null, until: until || null, node: nodeParam || null, region: regionParam || null, carrier: url.searchParams.get('carrier') || null, split: url.searchParams.get('split') || null },
         regionBands: bandsOf(),
         totals: { nodes: new Set(details.map(report => report.nodeId)).size, reports: details.length, skipped: unreadable.length },
         unreadable,

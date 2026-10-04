@@ -971,11 +971,39 @@ button.danger:disabled { opacity: .5; cursor: not-allowed; }
 }
 
 /* ============ 历史趋势 (Sparklines) ============ */
+/* 趋势面板：外层是"标签 + 内容"的竖排容器，折线格子的网格在 .trend-grid 上
+   （加了视图切换标签后，网格不能再直接挂在外层，否则标签会变成第一个格子） */
 .trend {
+  display: block;
+  margin: 12px 0 18px;
+}
+.trend-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.trend-tab {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.trend-tab:hover { color: var(--text); }
+.trend-tab.active {
+  background: color-mix(in srgb, var(--teal) 16%, transparent);
+  border-color: color-mix(in srgb, var(--teal) 45%, transparent);
+  color: var(--teal);
+  font-weight: 600;
+}
+.trend-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 14px;
-  margin: 12px 0 18px;
 }
 .trend-cell {
   background: var(--panel-2);

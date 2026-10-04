@@ -2,7 +2,7 @@ import { setupThemeToggle } from '/theme.js';
 import { nodePicker } from '/picker.js';
 
 // nodes / reports 只含已启用的节点及其报告，界面各处直接用；allNodes / allReports 供选择器搜索全部节点
-const state = { nodes: [], reports: [], allNodes: [], allReports: [], pending: [], metricNames: {}, selectedNodeId: null, detail: null, insight: null, heatmap: { matrixId: null, metricId: null }, compare: { node: '', result: null } };
+const state = { nodes: [], reports: [], allNodes: [], allReports: [], pending: [], metricNames: {}, selectedNodeId: null, detail: null, insight: null, heatmap: { matrixId: null, metricId: null }, compare: { node: '', result: null }, trend: null };
 // 选择器实例：预览导入的归属选择与详情页改绑各持一个，避免互相覆盖
 let previewPicker = null;
 let bindPicker = null;
@@ -174,17 +174,98 @@ async function renderTrends(reports) {
   if (reports.length < 2) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
   panel.classList.remove('hidden');
   panel.innerHTML = '<p class="trend-loading">载入趋势…</p>';
+  state.trend = { mode: 'all', reports: [...reports].sort((left, right) => left.testedAt.localeCompare(right.testedAt)), carriers: null };
   try {
-    const details = await Promise.all(reports.map(report => fetchDetail(report.id)));
+    const details = await Promise.all(state.trend.reports.map(report => fetchDetail(report.id)));
     if (token !== trendRequestToken) return;
-    drawTrends([...details].sort((left, right) => left.testedAt.localeCompare(right.testedAt)));
+    state.trend.details = [...details].sort((left, right) => left.testedAt.localeCompare(right.testedAt));
+    drawTrendPanel();
+    // 运营商口径是趋势最有价值的一维，默认就一起拉（一台机器的历史通常几份到几十份）
+    loadCarrierTrend(token);
   } catch (error) {
     if (token !== trendRequestToken) return;
     panel.innerHTML = `<p class="empty">趋势加载失败：${escapeHtml(error.message)}</p>`;
   }
 }
-function drawTrends(points) {
+// 同一节点的历史：节点 + 报告集合没变就不重复请求（切换视图时要用同一份数据）
+let carrierTrendKey = '';
+async function loadCarrierTrend(token) {
+  const trend = state.trend;
+  if (!trend) return;
+  const nodeId = trend.reports[0].nodeId;
+  const key = `${nodeId}:${trend.reports.map(report => report.id).join(',')}`;
+  if (carrierTrendKey !== key) {
+    try {
+      const data = await api(`/api/stats?group=report&node=${encodeURIComponent(nodeId)}&split=carrier`);
+      if (token !== trendRequestToken || !state.trend) return;
+      // 只要选中节点的那几份：接口按节点返回，可能还包含更早的报告
+      const ids = new Set(trend.reports.map(report => report.id));
+      state.trend.carriers = new Map(data.groups.filter(group => ids.has(group.key)).map(group => [group.key, group]));
+      carrierTrendKey = key;
+    } catch {
+      // 拿不到运营商数据不该让整块趋势消失：整机视图仍然可用
+      if (token === trendRequestToken && state.trend) state.trend.carriers = new Map();
+    }
+  }
+  if (token === trendRequestToken) drawTrendPanel();
+}
+const CARRIER_COLORS = { 电信: 'var(--teal)', 联通: 'var(--amber, #d89614)', 移动: 'var(--red)' };
+const CARRIER_ORDER = ['电信', '联通', '移动'];
+// 趋势视图：全部（原有三条整机线）/ 运营商延迟 / 运营商丢包。
+// 后两者回答的是存档最该回答的问题 —— "这台机器的移动是不是一直在绕"、
+// "某家丢包从哪一份开始变" —— 整机口径会把三家的差异平均掉。
+function trendCarrierSeries(trend, field) {
+  return CARRIER_ORDER.filter(carrier => trend.reports.some((_, index) => {
+    const stat = trend.carriers?.get(trend.reports[index].id);
+    const value = stat?.carriers?.[carrier]?.[field];
+    return typeof value === 'number';
+  })).map(carrier => ({
+    key: carrier,
+    label: carrier,
+    color: CARRIER_COLORS[carrier],
+    unit: field === 'latency' ? 'ms' : '条',
+    lowerBetter: true,
+    values: trend.reports.map((_, index) => {
+      const value = trend.carriers?.get(trend.reports[index].id)?.carriers?.[carrier]?.[field];
+      return typeof value === 'number' ? value : null;
+    })
+  }));
+}
+function drawTrendPanel() {
   const panel = el('trendPanel');
+  const trend = state.trend;
+  if (!panel || !trend?.details) return;
+  const modes = [
+    ['all', '全部指标', ''],
+    ['latency', '运营商延迟', '每家运营商的回程延迟 p50，看谁一直在绕路'],
+    ['loss', '运营商丢包线路', '每家运营商有多少条线路在丢包，看问题从哪一份开始']
+  ];
+  const tabs = `<div class="trend-tabs">${modes.map(([id, label, title]) => `<button type="button" class="trend-tab${trend.mode === id ? ' active' : ''}" data-mode="${id}" title="${escapeHtml(title)}">${escapeHtml(label)}</button>`).join('')}</div>`;
+  let body = '';
+  if (trend.mode === 'all') {
+    body = drawTrends(trend.details);
+  } else {
+    const field = trend.mode === 'latency' ? 'latency' : 'lines';
+    const series = trendCarrierSeries(trend, field);
+    if (!series.length) {
+      body = `<p class="empty">${trend.carriers ? '这几份报告里没有可用的运营商数据。' : '正在载入运营商数据…'}</p>`;
+    } else {
+      const note = field === 'latency'
+        ? '三家的 p50 分开画：整机口径会把绕路的那家平均掉'
+        : '每条线是"该运营商有多少条线路丢包/重传"，0 是正常，抬头就是那家开始出问题';
+      body = `<div class="trend-grid">${series.map(serie => svgForSeries(trend.reports, { ...serie, note })).join('')}</div>`;
+    }
+  }
+  panel.innerHTML = `${tabs}<div class="trend-body">${body}</div>`;
+  for (const button of panel.querySelectorAll('.trend-tab')) {
+    button.addEventListener('click', () => { state.trend.mode = button.dataset.mode; drawTrendPanel(); });
+  }
+  for (const point of panel.querySelectorAll('button.tp')) {
+    point.addEventListener('click', () => openDetail(point.dataset.id));
+  }
+}
+// 原有三条整机走势。返回 HTML，由 drawTrendPanel 决定放不放进面板
+function drawTrends(points) {
   // 每个图至少要有 2 个有数值的点才有"走势"可言。单线/全空时整格隐藏
   const series = TREND_DEFS.map(def => {
     const cardList = points.map(report => (report.insight?.cards || []).find(card => card.id === def.key));
@@ -199,11 +280,8 @@ function drawTrends(points) {
       unit: cardList.find(card => card?.unit)?.unit || ''
     };
   }).filter(Boolean);
-  if (!series.length) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
-  panel.innerHTML = series.map(serie => svgForSeries(points, serie)).join('');
-  for (const button of panel.querySelectorAll('button.tp')) {
-    button.addEventListener('click', () => openDetail(button.dataset.id));
-  }
+  if (!series.length) return '<p class="empty">还不够画出走势：至少需要两份含同类指标的报告。</p>';
+  return `<div class="trend-grid">${series.map(serie => svgForSeries(points, serie)).join('')}</div>`;
 }
 function svgForSeries(points, serie) {
   const W = 320, H = 76, PAD = 10;
@@ -224,6 +302,8 @@ function svgForSeries(points, serie) {
     ? `M${coords[0].x.toFixed(1)},${H - PAD} L${coords.map(point => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' L')} L${coords.at(-1).x.toFixed(1)},${H - PAD} Z` 
     : '';
   const gradId = `trendGrad_${serie.key}_${Math.random().toString(36).slice(2, 8)}`;
+  // 多序列（三家运营商）必须能分清谁是谁：颜色由 serie.color 给，缺省沿用原来的青色
+  const color = serie.color || 'var(--teal)';
 
   let summary = '';
   if (coords.length >= 2) {
@@ -249,12 +329,12 @@ function svgForSeries(points, serie) {
     <svg class="trend-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-hidden="true">
       <defs>
         <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="var(--teal)" stop-opacity="0.32"/>
-          <stop offset="100%" stop-color="var(--teal)" stop-opacity="0.0"/>
+          <stop offset="0%" stop-color="${color}" stop-opacity="0.32"/>
+          <stop offset="100%" stop-color="${color}" stop-opacity="0.0"/>
         </linearGradient>
       </defs>
       ${areaPath ? `<path class="trend-area" fill="url(#${gradId})" d="${areaPath}"/>` : ''}
-      ${path ? `<path class="trend-line" d="${path}"/>` : ''}
+      ${path ? `<path class="trend-line" style="stroke:${color}" d="${path}"/>` : ''}
       ${coords.map(point => `<circle class="tp l${serie.levels[point.index] || 'na'}" cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="4.5"/>`).join('')}
     </svg>
     <div class="trend-dots">${dots}</div>
