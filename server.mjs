@@ -123,7 +123,7 @@ async function downloadReport(input) {
 // 反代 / CDN 会把 js、css 改成长缓存（线上 Cloudflare 改写为 max-age=14400 并在边缘缓存），
 // 发版后页面是新的、脚本却还是旧的。HTML 本身不缓存，由它引用带内容版本号的地址即可绕过各层缓存。
 // 版本号放在路径里（/v/<hash>/app.js）：部分 CDN 配置会忽略查询参数。
-const versionedAssets = ['app.js', 'style.css', 'theme.js', 'picker.js', 'login.js', 'keys.js', 'nodes.js', 'favicon.svg'];
+const versionedAssets = ['app.js', 'style.css', 'theme.js', 'picker.js', 'login.js', 'keys.js', 'nodes.js', 'favicon.svg', 'favicon.ico', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'];
 const assetReference = new RegExp(`(["'])/(${versionedAssets.map(name => name.replace(/\./g, '\\.')).join('|')})\\1`, 'g');
 const assetFiles = new Map();
 async function assetFile(name) {
@@ -153,7 +153,8 @@ const server = http.createServer(async (request, response) => {
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
   // 登录页与静态资源必须可匿名访问，否则未登录时前端根本加载不出来
-  const publicPaths = new Set(['/login', '/login.js', '/theme.js', '/style.css', '/favicon.svg']);
+  // 图标路径需匿名可达：多数抓取器（链接预览、书签同步、Safari）只请求 /favicon.ico 与 /apple-touch-icon.png，且不读页面
+  const publicPaths = new Set(['/login', '/login.js', '/theme.js', '/style.css', '/favicon.svg', '/favicon.ico', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png']);
   try {
     if (!allowedHosts.has(request.headers.host)) return send(response, 403, { error: '仅允许本机访问' });
     if (request.method === 'POST' && request.headers.origin && !allowedOrigins.has(request.headers.origin)) return send(response, 403, { error: '不允许跨站请求' });
@@ -402,10 +403,20 @@ const server = http.createServer(async (request, response) => {
       '/keys.js': ['keys.js', 'text/javascript'],
       '/nodes.html': ['nodes.html', 'text/html'],
       '/nodes.js': ['nodes.js', 'text/javascript'],
-      '/favicon.svg': ['favicon.svg', 'image/svg+xml']
+      '/favicon.svg': ['favicon.svg', 'image/svg+xml'],
+      '/favicon.ico': ['favicon.ico', 'image/x-icon', true],
+      '/apple-touch-icon.png': ['apple-touch-icon.png', 'image/png', true],
+      '/icon-192.png': ['icon-192.png', 'image/png', true],
+      '/icon-512.png': ['icon-512.png', 'image/png', true]
     };
     const asset = assets[url.pathname];
     if (!asset) return send(response, 404, { error: '页面不存在' });
+    // 图标等二进制资源按 buffer 发送，可长缓存：HTML 里引用的是带内容版本号的地址，内容变了地址就变
+    if (asset[2]) {
+      const data = await readFile(join(root, 'public', asset[0]));
+      response.writeHead(200, { 'Content-Type': asset[1], 'Cache-Control': 'public, max-age=86400' });
+      return response.end(data);
+    }
     let page = await readFile(join(root, 'public', asset[0]), 'utf8');
     if (asset[1] === 'text/html' || asset[1] === 'text/javascript') page = await withAssetVersions(page);
     // 主题选择存于 cookie：服务端注入 data-theme，页面首帧即为正确配色，无闪烁
