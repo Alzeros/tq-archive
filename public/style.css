@@ -874,7 +874,32 @@ button.danger:disabled { opacity: .5; cursor: not-allowed; }
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  align-items: center;
 }
+/* 健康总览独有的两样信息：最近几份的走势，以及与上一份的差值 */
+.dash-spark {
+  width: 64px;
+  height: 20px;
+  flex: none;
+  overflow: visible;
+}
+.dash-spark path {
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dash-spark.better path { stroke: var(--green); }
+.dash-spark.worse path { stroke: var(--red); }
+.dash-delta {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.dash-delta.better { color: var(--green); background: var(--ok-bg); }
+.dash-delta.worse { color: var(--red); background: var(--warn-bg); }
 .dash-cell.action {
   display: grid;
   place-items: center;
@@ -1173,6 +1198,12 @@ button.danger:disabled { opacity: .5; cursor: not-allowed; }
   background: var(--warn-bg);
   color: var(--red);
   border: 1px solid var(--warn-border);
+}
+/* "按上传时间"标记：跟在时间后面，不要撑开行高，也不要把时间挤到下一行 */
+.est-pill {
+  margin-left: 6px;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 .history-actions {
   display: flex;

@@ -32,6 +32,38 @@ const fmtShort = iso => {
   const pad = value => String(value).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
+// 脚本没带 x-report-epoch 时，报告时间只能按"服务器收到 CSV 的时间"估算
+// （旧版 wrapper 就是这样）。这种时间点在历史与趋势里会与真实测试序列错位，
+// 所以凡是要显示时间的地方都得把来源标出来，不能让人以为是实测时间。
+// 注意待绑定条目把 timeSource 放在顶层，归档后嵌在 upload 里 —— 两处都要认，
+// 只看顶层的话归档之后就再也标不出来了。
+const timeIsEstimated = report => (report?.timeSource || report?.upload?.timeSource) === 'upload';
+const timeNote = report => (timeIsEstimated(report) ? '（按上传时间估算）' : '');
+// 带标记的时间文本：估算值后面跟一个上标警告，鼠标悬停说明原因
+const estTitle = '上传时没有带测试时间（旧版脚本），这里是服务器收到 CSV 的时间，可能与真实测试时间有偏差';
+const timeCell = report => `${fmtTime(report.testedAt)}${timeIsEstimated(report) ? `<span class="warn-pill est-pill" title="${estTitle}">按上传时间</span>` : ''}`;
+// 紧凑位置（看板行、图表 tooltip）放不下整块标签，用带星号的短时间 + title 说明
+const shortTimeCell = report => `${fmtShort(report.testedAt)}${timeIsEstimated(report) ? '*' : ''}`;
+// 迷你走势：看板上每台机器最近几份的延迟。只摆一个时点数字看不出"在变好还是变差"，
+// 而这一列正是健康总览区别于"需要关注"那张卡的信息。
+// 少于两个点就没有走势可画，直接不占位置。
+function svgSparkline(values) {
+  if (values.length < 2) return '';
+  const W = 64, H = 20, PAD = 3;
+  const min = Math.min(...values), max = Math.max(...values);
+  const span = Math.max(1e-9, max - min);
+  const total = Math.max(1, values.length - 1);
+  const points = values.map((value, index) => [
+    PAD + (index / total) * (W - PAD * 2),
+    H - PAD - ((value - min) / span) * (H - PAD * 2)
+  ]);
+  const path = `M${points.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' L')}`;
+  const rising = values.at(-1) > values[0];
+  // 延迟升高是坏事：用红色提示，降低用绿色。这与徽章的档位色是两套语义
+  // （那是"绝对水平"，这是"方向"），所以单独一个类名。
+  return `<svg class="dash-spark ${rising ? 'worse' : 'better'}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img"
+    aria-label="最近 ${values.length} 份报告延迟走势"><path d="${path}"/></svg>`;
+}
 const nodeName = id => state.allNodes.find(node => node.id === id)?.name || id;
 const metricLabel = key => state.metricNames[key] || key;
 const metricText = measurement => {
@@ -209,7 +241,7 @@ async function loadCarrierTrend(token) {
   }
   if (token === trendRequestToken) drawTrendPanel();
 }
-const CARRIER_COLORS = { 电信: 'var(--teal)', 联通: 'var(--amber, #d89614)', 移动: 'var(--red)' };
+const CARRIER_COLORS = { 电信: 'var(--teal)', 联通: 'var(--yellow)', 移动: 'var(--red)' };
 const CARRIER_ORDER = ['电信', '联通', '移动'];
 // 趋势视图：全部（原有三条整机线）/ 运营商延迟 / 运营商丢包。
 // 后两者回答的是存档最该回答的问题 —— "这台机器的移动是不是一直在绕"、
@@ -318,7 +350,7 @@ function svgForSeries(points, serie) {
   const range = spread > 1 ? `${Math.round(min)}–${Math.round(max)}${serie.unit}` : `${Math.round(min)}${serie.unit}`;
   const dots = serie.values.map((value, index) => {
     const report = points[index];
-    const title = `${fmtShort(report.testedAt)} · ${value === null ? '无数据' : `${value}${serie.unit}`}`;
+    const title = `${shortTimeCell(report)} · ${value === null ? '无数据' : `${value}${serie.unit}`}${timeIsEstimated(report) ? '（时间按上传估算）' : ''}`;
     return `<button type="button" class="tp" data-id="${report.id}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"></button>`;
   }).join('');
   return `<div class="trend-cell">
@@ -373,7 +405,7 @@ function renderHistory() {
     item.innerHTML = `<div class="history-main">
       <div class="title">
         <div class="history-title-row">
-          <strong class="time-title">${fmtTime(report.testedAt)}</strong>
+          <strong class="time-title">${timeCell(report)}</strong>
           ${report.sourceType === 'csv' ? '<span class="source-pill" title="服务器上用 run-with-hub.sh 直传的 CSV">直传</span>' : ''}
           ${report.identity ? `<span class="ident-pill">${escapeHtml(report.identity)}</span>` : ''}
           <span class="record-pill">${report.recordCount} 条指标</span>
@@ -405,7 +437,7 @@ function renderHistory() {
     open.addEventListener('click', () => openDetail(report.id));
     const remove = item.querySelector('.del-btn');
     remove.addEventListener('click', async () => {
-      if (!confirm(`删除 ${fmtTime(report.testedAt)} 的归档？原始${report.sourceType === 'csv' ? ' CSV' : '报告 HTML'}也会一并删除，且无法恢复。`)) return;
+      if (!confirm(`删除 ${fmtTime(report.testedAt)}${timeNote(report)} 的归档？原始${report.sourceType === 'csv' ? ' CSV' : '报告 HTML'}也会一并删除，且无法恢复。`)) return;
       remove.disabled = true;
       try {
         await api(`/api/reports/${report.id}`, { method: 'DELETE' });
@@ -567,7 +599,7 @@ async function openDetail(reportId) {
   const report = await fetchDetail(reportId);
   state.detail = report;
   el('detailCard').classList.remove('hidden');
-  el('detailTitle').textContent = `报告详情 · ${nodeName(report.nodeId)} · ${fmtShort(report.testedAt)}`;
+  el('detailTitle').textContent = `报告详情 · ${nodeName(report.nodeId)} · ${shortTimeCell(report)}`;
   const isCsv = report.sourceType === 'csv';
   el('openOriginal').hidden = isCsv;
   if (!isCsv) el('openOriginal').href = report.sourceUrl;
@@ -647,7 +679,7 @@ function renderRecent() {
           ${report.identity ? `<span class="recent-badge ident-badge">${escapeHtml(report.identity)}</span>` : ''}
         </div>
         <div class="recent-meta">
-          <span>测速时间：${fmtTime(report.testedAt)}</span>
+          <span>测速时间：${timeCell(report)}</span>
           <span class="meta-dot">·</span>
           <span>归档时间：${fmtShort(report.importedAt)}</span>
         </div>
@@ -751,7 +783,7 @@ async function renderDashboard() {
         <span class="cell-node-dot"></span>
         <span class="cell-node-name">${escapeHtml(nodeName(report.nodeId))}</span>
       </div>
-      <div class="dash-cell time">${fmtShort(report.testedAt)}</div>
+      <div class="dash-cell time"${timeIsEstimated(report) ? ` title="${estTitle}"` : ''}>${shortTimeCell(report)}</div>
       <div class="dash-cell metrics"><span class="metric pending">载入…</span></div>
       <div class="dash-cell action">
         <svg class="chevron-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
@@ -774,11 +806,15 @@ async function renderDashboard() {
 
   // 并行获取所有节点的最近详情，大幅减少等待时间
   const token = ++dashRequestToken;
+  // 每个节点取最近 5 份报告：够了画迷你走势，又不至于把整个历史拉下来。
+  // 详情有会话级缓存，切换视图不会重复请求。
+  const perNode = reportsByNode(state.reports);
   const results = await Promise.all(
     healthRows.map(async ({ row, report }) => {
+      const history = (perNode.get(report.nodeId) || []).slice().sort((left, right) => left.testedAt.localeCompare(right.testedAt)).slice(-5);
       try {
-        const detail = await fetchDetail(report.id);
-        return { row, report, detail };
+        const details = await Promise.all(history.map(item => fetchDetail(item.id)));
+        return { row, report, details };
       } catch {
         return { row, report, error: true };
       }
@@ -787,19 +823,34 @@ async function renderDashboard() {
   if (token !== dashRequestToken) return;
 
   const alerts = [];
-  for (const { row, report, detail, error } of results) {
-    if (error || !detail) {
+  for (const { row, report, details, error } of results) {
+    if (error || !details?.length) {
       row.querySelector('.metrics').innerHTML = '<span class="metric na">指标不可用</span>';
       continue;
     }
-    const cards = new Map((detail.insight?.cards || []).map(card => [card.id, card]));
+    const latest = details.at(-1);
+    const cards = new Map((latest.insight?.cards || []).map(card => [card.id, card]));
     const latency = cards.get('latency');
     const loss = cards.get('loss');
     const speed = cards.get('speed');
+    // 健康表与"需要关注"两张卡以前展示的是同一批徽章。关注卡只列有问题的节点，
+    // 这里则是全量索引，所以补一样它独有的信息：最近几份的延迟走势 + 与上一份的差值。
+    // 只摆一个时点数字看不出"在变好还是在变差"。
+    const series = details.map(item => (item.insight?.cards || []).find(card => card.id === 'latency')?.value).filter(value => typeof value === 'number');
+    // 差值用 series 的最后两点而不是"最新一份的值"：series 已经滤掉了无效读数，
+    // 混用会出现"上一份 175ms → 这一份 没数据"却算出差值的错位
+    const previous = series.length >= 2 ? series.at(-2) : null;
+    const latestValue = series.length ? series.at(-1) : null;
+    const delta = previous !== null && latestValue !== null ? latestValue - previous : null;
+    const deltaText = delta === null || Math.abs(delta) < 1
+      ? ''
+      : `<span class="dash-delta ${delta > 0 ? 'worse' : 'better'}" title="与上一份有读数的报告相比（${previous}ms → ${latestValue}ms）">${delta > 0 ? '↑' : '↓'}${Math.abs(Math.round(delta))}ms</span>`;
     row.querySelector('.metrics').innerHTML = `
+      ${svgSparkline(series)}
       ${latency && typeof latency.value === 'number' ? `<span class="metric l${latency.level}"><span class="m-icon">⚡</span>延迟 ${latency.value}${latency.unit}</span>` : ''}
       ${loss && typeof loss.value === 'number' ? `<span class="metric l${loss.level}"><span class="m-icon">📉</span>丢包 ${loss.value}${loss.unit}</span>` : ''}
       ${speed && typeof speed.value === 'number' ? `<span class="metric l${speed.level}"><span class="m-icon">🚀</span>带宽 ${speed.value}${speed.unit}</span>` : ''}
+      ${deltaText}
     `;
     const worst = [latency, loss, speed].reduce((acc, card) => {
       if (!card || typeof card.value !== 'number') return acc;
@@ -808,7 +859,9 @@ async function renderDashboard() {
     if (worst > 0) alerts.push({ report, latency, loss, speed, worst });
   }
 
-  // 需要关注的节点：最严重的排前面，同级再看时间
+  // 需要关注的节点：最严重的排前面，同级再看时间。
+  // 只列前几条，其余用一句提示收口 —— 关注卡的职责是"现在该看哪台"，
+  // 全量节点在下面的健康总览里已经有了。
   alerts.sort((left, right) => right.worst - left.worst || right.report.testedAt.localeCompare(left.report.testedAt));
   if (!alerts.length) {
     alertCard.classList.add('hidden');
@@ -816,7 +869,9 @@ async function renderDashboard() {
   }
   alertCard.classList.remove('hidden');
   alertsBox.innerHTML = '';
-  for (const { report, latency, loss, speed } of alerts) {
+  const shown = alerts.slice(0, 6);
+  const rest = alerts.length - shown.length;
+  for (const { report, latency, loss, speed } of shown) {
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'title-link dash-alert';
@@ -827,7 +882,7 @@ async function renderDashboard() {
             <strong>${escapeHtml(nodeName(report.nodeId))}</strong>
             <span class="alert-tag">注意</span>
           </div>
-          <span class="meta">评测时间：${fmtTime(report.testedAt)}</span>
+          <span class="meta">评测时间：${timeCell(report)}</span>
         </div>
         <div class="metrics">
           ${latency && typeof latency.value === 'number' ? `<span class="metric l${latency.level}"><span class="m-icon">⚡</span>延迟 ${latency.value}${latency.unit}</span>` : ''}
@@ -847,6 +902,12 @@ async function renderDashboard() {
       openDetail(report.id);
     });
     alertsBox.append(item);
+  }
+  if (rest > 0) {
+    const more = document.createElement('p');
+    more.className = 'empty dash-idle';
+    more.textContent = `另有 ${rest} 个节点也需要注意，已在下方「节点健康总览」中标出`;
+    alertsBox.append(more);
   }
 }
 // 脚本直传、尚未绑定节点的报告。每份一个独立的选择器；没有"同一台机器"的记忆时不预选，必须明确选择
@@ -967,7 +1028,7 @@ function renderPreview(report, token, suggestion) {
   const perSection = report.sections.map(section => `<div class="stat"><div class="label">${escapeHtml(section.name)}</div><div class="value">${counts[section.id] ?? 0} 条</div></div>`).join('');
   const box = el('previewResult');
   box.innerHTML = `<div class="preview-grid">
-    <div class="stat"><div class="label">测试时间</div><div class="value">${fmtTime(report.testedAt)}</div></div>
+    <div class="stat"><div class="label">测试时间</div><div class="value">${fmtTime(report.testedAt)}${report.timeSource === 'upload' ? '（按上传时间估算）' : ''}</div></div>
     <div class="stat"><div class="label">出口信息</div><div class="value">${escapeHtml(report.identity || '未知')}</div></div>
     <div class="stat"><div class="label">指标总数</div><div class="value">${report.recordCount} 条</div></div>
     ${perSection}</div>
@@ -1006,7 +1067,7 @@ function renderCompareSelectors() {
     : (firstWithMultiple || state.selectedNodeId || state.nodes[0]?.id || '');
   nodeSelect.value = target;
   const reports = state.reports.filter(report => report.nodeId === target).sort((left, right) => right.testedAt.localeCompare(left.testedAt));
-  const options = reports.map(report => `<option value="${report.id}">${fmtTime(report.testedAt)}</option>`).join('');
+  const options = reports.map(report => `<option value="${report.id}">${fmtTime(report.testedAt)}${timeNote(report)}</option>`).join('');
   el('compareBase').innerHTML = options;
   el('compareCurrent').innerHTML = options;
   if (reports.length > 1) {

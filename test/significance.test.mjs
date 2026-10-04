@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isSignificantChange, significanceOf, significance } from '../lib/thresholds.mjs';
+import { isSignificantChange, significanceOf, significance, grade, levelFromBand, latencyByRegion, latencyFallback } from '../lib/thresholds.mjs';
 
 // 对比视图的信噪比问题：同机两次测试之间 ±1~16ms 的抖动会铺出几百行，
 // 把"吉林联通丢包 +78%"这种真正的信号埋掉。这里定的是"小于它就算噪声"的下限。
@@ -59,4 +59,42 @@ test('零变化与非法数值一律不算显著', () => {
   }
   assert.equal(isSignificantChange('latency', NaN, 1, 2), false);
   assert.equal(isSignificantChange('latency', Infinity, 1, 2), false, 'Infinity 不是有效变化量');
+});
+
+// 热力图格子与卡片徽章必须同口径：同一份数据在详情页里出现两种颜色，
+// 看久了就不会再信任任何一个。卡片的 3 档是权威，热力图的 5 个色阶
+// 只能把每一档一分为二（浅/深），不能另立刻度。
+test('热力图色阶与卡片档位严格同口径（穷举全部区域）', () => {
+  const bands = { ...latencyByRegion, 未知: latencyFallback };
+  const gradeOfLevel = level => (level <= 1 ? 'good' : level <= 3 ? 'fair' : 'bad');
+  let checked = 0;
+  for (const [code, band] of Object.entries(bands)) {
+    for (let value = 1; value <= band.fair + 30; value += 1) {
+      checked += 1;
+      assert.equal(
+        gradeOfLevel(levelFromBand(value, band)),
+        grade(value, band),
+        `${code} 区域 ${value}ms：卡片判 ${grade(value, band)}，色阶却是 l${levelFromBand(value, band)}`
+      );
+    }
+  }
+  assert.ok(checked > 9000, '要覆盖全部区域的全部整数延迟');
+});
+
+test('美国 172ms 这个具体案例：卡片说好，热力图也得是绿色系', () => {
+  // 旧实现里 172ms 落在 l1 而卡片是 good，同一屏两种颜色；修复后两者一致
+  const band = latencyByRegion.US;
+  assert.equal(grade(172, band), 'good');
+  assert.ok(levelFromBand(172, band) <= 1, '必须是绿色系（l0/l1），不能是黄色');
+  assert.equal(grade(176, band), 'fair');
+  assert.ok(levelFromBand(176, band) >= 2);
+});
+
+test('色阶边界不会越档：窄档区域（good 与 fair 只差 50）也不串色', () => {
+  // 曾经想按 1.6×good 之类的比例推色阶，但 HK 的 fair 只有 150，一乘就冲到 fair 之外
+  const band = latencyByRegion.HK;
+  assert.equal(levelFromBand(band.good, band), 1, '正好等于 good 上限仍是绿色系');
+  assert.equal(levelFromBand(band.good + 1, band), 2, '刚过 good 才是黄色系');
+  assert.equal(levelFromBand(band.fair, band), 3);
+  assert.equal(levelFromBand(band.fair + 1, band), 4);
 });
