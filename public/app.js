@@ -1002,23 +1002,39 @@ function renderPending() {
     list.append(item);
   }
 }
+// 结果区：批量操作的失败原因必须**全部**留在屏幕上，不能靠 toast 逐条弹 ——
+// 页面只有一个 toast 元素，连续调用会互相覆盖，多条失败时用户只看得到最后一条。
+function showBulkResult(result) {
+  const box = el('pendingBulkResult');
+  const lines = [`已归档 ${result.bound.length} 份`];
+  if (result.skipped) lines.push(`${result.skipped} 份没有归属记忆，仍留在队列里等你手动选择`);
+  const failed = result.failed || [];
+  box.hidden = false;
+  box.classList.toggle('error', failed.length > 0);
+  box.innerHTML = `
+    <div class="pending-bulk-head">${failed.length ? '⚠ ' : '✔ '}${escapeHtml(lines.join('；'))}</div>
+    ${failed.length ? `<ul class="pending-bulk-fails">${failed.map(item => `<li><strong>${escapeHtml(item.hostname || item.id.slice(0, 8))}</strong>：${escapeHtml(item.error)}</li>`).join('')}</ul>` : ''}`;
+}
 // 一键接受全部推荐：只把"有推荐"的 id 交给服务端，没有推荐的条目仍由人决定归属
 async function bindRecommended() {
   const ids = state.pending.filter(entry => !entry.broken && entry.suggestion?.nodeId).map(entry => entry.id);
   if (!ids.length) return;
   const button = el('bindRecommended');
+  const box = el('pendingBulkResult');
   button.disabled = true;
+  box.hidden = true;
   try {
     const result = await api('/api/pending/bind-recommended', { method: 'POST', body: JSON.stringify({ ids }) });
-    const parts = [`已归档 ${result.bound.length} 份`];
-    if (result.failed.length) parts.push(`${result.failed.length} 份失败`);
-    if (result.skipped) parts.push(`${result.skipped} 份无推荐已跳过`);
-    toast(parts.join('，'), result.failed.length > 0);
-    // 失败原因逐条说清楚，否则用户只知道"有几份没成"却不知为什么
-    for (const item of result.failed) toast(`${item.hostname || item.id.slice(0, 8)}：${item.error}`, true);
+    const failed = result.failed || [];
+    // 成功也用一句话点一下即可；失败则整块列在下面，不随后续渲染消失
+    toast(failed.length ? `已归档 ${result.bound.length} 份，${failed.length} 份失败（原因见下方）` : `已归档 ${result.bound.length} 份`, failed.length > 0);
+    showBulkResult({ ...result, failed });
     await refresh();
   } catch (error) {
     toast(error.message, true);
+    box.hidden = false;
+    box.classList.add('error');
+    box.innerHTML = `<div class="pending-bulk-head">⚠ 批量归档失败：${escapeHtml(error.message)}</div>`;
   } finally {
     button.disabled = false;
   }

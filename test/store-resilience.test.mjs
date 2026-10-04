@@ -92,3 +92,57 @@ test('写到一半的临时文件不会被当成明细读出来', () => {
   assert.equal(store.detail(report.id), null);
   assert.equal(store.detailError(report.id), 'missing-file');
 });
+
+// 自愈必须做在 store.detail 这一层：只在某条 HTTP 路由里包一层的话，
+// 将来任何一个直接调 store.detail 的地方都会绕过它，重新出现
+// "脚本机能读、网页打不开"这种同数据不同结果的不一致。
+test('detail 传入重建回调时，坏文件会当场自愈并落盘', () => {
+  const { dir, store } = makeStore();
+  store.sync([{ id: 'n1', name: '甲', region: 'HK', enabled: true }]);
+  const report = store.insert('n1', sampleReport, '<html></html>');
+  const path = join(dir, 'reports', `${report.id}.json`);
+  truncateSync(path, 20);
+  assert.equal(store.detail(report.id), null, '不传回调时只做纯读取');
+
+  let calls = 0;
+  const healed = store.detail(report.id, index => {
+    calls += 1;
+    assert.equal(index.id, report.id, '回调要能拿到索引项，否则无法知道用哪个解析器');
+    assert.equal(index.sourceType, undefined, 'HTML 报告没有 sourceType，与 server 的判断一致');
+    return { ...store.database.reports[0], id: report.id, records: sampleReport.records, sections: sampleReport.sections, rawRows: {} };
+  });
+  assert.equal(calls, 1);
+  assert.ok(healed, '坏文件应当当场重建并返回');
+  assert.equal(healed.records.length, 1);
+  // 落盘之后，后续任何调用方（哪怕不传回调）都能读到好数据 —— 修一次就够了
+  assert.equal(store.detail(report.id).records.length, 1, '自愈结果必须写回磁盘');
+  assert.equal(store.detail(report.id).records.length, 1);
+});
+
+test('detail 的重建只对"文件坏了"触发，记录不存在时不白跑解析', () => {
+  const { store } = makeStore();
+  let calls = 0;
+  assert.equal(store.detail('99999999-9999-4999-8999-999999999999', () => { calls += 1; return {}; }), null);
+  assert.equal(calls, 0, '索引里都没有这条记录，谈不上重建');
+});
+
+test('重建回调返回 null（原始文件也没了）时安静返回 null，不抛', () => {
+  const { dir, store } = makeStore();
+  store.sync([{ id: 'n1', name: '甲', region: 'HK', enabled: true }]);
+  const report = store.insert('n1', sampleReport, '<html></html>');
+  truncateSync(join(dir, 'reports', `${report.id}.json`), 20);
+  const errors = [];
+  assert.equal(store.detail(report.id, () => { errors.push(1); return null; }), null);
+  assert.equal(errors.length, 1, '应当尝试过一次');
+  // 原始文件真没了的情况：解析器会抛，store 不能把异常漏出去
+  assert.equal(store.detail(report.id, () => { throw new Error('原始文件也没了'); }), null);
+});
+
+test('重建回调抛异常时也不把异常漏给调用方', () => {
+  const { dir, store } = makeStore();
+  store.sync([{ id: 'n1', name: '甲', region: 'HK', enabled: true }]);
+  const report = store.insert('n1', sampleReport, '<html></html>');
+  truncateSync(join(dir, 'reports', `${report.id}.json`), 20);
+  assert.doesNotThrow(() => store.detail(report.id, () => { throw new Error('解析炸了'); }));
+  assert.equal(store.detail(report.id, () => { throw new Error('解析炸了'); }), null);
+});

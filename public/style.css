@@ -2153,6 +2153,20 @@ body.sub-body, body.login-body { overflow-y: auto; }
   background: var(--panel-2);
 }
 .pending-bulk .hint { margin: 0; }
+/* 批量归档结果：失败原因会留在这里，不像 toast 那样 2.6 秒后消失或被下一条顶掉 */
+.pending-bulk-result {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--ok-border);
+  background: var(--ok-bg);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+.pending-bulk-result.error { border-color: var(--warn-border); background: var(--warn-bg); }
+.pending-bulk-head { font-weight: 600; }
+.pending-bulk-fails { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+.pending-bulk-fails strong { font-weight: 600; }
 .pending-item {
   display: flex;
   justify-content: space-between;

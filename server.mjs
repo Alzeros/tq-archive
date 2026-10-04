@@ -51,27 +51,34 @@ function summary(report) {
   const sectionCounts = Object.fromEntries(report.sections.map(section => [section.id, records.filter(record => record.section === section.id).length]));
   return { ...metadata, recordCount: records.length, sectionCounts };
 }
-// 读明细，取不到就从留存的原始文件重建（HTML 与 CSV 各自的重解析规则）。
-// 一份文件被截断/半写就会让 detail 返回 null，而聚合接口与详情页都依赖它 ——
-// 不在这儿自愈的话，那份报告会永远打不开，只能手工删。
-function loadDetail(id) {
-  const detail = store.detail(id);
-  if (detail) return { detail, error: '' };
-  const broken = store.detailError(id);
-  if (!broken || broken === 'missing-index') return { detail: null, error: '' };
-  const index = store.database.reports.find(report => report.id === id);
+// 明细坏掉（被截断、半写、JSON 坏）时从留存的原始文件重建：HTML 与 CSV 各用各的解析器，
+// 所以这个回调由 server 提供，store 只负责"读不出来就调用它并落盘"。
+// 放在 store.detail 里而不是某条路由的包装函数里：否则将来任何一个直接调 store.detail
+// 的地方都会绕过自愈，重新出现"脚本机读得到、网页打不开"的不一致。
+// 最近一次重建失败的原因记在这里，供聚合接口把 skipped 的理由返回给调用方。
+let lastRebuildError = null;
+function rebuildDetail(index) {
+  if (!index) return null;
   try {
     const parsed = index.sourceType === 'csv'
-      ? parseTqCsv(store.raw(id).content, { sourceUrl: index.sourceUrl, testedAt: index.testedAt, identity: index.identity })
-      : parseReport(store.raw(id).content, index.sourceUrl);
-    const rebuilt = { ...parsed, id, nodeId: index.nodeId, rawExt: index.rawExt, upload: index.upload, importedAt: index.importedAt };
-    store.refreshReports([rebuilt]);
-    console.log(`报告 ${id} 的明细文件损坏，已从原始文件重建`);
-    return { detail: rebuilt, error: '' };
+      ? parseTqCsv(store.raw(index.id).content, { sourceUrl: index.sourceUrl, testedAt: index.testedAt, identity: index.identity })
+      : parseReport(store.raw(index.id).content, index.sourceUrl);
+    console.log(`报告 ${index.id} 的明细文件损坏，已从原始文件重建`);
+    return { ...parsed, id: index.id, nodeId: index.nodeId, rawExt: index.rawExt, upload: index.upload, importedAt: index.importedAt };
   } catch (error) {
-    console.warn(`报告 ${id} 明细损坏且重建失败：${error.message}`);
-    return { detail: null, error };
+    // 日志只在这里打一次：store 在落盘失败时可能再调用一次，重复刷屏没有意义
+    lastRebuildError = error;
+    console.warn(`报告 ${index.id} 明细损坏且重建失败：${error.message}`);
+    return null;
   }
+}
+// 需要区分"重建也失败"的调用方（如聚合接口要报告 skipped）用这个；
+// 只关心拿到数据的调用方直接用 detailOf。
+function loadDetail(id) {
+  lastRebuildError = null;
+  const detail = store.detail(id, rebuildDetail);
+  if (detail) return { detail, error: '' };
+  return { detail: null, error: lastRebuildError };
 }
 const detailOf = id => loadDetail(id).detail;
 function send(response, status, data) {
@@ -670,13 +677,15 @@ const server = http.createServer(async (request, response) => {
 for (const orphan of store.orphanPoolFiles()) {
   store.addPending(pendingEntry(orphan.id, orphan.csv, { receivedAt: new Date(orphan.mtimeMs).toISOString(), testedAt: beijingIso(orphan.mtimeMs), timeSource: 'upload', hostname: '', sourceIp: '', keyName: '', filename: '' }), orphan.csv);
 }
-// 解析规则升级后，用留存的原始 CSV 重新解析已有直传报告：之前没解析的维度自动补齐，不必删掉重传
+// 解析规则升级后，用留存的原始 CSV 重新解析已有直传报告：之前没解析的维度自动补齐，不必删掉重传。
+// 明细读不出来时 store.detail 会顺手从原始文件自愈（同一套回调），所以这里拿到的一定是能用的数据；
+// 仍然读不到只可能是原始文件也没了，那就如实说明，别谎称"保留原结果"。
 const pendingMeta = item => ({ receivedAt: item.receivedAt, testedAt: item.testedAt, timeSource: item.timeSource, hostname: item.hostname, sourceIp: item.sourceIp, keyName: item.keyName, filename: item.filename });
 const staleReports = [];
 for (const index of store.database.reports.filter(item => item.sourceType === 'csv' && (item.csvParserVersion || 0) < CSV_PARSER_VERSION)) {
   try {
-    const old = store.detail(index.id);
-    if (!old) { console.warn(`直传报告 ${index.id} 的明细文件不可读，跳过重解析（首次访问时会从原始 CSV 重建）`); continue; }
+    const old = store.detail(index.id, rebuildDetail);
+    if (!old) { console.warn(`直传报告 ${index.id} 的明细与原始 CSV 都不可读，跳过重解析`); continue; }
     const parsed = parseTqCsv(store.raw(index.id).content, { sourceUrl: old.sourceUrl, testedAt: old.testedAt, identity: old.identity });
     staleReports.push({ ...parsed, id: old.id, nodeId: old.nodeId, rawExt: old.rawExt, upload: old.upload, importedAt: old.importedAt });
   } catch (error) { console.warn(`直传报告 ${index.id} 重新解析失败，保留原结果：${error.message}`); }
@@ -688,10 +697,8 @@ if (staleReports.length) { store.refreshReports(staleReports); console.log(`已�
 const staleHtml = [];
 for (const index of store.database.reports.filter(item => item.sourceType !== 'csv' && (item.parserVersion || 0) < PARSER_VERSION)) {
   try {
-    const old = store.detail(index.id);
-    // 明细本身就读不出来时没有"原结果"可保留：说清楚它会按需重建，
-    // 否则日志里那句"保留原结果"会让人以为数据还在，实际是一份坏文件
-    if (!old) { console.warn(`报告 ${index.id} 的明细文件不可读，跳过重解析（首次访问时会从原始 HTML 重建）`); continue; }
+    const old = store.detail(index.id, rebuildDetail);
+    if (!old) { console.warn(`报告 ${index.id} 的明细与原始 HTML 都不可读，跳过重解析`); continue; }
     const parsed = parseReport(store.raw(index.id).content, old.sourceUrl);
     staleHtml.push({ ...parsed, id: old.id, nodeId: old.nodeId, upload: old.upload, importedAt: old.importedAt });
   } catch (error) { console.warn(`报告 ${index.id} 重新解析失败，保留原结果：${error.message}`); }
