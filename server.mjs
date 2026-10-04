@@ -3,7 +3,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
-import { parseReport, compareReports, metricNames } from './lib/parser.mjs';
+import { parseReport, compareReports, metricNames, PARSER_VERSION } from './lib/parser.mjs';
 import { loadProbeNodes } from './lib/probe.mjs';
 import { createStore } from './lib/store.mjs';
 import { summarize } from './lib/insight.mjs';
@@ -442,6 +442,18 @@ for (const index of store.database.reports.filter(item => item.sourceType === 'c
   } catch (error) { console.warn(`直传报告 ${index.id} 重新解析失败，保留原结果：${error.message}`); }
 }
 if (staleReports.length) { store.refreshReports(staleReports); console.log(`已按新规则重新解析 ${staleReports.length} 份直传报告`); }
+// 链接导入的 HTML 报告走同一套机制：原始 HTML 一直留在 raw/ 里，
+// 解析规则升级后（双栈两列教育网、国际节点 IPv6、-1 哨兵）自动补齐，不必删掉重导。
+// 归属、导入时间、来源信息沿用旧记录，只替换解析结果。
+const staleHtml = [];
+for (const index of store.database.reports.filter(item => item.sourceType !== 'csv' && (item.parserVersion || 0) < PARSER_VERSION)) {
+  try {
+    const old = store.detail(index.id);
+    const parsed = parseReport(store.raw(index.id).content, old.sourceUrl);
+    staleHtml.push({ ...parsed, id: old.id, nodeId: old.nodeId, upload: old.upload, importedAt: old.importedAt });
+  } catch (error) { console.warn(`报告 ${index.id} 重新解析失败，保留原结果：${error.message}`); }
+}
+if (staleHtml.length) { store.refreshReports(staleHtml); console.log(`已按新规则重新解析 ${staleHtml.length} 份链接报告`); }
 const stalePending = store.database.pending.filter(item => (item.csvParserVersion || 0) < CSV_PARSER_VERSION);
 if (stalePending.length) store.refreshPending(stalePending.map(item => pendingEntry(item.id, store.pendingCsv(item.id), pendingMeta(item))));
 server.listen(port, '127.0.0.1', () => {

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { parseReport, compareReports } from '../lib/parser.mjs';
+import { parseReport, compareReports, PARSER_VERSION } from '../lib/parser.mjs';
 
 const html = readFileSync(new URL('./fixtures/report.html', import.meta.url), 'utf8');
 const report = parseReport(html, 'https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM');
@@ -50,6 +50,11 @@ test('以报告测试时间归档，而非导入时间', () => {
 
 test('相同报告产生相同指纹，可用于去重', () => {
   assert.equal(parseReport(html, 'x').fingerprint, report.fingerprint);
+});
+
+test('解析结果带上当前规则版本，服务据此判断是否需要重解析旧报告', () => {
+  assert.equal(report.parserVersion, PARSER_VERSION);
+  assert.ok(PARSER_VERSION >= 2, '双栈两列教育网 / 国际节点 IPv6 / -1 哨兵属于第 2 版规则');
 });
 
 test('缺少报告时间时拒绝解析', () => {
