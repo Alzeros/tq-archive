@@ -24,8 +24,13 @@
       <h2 class="sub-card-title">生成新 Key</h2>
       <div class="keys-form">
         <input id="keyName" class="sub-input" type="text" placeholder="Key 名称（例如：服务器A）" maxlength="50" autocomplete="off">
+        <select id="keyScope" class="sub-input" title="权限范围，创建后不可更改">
+          <option value="upload">上传 · 只能提交 CSV（脚本机用）</option>
+          <option value="read">只读 · 可拉取报告索引与明细（分析用）</option>
+        </select>
         <button id="generateBtn" class="primary" type="button">生成</button>
       </div>
+      <p class="keys-hint">上传 Key 读不到任何报告数据；只读 Key 改不了任何东西。服务器上跑测试的脚本一律用上传 Key。</p>
       <div id="secretDisplay" class="keys-secret" hidden>
         <div class="keys-secret-head">
           <span class="keys-secret-badge">✔ 已生成</span>
@@ -42,6 +47,7 @@
           <thead>
             <tr>
               <th>名称</th>
+              <th>权限</th>
               <th>状态</th>
               <th>创建时间</th>
               <th>最后使用</th>

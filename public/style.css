@@ -2002,6 +2002,9 @@ body.sub-body, body.login-body { overflow-y: auto; }
 }
 .keys-badge.on { background: var(--ok-bg); border: 1px solid var(--ok-border); color: var(--ok-text); }
 .keys-badge.off { background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn-text); }
+.keys-badge.read { background: var(--info-bg); border: 1px solid var(--info-border); color: var(--info-text); }
+.keys-badge.up { background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); }
+.keys-hint { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.6; }
 
 .keys-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .sub-btn {

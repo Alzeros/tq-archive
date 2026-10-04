@@ -8,7 +8,7 @@ import { loadProbeNodes } from './lib/probe.mjs';
 import { createStore } from './lib/store.mjs';
 import { summarize } from './lib/insight.mjs';
 import { createAuth } from './lib/auth.mjs';
-import { listKeys, getKey, createKey, updateKey, deleteKey, touchKey } from './lib/keys.mjs';
+import { listKeys, getKey, createKey, updateKey, deleteKey, touchKey, scopeOf, authorizeKey } from './lib/keys.mjs';
 import { parseTqCsv, csvFingerprint, CSV_PARSER_VERSION } from './lib/csv-parser.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -65,13 +65,11 @@ async function body(request) {
   return JSON.parse((await readText(request, 64 * 1024)) || '{}');
 }
 // ─── 脚本直传 ───────────────────────────────────────────────────────────
-function apiKey(request) {
+// 鉴权本体在 lib/keys.mjs 的 authorizeKey（可单测），这里只负责从请求头取 secret。
+function apiKey(request, required = 'upload') {
   const secret = String(request.headers['x-tq-key'] || '').trim();
   if (!secret) return { error: 'API Key 缺失' };
-  const record = getKey(secret);
-  if (!record) return { error: 'API Key 错误' };
-  if (!record.enabled) return { error: '该 API Key 已被禁用' };
-  return { record };
+  return authorizeKey(getKey(secret), required);
 }
 // 脚本机经 Cloudflare / nginx 上来，socket 地址是代理的。取转发头里的来源，只用于展示与归属记忆，不参与鉴权
 function clientIp(request) {
@@ -182,10 +180,11 @@ const server = http.createServer(async (request, response) => {
     }
 
     const session = auth.currentSession(request);
-    // upload-csv 是脚本机用 API Key 鉴权的接口（无 cookie），不走登录拦截；
-    // 它的 key 校验在处理函数内部完成。
-    const keyAuthedPaths = new Set(['/api/upload-csv']);
-    if (!session.ok && !keyAuthedPaths.has(url.pathname)) {
+    // 用 API Key 鉴权的接口（无 cookie），不走登录拦截；各自的 key 权限在处理函数内部校验。
+    // 白名单式列举：新增鉴权接口必须显式写进来，默认仍走登录，避免误开放。
+    // 只读通道只豁免 GET：匿名 DELETE /api/reports/:id 若也被豁免，会落空进登录路由照样删库。
+    const keyAuthed = (path, method) => path === '/api/upload-csv' || (method === 'GET' && (path === '/api/reports' || /^\/api\/reports\/[a-f\d-]{36}$/.test(path)));
+    if (!session.ok && !keyAuthed(url.pathname, request.method)) {
       // 接口返回 401 由前端跳转；页面请求直接送到登录页
       if (url.pathname.startsWith('/api/')) return send(response, 401, { error: '请先登录' });
       if (!publicPaths.has(url.pathname)) {
@@ -262,6 +261,48 @@ const server = http.createServer(async (request, response) => {
       touchKey(record.id);
       return send(response, 202, { status: 'pending', id: entry.id, testedAt: entry.testedAt, recordCount: entry.recordCount, sections: entry.sections.map(section => section.name), warnings: entry.warnings, error: entry.error });
     }
+    // ─── 只读数据通道（需要「只读」权限的 Key）─────────────────────────
+    // 给自动化分析用。刻意只给报告数据：不开放原始 HTML/CSV、Key 管理、节点开关、
+    // 待绑定队列，也不接受任何写方法。上传 key 即使拿到也读不到这里。
+    if (request.method === 'GET' && url.pathname === '/api/reports') {
+      // 登录用户不受 key 体系限制（网页侧的全量权限通道）；无会话时才要求只读 key
+      if (!session.ok) {
+        const { error } = apiKey(request, 'read');
+        if (error) return send(response, 401, { error });
+      }
+      const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || 200, 1), 500);
+      const node = url.searchParams.get('node') || '';
+      const since = url.searchParams.get('since') || '';
+      let matched = store.database.reports;
+      if (node) matched = matched.filter(report => report.nodeId === node);
+      if (since) matched = matched.filter(report => report.testedAt >= since);
+      // 按测试时间正序取最近 limit 份：分析通常看最新的几份
+      const page = [...matched].sort((left, right) => left.testedAt.localeCompare(right.testedAt)).slice(-limit);
+      return send(response, 200, {
+        // 节点只给分析必需的字段，不含 order / hidden 等界面内部状态
+        nodes: store.database.nodes.map(item => ({ id: item.id, name: item.name, region: item.region, enabled: item.enabled, archived: item.archived })),
+        reports: page.map(report => ({
+          id: report.id, nodeId: report.nodeId, testedAt: report.testedAt, importedAt: report.importedAt,
+          recordCount: report.recordCount, sectionCounts: report.sectionCounts, sourceType: report.sourceType || 'html',
+          parserVersion: report.parserVersion, csvParserVersion: report.csvParserVersion, warningCount: report.warnings?.length || 0
+        })),
+        total: matched.length,
+        syncedAt: store.database.syncedAt
+      });
+    }
+    const readMatch = url.pathname.match(/^\/api\/reports\/([a-f\d-]{36})$/);
+    // 只拦截"无会话的 GET"：登录用户走下方原路由拿全量详情（含 rawRows），
+    // DELETE / move 等方法也必须落空到原路由，不能在这里被 key 校验误杀。
+    if (readMatch && request.method === 'GET' && !session.ok) {
+      const { error } = apiKey(request, 'read');
+      if (error) return send(response, 401, { error });
+      const report = store.detail(readMatch[1]);
+      if (!report) return send(response, 404, { error: '报告不存在' });
+      // rawRows 是原始行文本，体积占大头且分析用不上；需要时由登录用户从网页下载
+      const { rawRows, ...rest } = report;
+      return send(response, 200, { ...rest, insight: summarize(report, store.database.nodes.find(item => item.id === report.nodeId)) });
+    }
+
     // 待绑定队列（需登录）：绑定到节点后成为正式报告，或直接丢弃
     const pendingMatch = url.pathname.match(/^\/api\/pending\/([a-f\d-]{36})(\/(bind|raw))?$/);
     if (pendingMatch) {
@@ -297,6 +338,7 @@ const server = http.createServer(async (request, response) => {
         const keys = listKeys().map(k => ({
           id: k.id,
           name: k.name,
+          scope: scopeOf(k),
           enabled: k.enabled,
           createdAt: k.createdAt,
           lastUsedAt: k.lastUsedAt
@@ -306,15 +348,17 @@ const server = http.createServer(async (request, response) => {
       }
 
       if (request.method === 'POST') {
-        const { name } = await body(request);
+        const { name, scope } = await body(request);
         if (!name || typeof name !== 'string' || !name.trim()) {
           return send(response, 400, { error: '请填写 Key 名称' });
         }
-        const newKey = createKey(name.trim());
+        // 缺省 upload：老脚本不带 scope 字段，行为不变
+        const newKey = createKey(name.trim(), scope === 'read' ? 'read' : 'upload');
         // 只在创建时返回 secret，之后永远看不到
         return send(response, 201, {
           id: newKey.id,
           name: newKey.name,
+          scope: newKey.scope,
           secret: newKey.secret, // 仅此一次显示
           enabled: newKey.enabled,
           createdAt: newKey.createdAt
