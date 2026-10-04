@@ -445,8 +445,12 @@ const server = http.createServer(async (request, response) => {
       '/login': ['login.html', 'text/html'],
       '/login.js': ['login.js', 'text/javascript'],
       '/keys.html': ['keys.html', 'text/html'],
+      // 同时认无后缀形式：/login 就是无后缀的，/keys 却 404 显得不一致，
+      // 手输地址、收藏夹、旧记录都可能是任一种
+      '/keys': ['keys.html', 'text/html'],
       '/keys.js': ['keys.js', 'text/javascript'],
       '/nodes.html': ['nodes.html', 'text/html'],
+      '/nodes': ['nodes.html', 'text/html'],
       '/nodes.js': ['nodes.js', 'text/javascript'],
       '/favicon.svg': ['favicon.svg', 'image/svg+xml'],
       '/favicon.ico': ['favicon.ico', 'image/x-icon', true],

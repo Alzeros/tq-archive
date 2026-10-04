@@ -13,11 +13,9 @@ function showToast(message, type = 'info') {
   showToast._t = setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = String(str ?? '');
-  return div.innerHTML;
-}
+// 与 app.js / nodes.js 必须是同一份实现：三处各有一份副本，改一处漏两处就会出现
+// 属性注入（textContent→innerHTML 不转义 " 和 '，data-name="..." 这类写法会被一个引号 breakout）。
+const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 
 // clipboard API 只在安全上下文可用（https / localhost）；http 裸 IP 访问时退回 execCommand
 async function copyText(text) {
