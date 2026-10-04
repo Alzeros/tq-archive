@@ -416,7 +416,7 @@ function renderInsight(insight) {
     <div class="insight-block">
       <div class="insight-head"><h3 class="section-title">省份 × 运营商</h3><div class="hm-tabs">${tabs}</div></div>
       <div id="heatmap"></div>
-      <p class="hint">颜色按「${escapeHtml(region.label)}」基准判绝对档位：≤${region.good}ms 好、≤${region.fair}ms 一般、超过为差。健康的线路不会再因为"是这份报告里相对最差的一个"被染红。悬停查看去程线路。</p>
+      <p class="hint">颜色按「${escapeHtml(region.label)}」基准判绝对档位：≤${region.good}ms 好、≤${region.fair}ms 一般、超过为差。健康的线路不会再因为"是这份报告里相对最差的一个"被染红。悬停查看去程线路。${insight.matrices.some(matrix => matrix.id === 'speedtest') && insight.speedRule ? `测速带宽反向判定：≥${insight.speedRule.good}Mbps 好、≥${insight.speedRule.fair}Mbps 一般、低于为差。` : ''}</p>
     </div>${services}`;
   state.heatmap = { matrixId: insight.matrices[0]?.id || null, metricId: null };
   for (const button of el('detailSummary').querySelectorAll('.hm-tab[data-matrix]')) {
