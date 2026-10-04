@@ -223,6 +223,19 @@ test('bandsOf 给全量基准，校准状态用标记区分（与 insight 的 la
   assert.equal(typeof bands.US.good, 'number');
 });
 
+test('group=region 的 label 用中文区域名，与 group=node 的 regionLabel 同一口径', () => {
+  // 之前 label 直接是裸区域码（JP/HK），消费方还得回查 regionBands 才拿得到"日本"，
+  // 而 group=node 早就给了 regionLabel —— 同一份数据两种取法
+  const regions = aggregate({ nodes, reports, group: 'region', section: 'ipv4' });
+  assert.equal(regions.find(group => group.key === 'HK').label, '中国香港');
+  assert.equal(regions.find(group => group.key === 'US').label, '美国');
+  const machines = aggregate({ nodes, reports, group: 'node', section: 'ipv4' });
+  for (const machine of machines) {
+    const same = regions.find(group => group.key === machine.region);
+    if (same) assert.equal(same.label, machine.regionLabel, `${machine.label} 的区域名两处必须一致`);
+  }
+});
+
 test('statsOf 给出分位与离散度，空输入返回 null', () => {
   const s = statsOf([10, 20, 30, 40, 50, 60, 70, 80, 90]);
   assert.equal(s.n, 9);

@@ -9,7 +9,7 @@ import { createStore } from './lib/store.mjs';
 import { summarize } from './lib/insight.mjs';
 import { aggregate, bandsOf, GROUPS, SECTIONS } from './lib/stats.mjs';
 import { createAuth } from './lib/auth.mjs';
-import { listKeys, getKey, createKey, updateKey, deleteKey, touchKey, scopeOf, authorizeKey } from './lib/keys.mjs';
+import { listKeys, getKey, createKey, updateKey, deleteKey, touchKey, scopeOf, authorizeKey, keysLoadError, backupBrokenKeys } from './lib/keys.mjs';
 import { parseTqCsv, csvFingerprint, CSV_PARSER_VERSION } from './lib/csv-parser.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -46,6 +46,29 @@ function summary(report) {
   const sectionCounts = Object.fromEntries(report.sections.map(section => [section.id, records.filter(record => record.section === section.id).length]));
   return { ...metadata, recordCount: records.length, sectionCounts };
 }
+// 读明细，取不到就从留存的原始文件重建（HTML 与 CSV 各自的重解析规则）。
+// 一份文件被截断/半写就会让 detail 返回 null，而聚合接口与详情页都依赖它 ——
+// 不在这儿自愈的话，那份报告会永远打不开，只能手工删。
+function loadDetail(id) {
+  const detail = store.detail(id);
+  if (detail) return { detail, error: '' };
+  const broken = store.detailError(id);
+  if (!broken || broken === 'missing-index') return { detail: null, error: '' };
+  const index = store.database.reports.find(report => report.id === id);
+  try {
+    const parsed = index.sourceType === 'csv'
+      ? parseTqCsv(store.raw(id).content, { sourceUrl: index.sourceUrl, testedAt: index.testedAt, identity: index.identity })
+      : parseReport(store.raw(id).content, index.sourceUrl);
+    const rebuilt = { ...parsed, id, nodeId: index.nodeId, rawExt: index.rawExt, upload: index.upload, importedAt: index.importedAt };
+    store.refreshReports([rebuilt]);
+    console.log(`报告 ${id} 的明细文件损坏，已从原始文件重建`);
+    return { detail: rebuilt, error: '' };
+  } catch (error) {
+    console.warn(`报告 ${id} 明细损坏且重建失败：${error.message}`);
+    return { detail: null, error };
+  }
+}
+const detailOf = id => loadDetail(id).detail;
 function send(response, status, data) {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   response.end(JSON.stringify(data));
@@ -84,6 +107,17 @@ const headerText = (value, pattern, max) => {
 };
 // 与网页报告的"报告时间"同口径：北京时间带偏移，排序与展示都不受服务器时区影响
 const beijingIso = ms => `${new Date(ms + 8 * 3600 * 1000).toISOString().slice(0, 19)}+08:00`;
+// 时间过滤参数归一化。报告的 testedAt 是 `2026-10-05T04:29:54+08:00` 这种北京时间串，
+// 直接和纯日期做字符串比较有两个坑：
+//   until=2026-10-05 会排掉 10-05 全天（因为 '2026-10-05T…' > '2026-10-05'），
+//   带 Z 的调用方边界又和字典序对不上。统一补成当天的起止再比较。
+function dateBound(raw, edge) {
+  const text = String(raw || '').trim();
+  if (!text) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return `${text}T${edge === 'end' ? '23:59:59' : '00:00:00'}+08:00`;
+  if (!/^\d{4}-\d{2}-\d{2}T/.test(text) || !Number.isFinite(Date.parse(text))) return null;
+  return text;
+}
 // wrapper 传 CSV 的修改时间：core 写完 CSV 的同一秒生成报告时间，误差约 1 秒且不受时区影响。
 // 缺失或离谱（超过一年前 / 晚于现在）时退回上传时间，并标注来源
 function reportTime(epochHeader, fallbackMs) {
@@ -156,6 +190,9 @@ const server = http.createServer(async (request, response) => {
   const publicPaths = new Set(['/login', '/login.js', '/theme.js', '/style.css', '/favicon.svg', '/favicon.ico', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png']);
   try {
     if (!allowedHosts.has(request.headers.host)) return send(response, 403, { error: '仅允许本机访问' });
+    // 认证只配了一半时直接拒绝服务，而不是按"未启用登录"放行：
+    // 静默 fail-open 会让公网部署在没有任何拦截的情况下对外开放。
+    if (auth.misconfigured) return send(response, 503, { error: `认证配置不完整（${auth.misconfigured}），已停止服务以免裸奔；请补全后重启` });
     if (request.method === 'POST' && request.headers.origin && !allowedOrigins.has(request.headers.origin)) return send(response, 403, { error: '不允许跨站请求' });
     const url = new URL(request.url, `http://127.0.0.1:${port}`);
     // 带版本号的静态资源地址还原成原路径，后续的公开路径判断与文件查找不受影响
@@ -268,30 +305,42 @@ const server = http.createServer(async (request, response) => {
     // 汇总单位固定是「机器」：一台机器名下所有报告的记录倒在一起算，
     // 跨机器再汇总时每台等权，避免报告多的机器把区域数字带偏。
     if (request.method === 'GET' && url.pathname === '/api/stats') {
-      const { error } = apiKey(request, 'read');
-      if (error) return send(response, 401, { error });
+      // 与 /api/reports 同一套口径：登录用户走会话，无会话时才要求只读 key。
+      // 之前这里无条件要 key，导致网页自己反而调不通这个接口。
+      if (!session.ok) {
+        const { error } = apiKey(request, 'read');
+        if (error) return send(response, 401, { error });
+      }
       const group = url.searchParams.get('group') || '';
       if (!GROUPS.includes(group)) return send(response, 400, { error: `group 只能是 ${GROUPS.join(' / ')}` });
       const section = url.searchParams.get('section') || 'ipv4';
       if (!SECTIONS.includes(section)) return send(response, 400, { error: `section 只能是 ${SECTIONS.join(' / ')}` });
-      const since = url.searchParams.get('since') || '';
-      const until = url.searchParams.get('until') || '';
-      if (since && !/^\d{4}-\d{2}-\d{2}/.test(since)) return send(response, 400, { error: 'since 需为 ISO 日期' });
-      if (until && !/^\d{4}-\d{2}-\d{2}/.test(until)) return send(response, 400, { error: 'until 需为 ISO 日期' });
+      // 归一化后再比较：until 给纯日期时含当天整天，带时区的边界原样使用
+      const since = dateBound(url.searchParams.get('since'), 'start');
+      const until = dateBound(url.searchParams.get('until'), 'end');
+      if (since === null) return send(response, 400, { error: 'since 需为 ISO 日期，如 2026-10-01' });
+      if (until === null) return send(response, 400, { error: 'until 需为 ISO 日期，如 2026-10-05' });
       // region 过滤也要在这里做：aggregate 内部同样过滤（幂等），
-      // 但 totals 统计的是 wanted/details 的规模，少这层过滤会与 groups 口径对不上
+      // 但 totals 统计的是 wanted 的规模，少这层过滤会与 groups 口径对不上。
+      // 停用节点必须一起排除：界面只显示启用的节点，聚合却算上它们，
+      // 就成了"关掉的机器还在给区域数字投票"。
+      const nodeParam = url.searchParams.get('node') || '';
       const regionParam = url.searchParams.get('region') || '';
       const wanted = store.database.reports
         .filter(report => (since ? report.testedAt >= since : true))
         .filter(report => (until ? report.testedAt <= until : true))
-        .filter(report => (url.searchParams.get('node') ? report.nodeId === url.searchParams.get('node') : true))
+        .filter(report => (nodeParam ? report.nodeId === nodeParam : true))
+        .filter(report => store.database.nodes.find(item => item.id === report.nodeId)?.enabled !== false)
         .filter(report => (regionParam ? store.database.nodes.find(item => item.id === report.nodeId)?.region === regionParam : true));
       // 明细要逐份读盘：报告多了会变慢，这是明接口的固有代价，
-      // 换来的是不必把 2MB 传给客户端再在本地重复算一遍
+      // 换来的是不必把 2MB 传给客户端再在本地重复算一遍。
+      // 读不出来（源文件也没了）的记下来随响应返回，免得数字变少却毫无提示。
       const details = [];
+      const unreadable = [];
       for (const report of wanted) {
-        const detail = store.detail(report.id);
+        const { detail, error } = loadDetail(report.id);
         if (detail) details.push(detail);
+        else unreadable.push({ id: report.id, nodeId: report.nodeId, reason: error ? '明细与原始文件均不可读' : '明细缺失' });
       }
       const groups = aggregate({
         nodes: store.database.nodes,
@@ -300,16 +349,17 @@ const server = http.createServer(async (request, response) => {
         section,
         since,
         until,
-        node: url.searchParams.get('node') || '',
-        region: url.searchParams.get('region') || '',
+        node: nodeParam,
+        region: regionParam,
         carrier: url.searchParams.get('carrier') || ''
       });
       return send(response, 200, {
         group,
         section,
-        filters: { since: since || null, until: until || null, node: url.searchParams.get('node') || null, region: url.searchParams.get('region') || null, carrier: url.searchParams.get('carrier') || null },
+        filters: { since: since || null, until: until || null, node: nodeParam || null, region: regionParam || null, carrier: url.searchParams.get('carrier') || null },
         regionBands: bandsOf(),
-        totals: { nodes: new Set(details.map(report => report.nodeId)).size, reports: details.length },
+        totals: { nodes: new Set(details.map(report => report.nodeId)).size, reports: details.length, skipped: unreadable.length },
+        unreadable,
         groups
       });
     }
@@ -325,7 +375,9 @@ const server = http.createServer(async (request, response) => {
       }
       const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || 200, 1), 500);
       const node = url.searchParams.get('node') || '';
-      const since = url.searchParams.get('since') || '';
+      // 与聚合接口同一套日期口径：给纯日期时从当天 00:00 起算
+      const since = dateBound(url.searchParams.get('since'), 'start');
+      if (since === null) return send(response, 400, { error: 'since 需为 ISO 日期，如 2026-10-01' });
       let matched = store.database.reports;
       if (node) matched = matched.filter(report => report.nodeId === node);
       if (since) matched = matched.filter(report => report.testedAt >= since);
@@ -349,10 +401,12 @@ const server = http.createServer(async (request, response) => {
     if (readMatch && request.method === 'GET' && !session.ok) {
       const { error } = apiKey(request, 'read');
       if (error) return send(response, 401, { error });
-      const report = store.detail(readMatch[1]);
+      const report = detailOf(readMatch[1]);
       if (!report) return send(response, 404, { error: '报告不存在' });
-      // rawRows 是原始行文本，体积占大头且分析用不上；需要时由登录用户从网页下载
-      const { rawRows, ...rest } = report;
+      // 这个通道刻意只给报告数据。rawRows 是原始行文本（体积占大头、分析用不上）；
+      // identity 与 upload 里是上传机器的主机名和出口 IP —— 与待绑定队列同级的信息，
+      // 既然队列不开放，明细里也不能顺手带出去。
+      const { rawRows, identity, upload, ...rest } = report;
       return send(response, 200, { ...rest, insight: summarize(report, store.database.nodes.find(item => item.id === report.nodeId)) });
     }
 
@@ -369,6 +423,8 @@ const server = http.createServer(async (request, response) => {
         const entry = store.database.pending.find(item => item.id === id);
         if (!entry) throw new Error('待绑定记录不存在，可能已被处理');
         const csv = store.pendingCsv(id);
+        // 源文件没了就没法归档：明确说清楚并提示丢弃，而不是让 parseTqCsv 去撞一个 null
+        if (csv === null) { store.markPendingBroken([id]); throw new Error('这份记录的 CSV 源文件已丢失，无法归档；请直接丢弃该条'); }
         const parsed = parseTqCsv(csv, { sourceUrl: `csv:${id}`, testedAt: entry.testedAt, identity: entry.identity });
         const upload = { hostname: entry.hostname, sourceIp: entry.sourceIp, keyName: entry.keyName, receivedAt: entry.receivedAt, timeSource: entry.timeSource };
         return send(response, 201, summary(store.bindPending(id, nodeId, { ...parsed, upload }, csv)));
@@ -457,8 +513,8 @@ const server = http.createServer(async (request, response) => {
       return send(response, 405, { error: 'Method Not Allowed' });
     }
     if (request.method === 'GET' && url.pathname === '/api/compare') {
-      const current = store.detail(url.searchParams.get('current'));
-      const previous = store.detail(url.searchParams.get('base'));
+      const current = detailOf(url.searchParams.get('current'));
+      const previous = detailOf(url.searchParams.get('base'));
       if (!current || !previous || current.nodeId !== previous.nodeId || current.id === previous.id) throw new Error('请选择同一节点的两份不同报告');
       const changes = compareReports(current, previous);
       return send(response, 200, { changes, currentTestedAt: current.testedAt, baseTestedAt: previous.testedAt, added: current.records.filter(record => !previous.records.some(old => old.key === record.key)).length, removed: previous.records.filter(record => !current.records.some(next => next.key === record.key)).length });
@@ -476,7 +532,7 @@ const server = http.createServer(async (request, response) => {
         return send(response, 200, summary(moved));
       }
       if (request.method !== 'GET') return send(response, 404, { error: '接口不存在' });
-      const report = store.detail(id);
+      const report = detailOf(id);
       if (!report) return send(response, 404, { error: '报告不存在' });
       if (reportMatch[3] === 'raw') {
         const raw = store.raw(id);
@@ -556,9 +612,44 @@ for (const index of store.database.reports.filter(item => item.sourceType !== 'c
   } catch (error) { console.warn(`报告 ${index.id} 重新解析失败，保留原结果：${error.message}`); }
 }
 if (staleHtml.length) { store.refreshReports(staleHtml); console.log(`已按新规则重新解析 ${staleHtml.length} 份链接报告`); }
+// 待绑定队列的重解析：池文件可能已被清理或迁移不全，取不到就跳过并标记，
+// 绝不能让启动流程抛异常 —— 这段在模块加载期跑，抛出去就是进程直接退出，
+// 而条目还在库里，之后每次重启都会同样崩掉，只能手工编辑 database.json 才能恢复。
 const stalePending = store.database.pending.filter(item => (item.csvParserVersion || 0) < CSV_PARSER_VERSION);
-if (stalePending.length) store.refreshPending(stalePending.map(item => pendingEntry(item.id, store.pendingCsv(item.id), pendingMeta(item))));
+const brokenPending = [];
+const refreshedPending = [];
+for (const item of stalePending) {
+  let csv = null;
+  try { csv = store.pendingCsv(item.id); } catch (error) { console.warn(`待绑定 ${item.id} 读取失败：${error.message}`); }
+  if (csv === null) { brokenPending.push(item.id); continue; }
+  try { refreshedPending.push(pendingEntry(item.id, csv, pendingMeta(item))); }
+  catch (error) { console.warn(`待绑定 ${item.id} 重新解析失败，保留原结果：${error.message}`); }
+}
+if (refreshedPending.length) store.refreshPending(refreshedPending);
+// 除了"解析规则落后"的条目，还要体检整条队列：源文件没了就必须标出来。
+// 只标版本落后的那些不够 —— 版本已是最新的条目在绑定时才会炸，
+// 而那时的报错（ENOENT）对用户毫无意义。
+const missingSources = [];
+for (const item of store.database.pending) {
+  if (item.broken || brokenPending.includes(item.id)) continue;
+  try { if (store.pendingCsv(item.id) === null) missingSources.push(item.id); }
+  catch (error) { console.warn(`待绑定 ${item.id} 读取失败：${error.message}`); }
+}
+const broken = [...new Set([...brokenPending, ...missingSources])];
+if (broken.length) {
+  store.markPendingBroken(broken);
+  console.warn(`${broken.length} 条待绑定记录的 CSV 源文件已丢失（已标记，可在界面上丢弃）：${broken.join(', ')}`);
+}
+// API Key 文件读不出来（截断、写坏、权限）：备份原文件后拒绝启动。
+// 静默按"没有 Key"跑下去的话，之后任何一次建 Key 都会用空列表覆盖它，
+// 所有脚本机上的 secret 一次性作废且无法恢复。
+if (keysLoadError()) {
+  const backup = backupBrokenKeys();
+  console.error(`${keysLoadError()}\n原文件已备份到 ${backup || '(备份失败，请立即手工复制)'}，请修好后重启。`);
+  process.exit(1);
+}
 server.listen(port, '127.0.0.1', () => {
-  if (auth.enabled) console.log(`TQ Archive running at http://127.0.0.1:${port} (登录已启用，用户名 ${process.env.AUTH_USER})`);
+  if (auth.misconfigured) console.error(`TQ Archive running at http://127.0.0.1:${port} 但【认证配置不完整】：${auth.misconfigured}，所有请求将返回 503。请补全 AUTH_USER / AUTH_PASSWORD 后重启。`);
+  else if (auth.enabled) console.log(`TQ Archive running at http://127.0.0.1:${port} (登录已启用，用户名 ${process.env.AUTH_USER})`);
   else console.log(`TQ Archive running at http://127.0.0.1:${port} (未配置账号，本机免登录；公网部署请设置 AUTH_USER / AUTH_PASSWORD)`);
 });

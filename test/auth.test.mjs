@@ -15,6 +15,20 @@ test('未配置账号时不启用登录，本机可直接使用', () => {
   assert.equal(auth.verify('任意', '任意'), true);
 });
 
+test('只配一个认证变量时标记为配置不完整，交给运行时拒绝服务', () => {
+  // fail-open 的后果是公网裸奔：/api/keys 会返回全部明文 secret，
+  // 而运维侧只看到一行"未配置账号，本机免登录"的日志，极容易误判
+  const onlyUser = createAuth({ username: 'admin', password: '' });
+  assert.equal(onlyUser.enabled, false);
+  assert.match(onlyUser.misconfigured, /AUTH_USER/);
+
+  const onlyPassword = createAuth({ username: '', password: 's3cret' });
+  assert.match(onlyPassword.misconfigured, /AUTH_PASSWORD/);
+
+  assert.equal(createAuth({}).misconfigured, '', '两个都没配是本机自用的正常状态，不算配错');
+  assert.equal(createAuth({ username: 'admin', password: 's3cret' }).misconfigured, '');
+});
+
 test('账号密码正确时签发会话，错误时不签发', () => {
   const auth = createAuth({ username: 'admin', password: 's3cret' });
   assert.equal(auth.enabled, true);
@@ -74,4 +88,23 @@ test('畸形 cookie 头不导致崩溃', () => {
   for (const cookie of ['', 'tq_session', '=abc', 'a=1; tq_session=x; b=2', ';;=;', 'tq_session=%E4%B8%AD']) {
     assert.equal(auth.currentSession(request(cookie)).ok, false);
   }
+});
+
+test('含裸百分号的 cookie 不能让每个请求都报错', () => {
+  // decodeURIComponent('50%') 抛 URIError，冒到 server 顶层就是每个请求 400，
+  // 而浏览器会一直带着这个 cookie —— 该浏览器被永久锁在门外
+  const auth = createAuth({ username: 'admin', password: 's3cret' });
+  for (const cookie of ['tq_theme=50%', 'tq_theme=%zz', 'tq_theme=%', 'a=%; tq_session=x']) {
+    assert.doesNotThrow(() => auth.currentSession(request(cookie)), `cookie ${cookie} 不该抛错`);
+    assert.equal(auth.currentSession(request(cookie)).ok, false);
+  }
+});
+
+test('合法编码的 cookie 仍能正常解出会话', () => {
+  const auth = createAuth({ username: 'admin', password: 's3cret' });
+  const response = collector();
+  auth.login(request(), response);
+  const token = response.headers['Set-Cookie'].split(';')[0].split('=')[1];
+  const encoded = encodeURIComponent(token);
+  assert.equal(auth.currentSession(request(`tq_theme=50%; tq_session=${encoded}`)).ok, true);
 });
