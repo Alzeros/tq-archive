@@ -36,7 +36,9 @@ const allowedHosts = hostSet(process.env.ALLOWED_HOSTS, `127.0.0.1:${port},local
 const auth = createAuth({
   username: process.env.AUTH_USER,
   password: process.env.AUTH_PASSWORD,
-  secure: process.env.AUTH_SECURE === '1' || process.env.AUTH_SECURE === 'true'
+  secure: process.env.AUTH_SECURE === '1' || process.env.AUTH_SECURE === 'true',
+  // 会话落盘，重启（= 每次部署 git pull）后不必重新登录
+  sessionFile: join(dataDir, 'sessions.json')
 });
 let importing = false;
 let syncing = false;
@@ -497,6 +499,7 @@ const server = http.createServer(async (request, response) => {
         '  data/raw/           原始报告 HTML / 上传的 CSV，解析规则升级后靠它重解析',
         '  data/csv-pool/      尚未绑定节点的直传 CSV',
         '  data/keys.json      脚本直传用的 API Key（明文），含上传与只读两种权限',
+        '  data/sessions.json  登录会话（滚动过期），恢复后浏览器不必重新登录',
         '',
         '注意：归档内含 API Key 明文，以及待绑定队列里的主机名与出口 IP，不要外传。'
       ].join('\n');
