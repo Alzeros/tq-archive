@@ -2102,33 +2102,42 @@ body.sub-body, body.login-body { overflow-y: auto; }
   .keys-form { flex-direction: column; }
 }
 
-.keys-page .sub-page { max-width: 1120px; }
+.keys-page .sub-page { max-width: 1120px; min-width: 0; }
+.keys-page .sub-card { min-width: 0; }
 .keys-page .sub-desc,
 .keys-page .keys-hint,
 .keys-page .keys-secret-tip { overflow-wrap: anywhere; }
 .keys-page .keys-form { flex-wrap: wrap; }
-.keys-page .keys-table-wrap { overflow: visible; }
+.keys-page .keys-form > * { min-width: 0; max-width: 100%; }
+.keys-page .keys-table-wrap { min-width: 0; max-width: 100%; overflow: visible; container: keys-list / inline-size; }
 .keys-page .keys-table { table-layout: fixed; }
-.keys-page .keys-table th:nth-child(1) { width: 13%; }
-.keys-page .keys-table th:nth-child(2) { width: 8%; }
-.keys-page .keys-table th:nth-child(3) { width: 27%; }
-.keys-page .keys-table th:nth-child(4) { width: 10%; }
-.keys-page .keys-table th:nth-child(5),
-.keys-page .keys-table th:nth-child(6) { width: 13%; }
-.keys-page .keys-table th:nth-child(7) { width: 16%; text-align: right; }
-.keys-page .keys-table td { white-space: normal; overflow-wrap: anywhere; }
+.keys-page .keys-table col.keys-col-name { width: 16%; }
+.keys-page .keys-table col.keys-col-scope { width: 8%; }
+.keys-page .keys-table col.keys-col-secret { width: 28%; }
+.keys-page .keys-table col.keys-col-status { width: 10%; }
+.keys-page .keys-table col.keys-col-date { width: 12%; }
+.keys-page .keys-table col.keys-col-actions { width: 14%; }
+.keys-page .keys-table th { padding-inline: 8px; }
+.keys-page .keys-table th.keys-col-actions { text-align: right; }
+.keys-page .keys-table td { min-width: 0; padding-inline: 8px; white-space: normal; overflow-wrap: anywhere; }
+.keys-page .keys-table td > * { min-width: 0; max-width: 100%; }
+.keys-page .keys-name,
+.keys-page .keys-meta-value { display: block; }
+.keys-page .keys-badge { white-space: normal; }
 .keys-page .keys-secret-cell { min-width: 0; }
 .keys-page .keys-secret-content { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
-.keys-page .keys-secret-cell code { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; }
+.keys-page .keys-secret-cell code { min-width: 0; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; }
 .keys-page .keys-secret-cell button { margin-left: 0; }
+.keys-page .keys-table .sub-btn { min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 .keys-page .keys-meta { white-space: normal; }
 .keys-page .keys-actions { display: table-cell; }
-.keys-page .keys-action-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.keys-page .keys-action-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; min-width: 0; }
 .keys-copy-fallback { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
-@media (max-width: 1100px) {
+@container keys-list (max-width: 1010px) {
   .keys-page .keys-table,
   .keys-page .keys-table tbody { display: block; }
+  .keys-page .keys-table colgroup { display: none; }
   .keys-page .keys-table thead {
     position: absolute;
     width: 1px;
@@ -2144,6 +2153,7 @@ body.sub-body, body.login-body { overflow-y: auto; }
     border: 1px solid var(--border);
     border-radius: 10px;
   }
+  .keys-page .keys-table tbody tr.keys-empty-row { grid-column: 1 / -1; }
   .keys-page .keys-table td {
     display: grid;
     grid-template-columns: 64px minmax(0, 1fr);
@@ -2163,8 +2173,12 @@ body.sub-body, body.login-body { overflow-y: auto; }
   .keys-page .keys-table td.keys-empty { display: block; }
 }
 
-@media (min-width: 760px) and (max-width: 1100px) {
+@container keys-list (min-width: 670px) and (max-width: 1010px) {
   .keys-page .keys-table tbody { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@container keys-list (max-width: 360px) {
+  .keys-page .keys-table td { grid-template-columns: minmax(0, 1fr); gap: 4px; }
 }
 
 @media (max-width: 640px) {

@@ -54,7 +54,7 @@ async function loadKeys() {
   } catch (err) {
     if (err.message !== '未登录') {
       console.error('加载 keys 失败:', err);
-      $('keysList').innerHTML = '<tr><td colspan="7" class="keys-empty">加载失败，请刷新重试</td></tr>';
+      $('keysList').innerHTML = '<tr class="keys-empty-row"><td colspan="7" class="keys-empty">加载失败，请刷新重试</td></tr>';
     }
   }
 }
@@ -62,7 +62,7 @@ async function loadKeys() {
 function renderKeys(keys) {
   const tbody = $('keysList');
   if (!keys.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="keys-empty">还没有 API Key，点击上方「生成」创建第一个</td></tr>';
+    tbody.innerHTML = '<tr class="keys-empty-row"><td colspan="7" class="keys-empty">还没有 API Key，点击上方「生成」创建第一个</td></tr>';
     return;
   }
   tbody.innerHTML = keys.map(k => `
@@ -71,8 +71,8 @@ function renderKeys(keys) {
       <td data-label="权限"><span class="keys-badge ${k.scope === 'read' ? 'read' : 'up'}">${k.scope === 'read' ? '只读' : '上传'}</span></td>
       <td data-label="密钥" class="keys-secret-cell"><div class="keys-secret-content"><code>${escapeHtml(k.secret)}</code><button type="button" class="sub-btn" data-act="copy" data-secret="${escapeHtml(k.secret)}">复制</button></div></td>
       <td data-label="状态"><span class="keys-badge ${k.enabled ? 'on' : 'off'}">${k.enabled ? '已启用' : '已禁用'}</span></td>
-      <td data-label="创建时间" class="keys-meta">${formatDate(k.createdAt)}</td>
-      <td data-label="最后使用" class="keys-meta">${k.lastUsedAt ? formatDate(k.lastUsedAt) : '从未使用'}</td>
+      <td data-label="创建时间" class="keys-meta"><span class="keys-meta-value">${formatDate(k.createdAt)}</span></td>
+      <td data-label="最后使用" class="keys-meta"><span class="keys-meta-value">${k.lastUsedAt ? formatDate(k.lastUsedAt) : '从未使用'}</span></td>
       <td data-label="操作" class="keys-actions"><div class="keys-action-buttons">
         <button type="button" class="sub-btn" data-act="toggle" data-enabled="${k.enabled}">${k.enabled ? '禁用' : '启用'}</button>
         <button type="button" class="sub-btn danger" data-act="delete">删除</button>

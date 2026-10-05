@@ -69,8 +69,22 @@ const nodeName = id => state.allNodes.find(node => node.id === id)?.name || id;
 const metricLabel = key => state.metricNames[key] || key;
 function coverageBadge(coverage) {
   if (!coverage) return '';
-  const label = coverage.status === 'issues' ? '失败 / 解析提示' : coverage.status === 'partial' ? '部分维度 / 缺测' : coverage.label;
-  return `<span class="archive-status ${coverage.status === 'issues' ? 'warn' : ''}" title="${escapeHtml(`${coverage.validMetrics} 项有效数值；${coverage.unavailableMetrics} 项不可用。部分测试不代表导入失败，走势应核对覆盖范围。`)}">${escapeHtml(label)}</span>`;
+  let label = '';
+  let warning = false;
+  if (coverage.badgeStatus === 'failure') { label = `测试失败 · ${coverage.failedMetrics} 项`; warning = true; }
+  else if (coverage.importIncomplete) { label = '导入不完整'; warning = true; }
+  else if (coverage.badgeStatus === 'warning') { label = '解析提示'; warning = true; }
+  else if (coverage.coverageStatus === 'insufficient') label = '覆盖不足';
+  else if (coverage.coverageStatus === 'empty') label = '无可用记录';
+  else if ((coverage.missingMetrics || 0) > (coverage.expectedMissingMetrics || 0)) label = '存在缺测';
+  if (!label) return '';
+  return `<span class="archive-status ${warning ? 'warn' : ''}" title="${escapeHtml(`${coverage.coverageHint || ''} ${coverage.validMetrics} 项有效数值；${coverage.failedMetrics} 项明确失败；${coverage.expectedMissingMetrics || 0} 项预期内单栈未测。`)}">${escapeHtml(label)}</span>`;
+}
+function primarySignalBadge(assessment) {
+  const signal = assessment?.primary;
+  if (!signal) return '';
+  const value = Number.isFinite(signal.value) ? ` ${signal.value}${signal.unit || ''}` : '';
+  return `<span class="primary-signal ${escapeHtml(assessment.level)}" title="${escapeHtml(signal.text)}">主因：${escapeHtml(signal.label + value)}</span>`;
 }
 function renderFreshness() {
   const days = Number(el('freshnessDays').value);
@@ -477,6 +491,8 @@ async function fillMetrics(host, reportId) {
   try {
     const detail = await fetchDetail(reportId);
     if (!host.isConnected) return;
+    const oldWarning = host.closest('.history-item')?.querySelector('.history-title-row > .warn-pill');
+    if (oldWarning && detail.coverage) oldWarning.hidden = true;
     const cards = new Map((detail.insight?.cards || []).map(card => [card.id, card]));
     host.innerHTML = BADGE_DEFS.map(def => {
       const card = cards.get(def.key);
@@ -494,7 +510,7 @@ function renderInsight(insight) {
   state.insight = insight;
   const levelNames = { good: '优秀', fair: '一般', bad: '异常', info: '正常' };
   const cards = insight.cards.map(card => `<div class="icard ${card.level || ''}">
-    <div class="icard-header">
+      <div class="icard-header">
       <span class="label">${escapeHtml(card.label)}</span>
       <span class="icard-badge ${card.level || 'info'}">${card.id === 'speed' ? '实测参考' : levelNames[card.level] || '指标'}</span>
     </div>
@@ -509,7 +525,7 @@ function renderInsight(insight) {
   };
   const urgentAnomalies = insight.anomalies.filter(item => item.level !== 'info').sort((left, right) => (left.level === 'danger' ? -1 : 0) - (right.level === 'danger' ? -1 : 0));
   const infoAnomalies = insight.anomalies.filter(item => item.level === 'info');
-  const anomalyItem = item => `<div class="anomaly ${item.level}"><span class="anomaly-icon">${levelIcons[item.level] || levelIcons.info}</span><div class="anomaly-body"><span class="tag">${levels[item.level] || '提示'}</span><span class="text">${escapeHtml(item.text)}</span></div></div>`;
+  const anomalyItem = item => `<div class="anomaly ${item.level}"><span class="anomaly-icon">${levelIcons[item.level] || levelIcons.info}</span><div class="anomaly-body"><span class="tag">${item.kind === 'speed-outlier' ? '留意 · 测速点离群' : levels[item.level] || '提示'}</span><span class="text">${escapeHtml(item.text)}</span></div></div>`;
   const anomalies = insight.anomalies.length
     ? `<div class="insight-block"><h3 class="section-title">需要关注的点 · ${insight.anomalies.length} 条</h3>
         <div class="anomalies-list">${urgentAnomalies.map(anomalyItem).join('')}</div>
@@ -586,10 +602,11 @@ function drawHeatmap() {
 // 一份双栈报告能产出几十条同类提示（31 个省份报同一个问题），
 // 逐条铺开会把整块界面变成字墙，反而看不出"到底哪里出了问题"。
 function renderWarnings(report) {
-  const warnings = report.warnings || [];
+  const warningIssues = report.coverage?.issues.filter(issue => issue.type === 'warning' && issue.severity !== 'neutral');
+  const warnings = warningIssues ? warningIssues.map(issue => Number.isFinite(issue.reportedMetrics) ? `指标统计：${issue.failedMetrics || 0} 项明确失败、${issue.unknownMetrics || 0} 项未知格式、${Math.max(0, (issue.missingMetrics || 0) - (issue.expectedMissingMetrics || 0))} 项缺测；另有 ${issue.expectedMissingMetrics || 0} 项单栈 IPv6 预期未测。` : issue.message) : report.warnings || [];
   const box = el('detailWarnings');
   if (!warnings.length) { box.innerHTML = ''; return; }
-  const summary = report.insight?.warningSummary;
+  const summary = warnings.length === report.warnings?.length && !warningIssues ? report.insight?.warningSummary : null;
   // 只有一两条时不必套归并的壳，直接说清楚更省事
   if (!summary || summary.total <= 2) {
     box.innerHTML = `<div class="warn">解析提示：${warnings.map(escapeHtml).join('；')}</div>`;
@@ -625,7 +642,7 @@ async function openDetail(reportId) {
   el('downloadRaw').href = `/api/reports/${reportId}/raw`;
   el('downloadRaw').querySelector('span').textContent = isCsv ? '原始 CSV' : '原始 HTML';
   renderWarnings(report);
-  el('detailWarnings').insertAdjacentHTML('afterbegin', `<div class="coverage-result">${coverageBadge(report.coverage)}<p>覆盖：${report.coverage.sections.map(section => `${escapeHtml(section.name)} ${section.records} 条记录`).join(' · ')}；${report.coverage.validMetrics} 项有效数值。</p><p>不同测试范围、IPv4/IPv6 覆盖和失败读数会影响走势；仅测部分维度不等于导入失败。</p></div>`);
+  el('detailWarnings').insertAdjacentHTML('afterbegin', `<div class="coverage-result">${coverageBadge(report.coverage)}<p>${escapeHtml(report.coverage.coverageHint || '')}</p><p>覆盖：${report.coverage.sections.map(section => `${escapeHtml(section.name)} ${section.records} 条记录`).join(' · ')}；${report.coverage.validMetrics} 项有效数值。</p><p>单栈未测与测试失败分开；仅测部分维度不等于导入失败，完整测试缺少维度时请核对原始报告并重传。</p></div>`);
   const bySection = new Map();
   for (const record of report.records) {
     if (!bySection.has(record.section)) bySection.set(record.section, []);
@@ -863,15 +880,16 @@ async function renderDashboard() {
       ? ''
       : `<span class="dash-delta ${delta > 0 ? 'worse' : 'better'}" title="与上一份有读数的报告相比（${previous}ms → ${latestValue}ms）">${delta > 0 ? '↑' : '↓'}${Math.abs(Math.round(delta))}ms</span>`;
     row.querySelector('.metrics').innerHTML = `
+      ${primarySignalBadge(entry.assessment)}
       ${svgSparkline(series)}
       ${latency && typeof latency.value === 'number' ? `<span class="metric l${latency.level}"><span class="m-icon">⚡</span>延迟 ${latency.value}${latency.unit}</span>` : ''}
       ${loss && typeof loss.value === 'number' ? `<span class="metric l${loss.level}"><span class="m-icon">📉</span>丢包 ${loss.value}${loss.unit}</span>` : ''}
       ${speed && typeof speed.value === 'number' ? `<span class="metric l${speed.level}"><span class="m-icon">🚀</span>带宽 ${speed.value}${speed.unit}</span>` : ''}
       ${deltaText}
       ${coverageBadge(entry.coverage)}
-      <span class="archive-status ${escapeHtml(entry.assessment.level)}" title="${escapeHtml(entry.assessment.reasons.join('；') || entry.assessment.basis)}">${escapeHtml(entry.assessment.label)}</span>
+      <span class="archive-status ${escapeHtml(entry.assessment.level)}" title="${escapeHtml(entry.assessment.reasons.join('；') || entry.assessment.basis)}">${escapeHtml(entry.assessment.label)}${entry.assessment.score > 0 ? ` · ${entry.assessment.score}` : ''}</span>
     `;
-    if (entry.assessment.score > 0) alerts.push({ report, latency, loss, speed, worst: entry.assessment.score, assessment: entry.assessment });
+    if (['severe', 'warn', 'observe'].includes(entry.assessment.level)) alerts.push({ report, latency, loss, speed, worst: entry.assessment.score, assessment: entry.assessment });
   }
 
   // 需要关注的节点：最严重的排前面，同级再看时间。
@@ -901,6 +919,7 @@ async function renderDashboard() {
           <p class="alert-reason">${assessment.reasons.slice(0, 2).map(escapeHtml).join('；')}</p>
         </div>
         <div class="metrics">
+          ${primarySignalBadge(assessment)}
           ${latency && typeof latency.value === 'number' ? `<span class="metric l${latency.level}"><span class="m-icon">⚡</span>延迟 ${latency.value}${latency.unit}</span>` : ''}
           ${loss && typeof loss.value === 'number' ? `<span class="metric l${loss.level}"><span class="m-icon">📉</span>丢包 ${loss.value}${loss.unit}</span>` : ''}
           ${speed && typeof speed.value === 'number' ? `<span class="metric l${speed.level}"><span class="m-icon">🚀</span>带宽 ${speed.value}${speed.unit}</span>` : ''}
@@ -1178,12 +1197,19 @@ function renderChanges() {
 }
 function renderComparisonCoverage(result) {
   const coverage = result.coverage;
-  const conclusion = `<p><strong>${escapeHtml(result.conclusion?.summary || '结论仅基于共同可比指标。')}</strong></p>`;
+  const conclusionData = result.conclusion || {};
+  const headline = `<p class="comparison-headline"><span class="comparison-improved">${conclusionData.improvedMetrics || 0} 项显著改善</span><span aria-hidden="true">·</span><span class="comparison-worsened">${conclusionData.worsenedMetrics || 0} 项显著恶化</span></p>`;
+  const focus = conclusionData.focus || (conclusionData.worseningBySection?.length ? `恶化集中在${conclusionData.worseningBySection.slice(0, 2).map(item => item.label).join('和')}。` : '没有可判定优劣的显著恶化，不代表两份报告完全一致。');
+  const carrierDetail = conclusionData.worseningByCarrier?.length ? `<details class="conclusion-detail"><summary>查看恶化的运营商分布</summary><p>${conclusionData.worseningByCarrier.map(item => `${escapeHtml(item.label)} ${item.count} 项`).join(' · ')}</p></details>` : '';
+  const conclusion = `${headline}<p>${escapeHtml(focus)}</p><p class="hint">仅反映共同可比指标${conclusionData.improvedMetrics && conclusionData.worsenedMetrics ? '；改善与恶化并存，不作整体优劣断言' : ''}${conclusionData.neutralMetrics ? `；另有 ${conclusionData.neutralMetrics} 项显著变化无优劣语义` : ''}。</p>${carrierDetail}`;
   if (!coverage) { el('compareCoverage').innerHTML = conclusion; return; }
-  const differences = coverage.sections.flatMap(section => section.groups.filter(group => group.records.added || group.records.missing || group.metrics.incomparable || group.metrics.added || group.metrics.missing).map(group => `${section.name} / ${group.group || '默认分组'}：新增 ${group.records.added}、缺失 ${group.records.missing} 条记录，新增 ${group.metrics.added}、缺失 ${group.metrics.missing} 项数值指标，${group.metrics.incomparable} 项不可比`));
-  const reasonLabel = { unit: '单位不同', status: '失败或缺测', 'duplicate-key': '记录标识重复' };
+  const differences = coverage.sections.flatMap(section => section.groups.filter(group => group.records.added || group.records.missing || group.metrics.incomparable || group.metrics.added || group.metrics.missing).map(group => `${section.name} / ${group.group || '默认分组'}：新增 ${group.records.added}、缺失 ${group.records.missing} 条记录，新增 ${group.metrics.added}、缺失 ${group.metrics.missing} 项数值指标，${group.metrics.incomparable} 项不可比${group.metrics.expectedMissingIncomparable ? `（其中 ${group.metrics.expectedMissingIncomparable} 项为单栈预期未测）` : ''}`));
+  const expected = coverage.metrics.expectedMissingIncomparable || 0;
+  const unexpected = Math.max(0, coverage.metrics.incomparable - expected);
+  const coverageChanged = coverage.records.added || coverage.records.missing || coverage.metrics.added || coverage.metrics.missing || unexpected;
+  const reasonLabel = { unit: '单位不同', status: '读数不可用', 'duplicate-key': '记录标识重复', 'expected-missing': '单栈 IPv6 预期未测' };
   const list = (label, entries, metric = false) => entries.length ? `<details><summary>${label} · ${entries.length} ${metric ? '项指标' : '条记录'}</summary><ul>${entries.slice(0, 100).map(item => `<li>${escapeHtml([sectionNames[item.section] || item.section, item.group, item.target, item.carrier, metric ? metricLabel(item.metric) : ''].filter(Boolean).join(' / '))}${item.reasons ? `：${escapeHtml(item.reasons.map(reason => reasonLabel[reason] || reason).join('、'))}` : ''}</li>`).join('')}</ul>${entries.length > 100 ? '<p>仅展开前 100 项；完整数量见上方。</p>' : ''}</details>` : '';
-  el('compareCoverage').innerHTML = `${conclusion}<p>共同可比：${coverage.metrics.comparable} 项数值指标。新增 ${coverage.records.added}、缺失 ${coverage.records.missing} 条记录；${coverage.metrics.incomparable} 项因状态、单位或重复记录不可比。</p>${differences.length ? `<p class="warn">覆盖不同或存在不可比读数，以下变化不代表整份报告全貌。</p><ul>${differences.map(text => `<li>${escapeHtml(text)}</li>`).join('')}</ul>` : '<p>两份报告的数值指标覆盖一致；相同覆盖不代表测试环境完全一致。</p>'}${list('新增记录', coverage.addedRecords)}${list('缺失记录', coverage.missingRecords)}${list('新增指标', coverage.addedMetrics, true)}${list('缺失指标', coverage.missingMetrics, true)}${list('不可比指标', coverage.incomparableMetrics, true)}`;
+  el('compareCoverage').innerHTML = `${conclusion}<p>共同可比：${coverage.metrics.comparable} 项数值指标。新增 ${coverage.records.added}、缺失 ${coverage.records.missing} 条记录；${unexpected} 项因状态、单位或重复记录不可比${expected ? `，另有 ${expected} 项为单栈 IPv6 预期未测，不代表测试失败` : ''}。</p>${differences.length ? `<p class="${coverageChanged ? 'warn' : 'hint'}">${coverageChanged ? '覆盖不同或存在不可比读数，以下变化不代表整份报告全貌。' : '单栈 IPv6 未测属于预期覆盖，不参与对比，不判为故障。'}</p><ul>${differences.map(text => `<li>${escapeHtml(text)}</li>`).join('')}</ul>` : '<p>两份报告的数值指标覆盖一致；相同覆盖不代表测试环境完全一致。</p>'}${list('新增记录', coverage.addedRecords)}${list('缺失记录', coverage.missingRecords)}${list('新增指标', coverage.addedMetrics, true)}${list('缺失指标', coverage.missingMetrics, true)}${list('不可比指标', coverage.incomparableMetrics, true)}`;
 }
 function showView(view, compare = true) {
   for (const tab of document.querySelectorAll('.tab')) tab.classList.toggle('active', tab.dataset.view === view);

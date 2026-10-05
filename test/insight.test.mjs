@@ -56,7 +56,9 @@ test('速度离群用相对倍数检出，不依赖绝对阈值', () => {
   ]));
   const hit = result.anomalies.find(item => item.text.includes('上海电信'));
   assert.ok(hit, '远低于同组中位数应被判为异常');
-  assert.equal(hit.level, 'danger');
+  assert.equal(hit.level, 'warn');
+  assert.equal(hit.kind, 'speed-outlier');
+  assert.match(hit.text, /不代表线路故障/);
 });
 
 test('延迟离群用 MAD 检出，正常波动不误报', () => {

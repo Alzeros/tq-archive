@@ -44,6 +44,15 @@
       <h2 class="sub-card-title">已有密钥</h2>
       <div class="keys-table-wrap">
         <table class="keys-table" aria-label="已有 API 密钥">
+          <colgroup>
+            <col class="keys-col-name">
+            <col class="keys-col-scope">
+            <col class="keys-col-secret">
+            <col class="keys-col-status">
+            <col class="keys-col-date">
+            <col class="keys-col-date">
+            <col class="keys-col-actions">
+          </colgroup>
           <thead>
             <tr>
               <th>名称</th>
@@ -56,7 +65,7 @@
             </tr>
           </thead>
           <tbody id="keysList">
-            <tr><td colspan="7" class="keys-empty">加载中…</td></tr>
+            <tr class="keys-empty-row"><td colspan="7" class="keys-empty">加载中…</td></tr>
           </tbody>
         </table>
       </div>
