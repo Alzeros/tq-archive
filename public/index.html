@@ -8,6 +8,7 @@
   <link rel="alternate icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/archive.css">
 </head>
 <body>
   <div id="toast" class="toast"></div>
@@ -130,7 +131,7 @@
               </span>
               <h2>全局指标概览</h2>
             </div>
-            <span class="card-subtitle">实时监控节点覆盖率与测速统计</span>
+            <span class="card-subtitle">历史测试存档概览，不代表实时监测状态</span>
           </div>
           <div id="dashStats" class="dash-stats"></div>
         </div>
@@ -156,6 +157,15 @@
             <p class="hint">按严重程度排序，只列最需要注意的几台；点击整行直达详情</p>
           </div>
           <div id="dashAlerts" class="list"></div>
+        </div>
+
+        <div class="card" id="freshnessCard">
+          <div class="card-header"><div class="card-title-group"><h2>测试记录新鲜度</h2></div>
+            <label class="inline">提醒周期 <select id="freshnessDays"><option value="7">7 天</option><option value="14">14 天</option><option value="30">30 天</option></select></label>
+          </div>
+          <p class="hint">只提醒启用节点；时间久不代表历史报告失效。探针节点清单同步与测试上传时间分别统计。</p>
+          <div id="dashFreshness" class="freshness-list"></div>
+          <p id="probeSyncNote" class="hint"></p>
         </div>
 
         <div class="card">
@@ -283,6 +293,7 @@
               <h2 id="detailTitle">报告详情</h2>
             </div>
             <div class="actions">
+              <button id="comparePrevious" class="secondary small" type="button" hidden>对比上一份</button>
               <a id="openOriginal" class="button ghost" target="_blank" rel="noreferrer noopener">
                 <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                 <span>原始报告</span>
@@ -364,6 +375,7 @@
             <label class="inline" title="延迟 ≥10ms、丢包/重传 ≥0.5%、速度 ≥5% 或 ≥20Mbps 才算显著"><input type="checkbox" id="onlySignificant" checked> 只看显著变化</label>
           </div>
           <p class="hint" id="changeSummary"></p>
+          <div id="compareCoverage" class="coverage-result"></div>
           <div id="changeBody" class="table-wrap"></div>
         </div>
       </section>

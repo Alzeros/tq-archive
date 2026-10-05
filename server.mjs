@@ -13,6 +13,7 @@ import { createAuth } from './lib/auth.mjs';
 import { listKeys, getKey, createKey, updateKey, deleteKey, touchKey, scopeOf, authorizeKey, keysLoadError, backupBrokenKeys } from './lib/keys.mjs';
 import { parseTqCsv, csvFingerprint, CSV_PARSER_VERSION } from './lib/csv-parser.mjs';
 import { packDirectory } from './lib/backup.mjs';
+import { reportCoverage, compareCoverage, comparisonConclusion } from './lib/report-quality.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const dataDir = process.env.DATA_DIR || join(root, 'data');
@@ -81,6 +82,10 @@ function loadDetail(id) {
   return { detail: null, error: lastRebuildError };
 }
 const detailOf = id => loadDetail(id).detail;
+function insightFor(report) {
+  const previous = store.database.reports.filter(item => item.nodeId === report.nodeId && item.id !== report.id && Date.parse(item.testedAt) < Date.parse(report.testedAt)).sort((left, right) => Date.parse(right.testedAt) - Date.parse(left.testedAt))[0];
+  return summarize(report, store.database.nodes.find(node => node.id === report.nodeId), previous ? detailOf(previous.id) : null);
+}
 function send(response, status, data) {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
   response.end(JSON.stringify(data));
@@ -168,7 +173,7 @@ async function downloadReport(input) {
 // 反代 / CDN 会把 js、css 改成长缓存（线上 Cloudflare 改写为 max-age=14400 并在边缘缓存），
 // 发版后页面是新的、脚本却还是旧的。HTML 本身不缓存，由它引用带内容版本号的地址即可绕过各层缓存。
 // 版本号放在路径里（/v/<hash>/app.js）：部分 CDN 配置会忽略查询参数。
-const versionedAssets = ['app.js', 'style.css', 'theme.js', 'picker.js', 'login.js', 'keys.js', 'nodes.js', 'favicon.svg', 'favicon.ico', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'];
+const versionedAssets = ['app.js', 'style.css', 'archive.css', 'archive.js', 'theme.js', 'picker.js', 'login.js', 'keys.js', 'nodes.js', 'favicon.svg', 'favicon.ico', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'];
 const assetReference = new RegExp(`(["'])/(${versionedAssets.map(name => name.replace(/\./g, '\\.')).join('|')})\\1`, 'g');
 const assetFiles = new Map();
 async function assetFile(name) {
@@ -244,6 +249,21 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === 'GET' && url.pathname === '/api/session') return send(response, 200, { authenticated: session.ok, enabled: auth.enabled });
+    if (request.method === 'GET' && url.pathname === '/api/dashboard') {
+      const entries = store.database.nodes.filter(node => node.enabled !== false && !node.archived).map(node => {
+        const history = store.database.reports.filter(report => report.nodeId === node.id).sort((left, right) => Date.parse(right.testedAt) - Date.parse(left.testedAt)).slice(0, 5);
+        const reports = history.map(index => ({ index, detail: detailOf(index.id) }));
+        const latest = reports[0];
+        if (!latest) return { nodeId: node.id, reportId: null };
+        if (!latest.detail) return { nodeId: node.id, reportId: latest.index.id, error: '最新报告明细不可读' };
+        const insight = insightFor(latest.detail);
+        return {
+          nodeId: node.id, reportId: latest.index.id, cards: insight.cards, assessment: insight.assessment, coverage: reportCoverage(latest.detail),
+          trend: reports.slice().reverse().map(({ index, detail }) => ({ id: index.id, testedAt: index.testedAt, latency: detail ? summarize(detail, node).cards.find(card => card.id === 'latency')?.value ?? null : null }))
+        };
+      });
+      return send(response, 200, { entries });
+    }
     if (request.method === 'GET' && url.pathname === '/api/state') {
       // 归属建议每次现算：先绑定的一份会让同一台机器后续的报告自动带上推荐
       const pending = store.database.pending.map(item => ({ ...item, suggestion: store.rememberedNode(item.identity) }));
@@ -422,7 +442,7 @@ const server = http.createServer(async (request, response) => {
       // identity 与 upload 里是上传机器的主机名和出口 IP —— 与待绑定队列同级的信息，
       // 既然队列不开放，明细里也不能顺手带出去。
       const { rawRows, identity, upload, ...rest } = report;
-      return send(response, 200, { ...rest, insight: summarize(report, store.database.nodes.find(item => item.id === report.nodeId)) });
+      return send(response, 200, { ...rest, coverage: reportCoverage(report), insight: insightFor(report) });
     }
 
     // 待绑定队列（需登录）：绑定到节点后成为正式报告，或直接丢弃
@@ -598,14 +618,16 @@ const server = http.createServer(async (request, response) => {
       const current = detailOf(url.searchParams.get('current'));
       const previous = detailOf(url.searchParams.get('base'));
       if (!current || !previous || current.nodeId !== previous.nodeId || current.id === previous.id) throw new Error('请选择同一节点的两份不同报告');
-      const changes = compareReports(current, previous);
+      const coverage = compareCoverage(current, previous);
+      const excluded = new Set(coverage.incomparableMetrics.map(item => `${item.key}\u0000${item.metric}`));
+      const changes = compareReports(current, previous).filter(change => !excluded.has(`${change.key}\u0000${change.metric}`));
       // 显著度在服务端标好：门槛表在 lib/thresholds.mjs，与档位判定同源。
       // 前端只用这个布尔值，不必自己复制一份带数字的规则。
       const marked = changes.map(change => ({
         ...change,
         significant: isSignificantChange(change.metric, change.delta, change.before, change.after)
       }));
-      return send(response, 200, { changes: marked, significance, currentTestedAt: current.testedAt, baseTestedAt: previous.testedAt, added: current.records.filter(record => !previous.records.some(old => old.key === record.key)).length, removed: previous.records.filter(record => !current.records.some(next => next.key === record.key)).length });
+      return send(response, 200, { changes: marked, significance, currentTestedAt: current.testedAt, baseTestedAt: previous.testedAt, added: coverage.records.added, removed: coverage.records.missing, coverage, conclusion: comparisonConclusion(marked) });
     }
     const reportMatch = url.pathname.match(/^\/api\/reports\/([a-f\d-]+)(\/(export|raw|move))?$/);
     if (reportMatch) {
@@ -630,13 +652,15 @@ const server = http.createServer(async (request, response) => {
       if (reportMatch[3] === 'export') response.setHeader('Content-Disposition', `attachment; filename="tq-${id}.json"`);
       // 洞察在服务端算：parser 依赖 node:crypto，浏览器端跑不了。
       // 必须带上节点，延迟基准按机房区域选档，否则会把"离得远"判成"线路差"。
-      return send(response, 200, { ...report, insight: summarize(report, store.database.nodes.find(item => item.id === report.nodeId)) });
+      return send(response, 200, { ...report, coverage: reportCoverage(report), insight: insightFor(report) });
     }
     if (request.method !== 'GET') return send(response, 404, { error: '接口不存在' });
     const assets = {
       '/': ['index.html', 'text/html'],
       '/app.js': ['app.js', 'text/javascript'],
       '/style.css': ['style.css', 'text/css'],
+      '/archive.css': ['archive.css', 'text/css'],
+      '/archive.js': ['archive.js', 'text/javascript'],
       '/theme.js': ['theme.js', 'text/javascript'],
       '/picker.js': ['picker.js', 'text/javascript'],
       '/login': ['login.html', 'text/html'],

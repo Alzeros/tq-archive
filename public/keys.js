@@ -22,7 +22,7 @@ async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch {}
   const ta = document.createElement('textarea');
   ta.value = text;
-  ta.style.cssText = 'position:fixed;opacity:0';
+  ta.className = 'keys-copy-fallback';
   document.body.appendChild(ta);
   ta.select();
   let ok = false;
@@ -67,16 +67,16 @@ function renderKeys(keys) {
   }
   tbody.innerHTML = keys.map(k => `
     <tr data-id="${k.id}" data-name="${escapeHtml(k.name)}">
-      <td><span class="keys-name">${escapeHtml(k.name)}</span></td>
-      <td><span class="keys-badge ${k.scope === 'read' ? 'read' : 'up'}">${k.scope === 'read' ? '只读' : '上传'}</span></td>
-      <td class="keys-secret-cell"><code>${escapeHtml(k.secret)}</code><button type="button" class="sub-btn" data-act="copy" data-secret="${escapeHtml(k.secret)}">复制</button></td>
-      <td><span class="keys-badge ${k.enabled ? 'on' : 'off'}">${k.enabled ? '已启用' : '已禁用'}</span></td>
-      <td class="keys-meta">${formatDate(k.createdAt)}</td>
-      <td class="keys-meta">${k.lastUsedAt ? formatDate(k.lastUsedAt) : '从未使用'}</td>
-      <td class="keys-actions">
+      <td data-label="名称"><span class="keys-name">${escapeHtml(k.name)}</span></td>
+      <td data-label="权限"><span class="keys-badge ${k.scope === 'read' ? 'read' : 'up'}">${k.scope === 'read' ? '只读' : '上传'}</span></td>
+      <td data-label="密钥" class="keys-secret-cell"><div class="keys-secret-content"><code>${escapeHtml(k.secret)}</code><button type="button" class="sub-btn" data-act="copy" data-secret="${escapeHtml(k.secret)}">复制</button></div></td>
+      <td data-label="状态"><span class="keys-badge ${k.enabled ? 'on' : 'off'}">${k.enabled ? '已启用' : '已禁用'}</span></td>
+      <td data-label="创建时间" class="keys-meta">${formatDate(k.createdAt)}</td>
+      <td data-label="最后使用" class="keys-meta">${k.lastUsedAt ? formatDate(k.lastUsedAt) : '从未使用'}</td>
+      <td data-label="操作" class="keys-actions"><div class="keys-action-buttons">
         <button type="button" class="sub-btn" data-act="toggle" data-enabled="${k.enabled}">${k.enabled ? '禁用' : '启用'}</button>
         <button type="button" class="sub-btn danger" data-act="delete">删除</button>
-      </td>
+      </div></td>
     </tr>
   `).join('');
 }

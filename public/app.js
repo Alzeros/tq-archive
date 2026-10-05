@@ -1,5 +1,6 @@
 import { setupThemeToggle } from '/theme.js';
 import { nodePicker } from '/picker.js';
+import { previousReport, staleNodes } from '/archive.js';
 
 // nodes / reports 只含已启用的节点及其报告，界面各处直接用；allNodes / allReports 供选择器搜索全部节点
 const state = { nodes: [], reports: [], allNodes: [], allReports: [], pending: [], metricNames: {}, selectedNodeId: null, detail: null, insight: null, heatmap: { matrixId: null, metricId: null }, compare: { node: '', result: null }, trend: null };
@@ -66,6 +67,18 @@ function svgSparkline(values) {
 }
 const nodeName = id => state.allNodes.find(node => node.id === id)?.name || id;
 const metricLabel = key => state.metricNames[key] || key;
+function coverageBadge(coverage) {
+  if (!coverage) return '';
+  const label = coverage.status === 'issues' ? '失败 / 解析提示' : coverage.status === 'partial' ? '部分维度 / 缺测' : coverage.label;
+  return `<span class="archive-status ${coverage.status === 'issues' ? 'warn' : ''}" title="${escapeHtml(`${coverage.validMetrics} 项有效数值；${coverage.unavailableMetrics} 项不可用。部分测试不代表导入失败，走势应核对覆盖范围。`)}">${escapeHtml(label)}</span>`;
+}
+function renderFreshness() {
+  const days = Number(el('freshnessDays').value);
+  const items = staleNodes(state.nodes, state.reports, days);
+  el('dashFreshness').innerHTML = items.length ? items.map(({ node, latest, age }) => `<button type="button" data-node="${escapeHtml(node.id)}"><strong>${escapeHtml(node.name)}</strong><span>${!latest ? '尚未测试' : !Number.isFinite(age) ? '时间待核实' : `${age} 天未测`}${latest && timeIsEstimated(latest) ? '（估算）' : ''}</span></button>`).join('') : `<p class="empty">启用节点均在最近 ${days} 天内有测试记录。</p>`;
+  for (const button of el('dashFreshness').querySelectorAll('button')) button.addEventListener('click', () => selectNode(button.dataset.node));
+  el('probeSyncNote').textContent = `探针节点清单上次同步：${state.syncedAt ? fmtTime(state.syncedAt) : '尚未同步'}；这不是最近测试或上传时间。`;
+}
 const metricText = measurement => {
   if (!measurement) return '—';
   if (measurement.status === 'unknown') return measurement.raw || '—';
@@ -387,7 +400,7 @@ function renderHistory() {
     el('trendPanel').innerHTML = '';
     return;
   }
-  const reports = state.reports.filter(report => report.nodeId === state.selectedNodeId).sort((left, right) => right.testedAt.localeCompare(left.testedAt));
+  const reports = state.reports.filter(report => report.nodeId === state.selectedNodeId).sort((left, right) => Date.parse(right.testedAt) - Date.parse(left.testedAt));
   el('historyTitle').textContent = `${nodeName(state.selectedNodeId)} · ${reports.length} 份报告`;
   if (!reports.length) {
     list.innerHTML = '<p class="empty">该节点还没有报告，可前往“导入报告”粘贴链接进行初次归档。</p>';
@@ -419,6 +432,7 @@ function renderHistory() {
         <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
         <span>查看数据</span>
       </button>
+      ${previousReport(state.reports, report) ? '<button class="secondary small previous-btn" type="button">对比上一份</button>' : ''}
       ${report.sourceType === 'csv'
         ? `<a class="button ghost small" href="/api/reports/${report.id}/raw" download>
         <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -435,6 +449,7 @@ function renderHistory() {
     </div>`;
     const open = item.querySelector('.open-btn');
     open.addEventListener('click', () => openDetail(report.id));
+    item.querySelector('.previous-btn')?.addEventListener('click', () => comparePreviousReport(report));
     const remove = item.querySelector('.del-btn');
     remove.addEventListener('click', async () => {
       if (!confirm(`删除 ${fmtTime(report.testedAt)}${timeNote(report)} 的归档？原始${report.sourceType === 'csv' ? ' CSV' : '报告 HTML'}也会一并删除，且无法恢复。`)) return;
@@ -467,7 +482,7 @@ async function fillMetrics(host, reportId) {
       const card = cards.get(def.key);
       if (!card || typeof card.value !== 'number') return `<span class="metric na"><span class="m-icon">${def.icon}</span>${def.short} —</span>`;
       return `<span class="metric l${card.level || 'na'}"><span class="m-icon">${def.icon}</span>${def.short} ${card.value}${escapeHtml(card.unit || '')}</span>`;
-    }).join('');
+    }).join('') + coverageBadge(detail.coverage);
   } catch {
     host.innerHTML = '<span class="metric na">指标暂不可用</span>';
   }
@@ -481,7 +496,7 @@ function renderInsight(insight) {
   const cards = insight.cards.map(card => `<div class="icard ${card.level || ''}">
     <div class="icard-header">
       <span class="label">${escapeHtml(card.label)}</span>
-      <span class="icard-badge ${card.level || 'info'}">${levelNames[card.level] || '指标'}</span>
+      <span class="icard-badge ${card.level || 'info'}">${card.id === 'speed' ? '实测参考' : levelNames[card.level] || '指标'}</span>
     </div>
     <div class="value">${escapeHtml(card.value ?? '—')}<span class="unit">${escapeHtml(card.unit || '')}</span></div>
     <div class="note">${escapeHtml(card.note || '')}</div>
@@ -492,12 +507,13 @@ function renderInsight(insight) {
     warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
     info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
   };
+  const urgentAnomalies = insight.anomalies.filter(item => item.level !== 'info').sort((left, right) => (left.level === 'danger' ? -1 : 0) - (right.level === 'danger' ? -1 : 0));
+  const infoAnomalies = insight.anomalies.filter(item => item.level === 'info');
+  const anomalyItem = item => `<div class="anomaly ${item.level}"><span class="anomaly-icon">${levelIcons[item.level] || levelIcons.info}</span><div class="anomaly-body"><span class="tag">${levels[item.level] || '提示'}</span><span class="text">${escapeHtml(item.text)}</span></div></div>`;
   const anomalies = insight.anomalies.length
     ? `<div class="insight-block"><h3 class="section-title">需要关注的点 · ${insight.anomalies.length} 条</h3>
-        <div class="anomalies-list">${insight.anomalies.map(item => `<div class="anomaly ${item.level}">
-          <span class="anomaly-icon">${levelIcons[item.level] || levelIcons.info}</span>
-          <div class="anomaly-body"><span class="tag">${levels[item.level] || '提示'}</span><span class="text">${escapeHtml(item.text)}</span></div>
-        </div>`).join('')}</div></div>`
+        <div class="anomalies-list">${urgentAnomalies.map(anomalyItem).join('')}</div>
+        ${infoAnomalies.length ? `<details class="anomaly-info"><summary>线路说明 · ${infoAnomalies.length} 条（不计故障）</summary><div class="anomalies-list">${infoAnomalies.map(anomalyItem).join('')}</div></details>` : ''}</div>`
     : '<div class="insight-block"><div class="ok"><svg class="inline-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>未检出丢包、重传、速度离群或骨干异常，网络表现平稳。</div></div>';
   const region = insight.region || { label: '未知区域', good: '', fair: '' };
   const regions = insight.regions.length
@@ -528,7 +544,7 @@ function renderInsight(insight) {
     <div class="insight-block">
       <div class="insight-head"><h3 class="section-title">省份 × 运营商</h3><div class="hm-tabs">${tabs}</div></div>
       <div id="heatmap"></div>
-      <p class="hint">颜色按「${escapeHtml(region.label)}」基准判绝对档位：≤${region.good}ms 好、≤${region.fair}ms 一般、超过为差。健康的线路不会再因为"是这份报告里相对最差的一个"被染红。悬停查看去程线路。${insight.matrices.some(matrix => matrix.id === 'speedtest') && insight.speedRule ? `测速带宽反向判定：≥${insight.speedRule.good}Mbps 好、≥${insight.speedRule.fair}Mbps 一般、低于为差。` : ''}</p>
+      <p class="hint">颜色按「${escapeHtml(region.label)}」基准判绝对档位：≤${region.good}ms 好、≤${region.fair}ms 一般、超过为差。悬停查看去程线路。${insight.matrices.some(matrix => matrix.id === 'speedtest') && insight.speedRule ? `测速色阶仅为参考：≥${insight.speedRule.good}Mbps 高速、≥${insight.speedRule.fair}Mbps 中速、低于为低速，不代表故障，也不参与看板绝对带宽告警。` : ''}</p>
     </div>${services}`;
   state.heatmap = { matrixId: insight.matrices[0]?.id || null, metricId: null };
   for (const button of el('detailSummary').querySelectorAll('.hm-tab[data-matrix]')) {
@@ -598,6 +614,8 @@ function renderWarnings(report) {
 async function openDetail(reportId) {
   const report = await fetchDetail(reportId);
   state.detail = report;
+  el('comparePrevious').hidden = !previousReport(state.reports, report);
+  el('comparePrevious').onclick = () => comparePreviousReport(report);
   el('detailCard').classList.remove('hidden');
   el('detailTitle').textContent = `报告详情 · ${nodeName(report.nodeId)} · ${shortTimeCell(report)}`;
   const isCsv = report.sourceType === 'csv';
@@ -607,6 +625,7 @@ async function openDetail(reportId) {
   el('downloadRaw').href = `/api/reports/${reportId}/raw`;
   el('downloadRaw').querySelector('span').textContent = isCsv ? '原始 CSV' : '原始 HTML';
   renderWarnings(report);
+  el('detailWarnings').insertAdjacentHTML('afterbegin', `<div class="coverage-result">${coverageBadge(report.coverage)}<p>覆盖：${report.coverage.sections.map(section => `${escapeHtml(section.name)} ${section.records} 条记录`).join(' · ')}；${report.coverage.validMetrics} 项有效数值。</p><p>不同测试范围、IPv4/IPv6 覆盖和失败读数会影响走势；仅测部分维度不等于导入失败。</p></div>`);
   const bySection = new Map();
   for (const record of report.records) {
     if (!bySection.has(record.section)) bySection.set(record.section, []);
@@ -706,6 +725,7 @@ async function renderDashboard() {
   const alertsBox = el('dashAlerts');
   const alertCard = el('dashAlertCard');
   const healthBox = el('dashHealth');
+  renderFreshness();
   // 概览数字：全量、覆盖、最近一次测试时间
   const withReports = new Set(state.reports.map(report => report.nodeId));
   const latest = [...state.reports].sort((left, right) => right.testedAt.localeCompare(left.testedAt))[0];
@@ -766,9 +786,9 @@ async function renderDashboard() {
   // 按节点聚合出"每个节点最近的一份报告"，拉详情取 insight.cards
   const byNode = new Map();
   for (const report of state.reports) {
-    if (!byNode.has(report.nodeId) || byNode.get(report.nodeId).testedAt < report.testedAt) byNode.set(report.nodeId, report);
+    if (!byNode.has(report.nodeId) || Date.parse(byNode.get(report.nodeId).testedAt) < Date.parse(report.testedAt)) byNode.set(report.nodeId, report);
   }
-  const latestPerNode = [...byNode.values()].sort((left, right) => right.testedAt.localeCompare(left.testedAt));
+  const latestPerNode = [...byNode.values()].sort((left, right) => Date.parse(right.testedAt) - Date.parse(left.testedAt));
   const idleNodes = state.nodes.filter(node => !node.archived && !withReports.has(node.id));
   const healthRows = [];
   healthBox.innerHTML = '';
@@ -808,35 +828,32 @@ async function renderDashboard() {
   const token = ++dashRequestToken;
   // 每个节点取最近 5 份报告：够了画迷你走势，又不至于把整个历史拉下来。
   // 详情有会话级缓存，切换视图不会重复请求。
-  const perNode = reportsByNode(state.reports);
-  const results = await Promise.all(
-    healthRows.map(async ({ row, report }) => {
-      const history = (perNode.get(report.nodeId) || []).slice().sort((left, right) => left.testedAt.localeCompare(right.testedAt)).slice(-5);
-      try {
-        const details = await Promise.all(history.map(item => fetchDetail(item.id)));
-        return { row, report, details };
-      } catch {
-        return { row, report, error: true };
-      }
-    })
-  );
+  let dashboard;
+  try { dashboard = await api('/api/dashboard'); } catch {
+    if (token !== dashRequestToken) return;
+    healthBox.querySelectorAll('.metrics').forEach(host => { host.textContent = '摘要暂不可用'; });
+    alertsBox.textContent = '关注摘要暂不可用，请稍后重试';
+    alertCard.classList.remove('hidden');
+    return;
+  }
+  const entries = new Map(dashboard.entries.map(entry => [entry.nodeId, entry]));
+  const results = healthRows.map(({ row, report }) => ({ row, report, entry: entries.get(report.nodeId) }));
   if (token !== dashRequestToken) return;
 
   const alerts = [];
-  for (const { row, report, details, error } of results) {
-    if (error || !details?.length) {
+  for (const { row, report, entry } of results) {
+    if (!entry?.cards || entry.error) {
       row.querySelector('.metrics').innerHTML = '<span class="metric na">指标不可用</span>';
       continue;
     }
-    const latest = details.at(-1);
-    const cards = new Map((latest.insight?.cards || []).map(card => [card.id, card]));
+    const cards = new Map(entry.cards.map(card => [card.id, card]));
     const latency = cards.get('latency');
     const loss = cards.get('loss');
     const speed = cards.get('speed');
     // 健康表与"需要关注"两张卡以前展示的是同一批徽章。关注卡只列有问题的节点，
     // 这里则是全量索引，所以补一样它独有的信息：最近几份的延迟走势 + 与上一份的差值。
     // 只摆一个时点数字看不出"在变好还是在变差"。
-    const series = details.map(item => (item.insight?.cards || []).find(card => card.id === 'latency')?.value).filter(value => typeof value === 'number');
+    const series = entry.trend.map(item => item.latency).filter(value => typeof value === 'number');
     // 差值用 series 的最后两点而不是"最新一份的值"：series 已经滤掉了无效读数，
     // 混用会出现"上一份 175ms → 这一份 没数据"却算出差值的错位
     const previous = series.length >= 2 ? series.at(-2) : null;
@@ -851,12 +868,10 @@ async function renderDashboard() {
       ${loss && typeof loss.value === 'number' ? `<span class="metric l${loss.level}"><span class="m-icon">📉</span>丢包 ${loss.value}${loss.unit}</span>` : ''}
       ${speed && typeof speed.value === 'number' ? `<span class="metric l${speed.level}"><span class="m-icon">🚀</span>带宽 ${speed.value}${speed.unit}</span>` : ''}
       ${deltaText}
+      ${coverageBadge(entry.coverage)}
+      <span class="archive-status ${escapeHtml(entry.assessment.level)}" title="${escapeHtml(entry.assessment.reasons.join('；') || entry.assessment.basis)}">${escapeHtml(entry.assessment.label)}</span>
     `;
-    const worst = [latency, loss, speed].reduce((acc, card) => {
-      if (!card || typeof card.value !== 'number') return acc;
-      return Math.max(acc, card.level === 'bad' ? 2 : card.level === 'fair' ? 1 : 0);
-    }, 0);
-    if (worst > 0) alerts.push({ report, latency, loss, speed, worst });
+    if (entry.assessment.score > 0) alerts.push({ report, latency, loss, speed, worst: entry.assessment.score, assessment: entry.assessment });
   }
 
   // 需要关注的节点：最严重的排前面，同级再看时间。
@@ -871,7 +886,7 @@ async function renderDashboard() {
   alertsBox.innerHTML = '';
   const shown = alerts.slice(0, 6);
   const rest = alerts.length - shown.length;
-  for (const { report, latency, loss, speed } of shown) {
+  for (const { report, latency, loss, speed, assessment } of shown) {
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'title-link dash-alert';
@@ -880,9 +895,10 @@ async function renderDashboard() {
         <div class="title">
           <div class="alert-title-row">
             <strong>${escapeHtml(nodeName(report.nodeId))}</strong>
-            <span class="alert-tag">注意</span>
+            <span class="archive-status ${escapeHtml(assessment.level)}" title="${escapeHtml(assessment.basis)}">${escapeHtml(assessment.label)} · ${assessment.score}</span>
           </div>
           <span class="meta">评测时间：${timeCell(report)}</span>
+          <p class="alert-reason">${assessment.reasons.slice(0, 2).map(escapeHtml).join('；')}</p>
         </div>
         <div class="metrics">
           ${latency && typeof latency.value === 'number' ? `<span class="metric l${latency.level}"><span class="m-icon">⚡</span>延迟 ${latency.value}${latency.unit}</span>` : ''}
@@ -906,7 +922,7 @@ async function renderDashboard() {
   if (rest > 0) {
     const more = document.createElement('p');
     more.className = 'empty dash-idle';
-    more.textContent = `另有 ${rest} 个节点也需要注意，已在下方「节点健康总览」中标出`;
+    more.textContent = `另有 ${rest} 个节点有观察或关注信号，具体等级已在下方总览中标出`;
     alertsBox.append(more);
   }
 }
@@ -1091,23 +1107,46 @@ function renderCompareSelectors() {
     el('compareCurrent').selectedIndex = 0;
   }
   el('compareResult').classList.toggle('hidden', reports.length < 2);
-  if (reports.length >= 2) runCompare();
+  if (reports.length >= 2 && el('view-compare').classList.contains('active')) runCompare();
 }
+async function comparePreviousReport(current) {
+  const previous = previousReport(state.reports, current);
+  if (!previous) { toast('没有测试时间更早的报告'); return; }
+  state.selectedNodeId = current.nodeId;
+  renderNodes();
+  const reports = state.reports.filter(report => report.nodeId === current.nodeId).sort((left, right) => Date.parse(right.testedAt) - Date.parse(left.testedAt));
+  el('compareNode').value = current.nodeId;
+  const options = reports.map(report => `<option value="${escapeHtml(report.id)}">${escapeHtml(fmtTime(report.testedAt) + timeNote(report))}</option>`).join('');
+  el('compareBase').innerHTML = options;
+  el('compareCurrent').innerHTML = options;
+  el('compareBase').value = previous.id;
+  el('compareCurrent').value = current.id;
+  showView('compare', false);
+  await runCompare();
+  document.querySelector('.content').scrollTop = 0;
+}
+let compareRequestToken = 0;
 async function runCompare() {
   const base = el('compareBase').value;
   const current = el('compareCurrent').value;
-  if (!base || !current || base === current) return;
+  const token = ++compareRequestToken;
+  if (!base || !current || base === current) { state.compare.result = null; el('compareResult').classList.add('hidden'); return; }
+  state.compare.result = null;
+  el('compareResult').classList.add('hidden');
   try {
     const result = await api(`/api/compare?base=${base}&current=${current}`);
+    if (token !== compareRequestToken) return;
     state.compare.result = result;
+    el('compareResult').classList.remove('hidden');
     el('compareTitle').textContent = `变化明细 · ${fmtShort(result.baseTestedAt)} → ${fmtShort(result.currentTestedAt)}`;
     el('changeFilter').innerHTML = '<option value="all">全部维度</option>' + Object.entries(sectionNames).map(([id, name]) => `<option value="${id}">${escapeHtml(name)}</option>`).join('');
     renderChanges();
-  } catch (error) { toast(error.message, true); }
+  } catch (error) { if (token === compareRequestToken) toast(error.message, true); }
 }
 function renderChanges() {
   const result = state.compare.result;
   if (!result) return;
+  renderComparisonCoverage(result);
   const section = el('changeFilter').value;
   const direction = el('changeDirection').value;
   const onlyChanged = el('onlyChanged').checked;
@@ -1132,18 +1171,30 @@ function renderChanges() {
   }
   const rows = changes.map(change => {
     const sign = change.delta > 0 ? '+' : '';
-    return `<tr><td>${escapeHtml(sectionNames[change.section] || change.section)}</td><td>${escapeHtml(change.target)}</td><td>${escapeHtml(change.carrier || '—')}</td><td>${escapeHtml(metricLabel(change.metric))}</td><td>${change.before}${change.unit}</td><td>${change.after}${change.unit}</td><td class="${change.direction}">${sign}${change.delta}${change.unit}</td><td>${change.significant ? '<span class="sig-mark">显著</span>' : '<span class="sig-noise">抖动</span>'}</td></tr>`;
+    const direction = /speed/i.test(change.metric) ? ({ up: 'down', down: 'up', same: 'same' }[change.direction]) : change.direction;
+    return `<tr><td>${escapeHtml(sectionNames[change.section] || change.section)}<br><small>${escapeHtml(change.group || '')}</small></td><td>${escapeHtml(change.target)}</td><td>${escapeHtml(change.carrier || '—')}</td><td>${escapeHtml(metricLabel(change.metric))}</td><td>${change.before}${escapeHtml(change.unit)}</td><td>${change.after}${escapeHtml(change.unit)}</td><td class="${direction}">${sign}${change.delta}${escapeHtml(change.unit)}</td><td>${change.significant ? '<span class="sig-mark">显著</span>' : '<span class="sig-noise">抖动</span>'}</td></tr>`;
   }).join('');
   el('changeBody').innerHTML = `<table><thead><tr><th>维度</th><th>对象</th><th>运营商</th><th>指标</th><th>基础报告</th><th>当前报告</th><th>变化</th><th>判定</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
-function showView(view) {
+function renderComparisonCoverage(result) {
+  const coverage = result.coverage;
+  const conclusion = `<p><strong>${escapeHtml(result.conclusion?.summary || '结论仅基于共同可比指标。')}</strong></p>`;
+  if (!coverage) { el('compareCoverage').innerHTML = conclusion; return; }
+  const differences = coverage.sections.flatMap(section => section.groups.filter(group => group.records.added || group.records.missing || group.metrics.incomparable || group.metrics.added || group.metrics.missing).map(group => `${section.name} / ${group.group || '默认分组'}：新增 ${group.records.added}、缺失 ${group.records.missing} 条记录，新增 ${group.metrics.added}、缺失 ${group.metrics.missing} 项数值指标，${group.metrics.incomparable} 项不可比`));
+  const reasonLabel = { unit: '单位不同', status: '失败或缺测', 'duplicate-key': '记录标识重复' };
+  const list = (label, entries, metric = false) => entries.length ? `<details><summary>${label} · ${entries.length} ${metric ? '项指标' : '条记录'}</summary><ul>${entries.slice(0, 100).map(item => `<li>${escapeHtml([sectionNames[item.section] || item.section, item.group, item.target, item.carrier, metric ? metricLabel(item.metric) : ''].filter(Boolean).join(' / '))}${item.reasons ? `：${escapeHtml(item.reasons.map(reason => reasonLabel[reason] || reason).join('、'))}` : ''}</li>`).join('')}</ul>${entries.length > 100 ? '<p>仅展开前 100 项；完整数量见上方。</p>' : ''}</details>` : '';
+  el('compareCoverage').innerHTML = `${conclusion}<p>共同可比：${coverage.metrics.comparable} 项数值指标。新增 ${coverage.records.added}、缺失 ${coverage.records.missing} 条记录；${coverage.metrics.incomparable} 项因状态、单位或重复记录不可比。</p>${differences.length ? `<p class="warn">覆盖不同或存在不可比读数，以下变化不代表整份报告全貌。</p><ul>${differences.map(text => `<li>${escapeHtml(text)}</li>`).join('')}</ul>` : '<p>两份报告的数值指标覆盖一致；相同覆盖不代表测试环境完全一致。</p>'}${list('新增记录', coverage.addedRecords)}${list('缺失记录', coverage.missingRecords)}${list('新增指标', coverage.addedMetrics, true)}${list('缺失指标', coverage.missingMetrics, true)}${list('不可比指标', coverage.incomparableMetrics, true)}`;
+}
+function showView(view, compare = true) {
   for (const tab of document.querySelectorAll('.tab')) tab.classList.toggle('active', tab.dataset.view === view);
   for (const section of document.querySelectorAll('.view')) section.classList.toggle('active', section.id === `view-${view}`);
+  if (view === 'compare' && compare) runCompare();
 }
 async function refresh() {
   const data = await api('/api/state');
   state.allNodes = data.nodes;
   state.allReports = data.reports;
+  state.syncedAt = data.syncedAt;
   // 停用的节点连同它的报告一起从界面隐藏（报告不删除，重新启用即恢复）
   state.nodes = data.nodes.filter(node => node.enabled !== false);
   const enabledIds = new Set(state.nodes.map(node => node.id));
@@ -1156,7 +1207,7 @@ async function refresh() {
   renderNodes();
   renderHistory();
   renderRecent();
-  renderDashboard();
+  renderDashboard().catch(error => toast(error.message, true));
   renderPending();
   renderCompareSelectors();
 
@@ -1218,6 +1269,12 @@ el('compareNode').addEventListener('change', event => { state.selectedNodeId = e
 el('compareBase').addEventListener('change', runCompare);
 el('compareCurrent').addEventListener('change', runCompare);
 el('runCompare').addEventListener('click', runCompare);
+try { el('freshnessDays').value = localStorage.getItem('tq_freshness_days') || '7'; } catch {}
+if (!el('freshnessDays').value) el('freshnessDays').value = '7';
+el('freshnessDays').addEventListener('change', () => {
+  try { localStorage.setItem('tq_freshness_days', el('freshnessDays').value); } catch {}
+  renderFreshness();
+});
 for (const id of ['changeFilter', 'changeDirection', 'onlyChanged', 'onlySignificant']) el(id).addEventListener('change', renderChanges);
 el('logoutButton').addEventListener('click', async () => {
   try { await api('/api/logout', { method: 'POST' }); } finally { location.replace('/login'); }

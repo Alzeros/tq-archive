@@ -1,0 +1,17 @@
+.archive-status { display: inline-flex; border-radius: 7px; padding: 3px 8px; font-size: 12px; border: 1px solid var(--border); background: var(--panel-2); color: var(--muted); }
+.archive-status.severe { color: var(--red); background: var(--warn-bg); }
+.archive-status.warn { color: var(--warn-text); background: var(--warn-bg); }
+.archive-status.observe { color: var(--text); background: var(--panel-2); }
+.archive-status.healthy { color: var(--ok-text); background: var(--ok-bg); }
+.alert-reason { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.freshness-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: 8px; }
+.freshness-list button { display: flex; justify-content: space-between; gap: 12px; text-align: left; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); color: var(--text); }
+.freshness-list button span { color: var(--muted); white-space: nowrap; }
+.freshness-list button strong { overflow-wrap: anywhere; }
+.coverage-result { margin: 12px 0; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); line-height: 1.7; font-size: 13px; overflow-wrap: anywhere; }
+.coverage-result:empty { display: none; }
+.coverage-result p { margin: 4px 0; }
+.coverage-result ul { padding-left: 20px; }
+.anomaly-info { margin-top: 12px; color: var(--muted); }
+.anomaly-info summary { cursor: pointer; padding: 8px 0; }
+.anomaly-info .anomalies-list { margin-top: 8px; }
