@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { assessPriority, sortPriorities } from '../lib/priority.mjs';
 import { priorityPresets } from '../lib/priority-view.mjs';
-import { completeReport, deepFreeze } from './fixtures/priority/factory.mjs';
+import { priorityRules } from '../lib/thresholds.mjs';
+import { completeReport, dualStackReport, deepFreeze } from './fixtures/priority/factory.mjs';
 
 const assess = (report, weights = {}) => assessPriority(report, { region: 'US' }, null, weights);
 const almost = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} != ${expected}`);
@@ -112,6 +113,36 @@ test('same frozen inputs are deterministic and no node population is required', 
   const before = assess(report);
   assess(completeReport(100));
   assert.deepEqual(assess(report), before);
-  assert.equal(before.level, null);
+  assert.equal(before.level, 'scheduled');
   assert.equal(before.calibration, 'candidate');
+  assert.equal(before.levelSource, 'candidate-scenario');
+});
+
+test('candidate levels come from the uniform-damage curve, not sample quantiles', () => {
+  // 每个边界对应一个可复现场景：整份报告的比例读数统一为下面这个值。
+  const anchors = [[0, 0, 'none'], [0.19, 0.9, 'none'], [1, 4.8, 'watch'], [5, 19.2, 'scheduled'], [10, 38.3, 'soon'], [20, 62.3, 'now'], [100, 95.8, 'now']];
+  for (const [rate, score, level] of anchors) {
+    const result = assess(completeReport(rate));
+    almost(result.score, score);
+    assert.equal(result.level, level, `统一 ${rate}% 应落在 ${level}`);
+  }
+  // 单栈与双栈落在同一条曲线上：边界不因 IPv6 族覆盖而移动。
+  for (const rate of [0, 1, 5, 10, 20, 100]) almost(assess(completeReport(rate)).score, assess(dualStackReport(rate)).score);
+  // 档位取「分数 ≥ 边界」的第一个命中项。
+  const order = priorityRules.levels.map(item => item.level);
+  for (const rate of [0, 0.19, 0.5, 1, 2, 5, 10, 15, 20, 30, 50, 100]) {
+    const result = assess(completeReport(rate));
+    const rule = priorityRules.levels.find(item => result.score >= item.min);
+    assert.equal(result.level, rule.level);
+    assert.equal(result.label, rule.label);
+  }
+  // 损毁越重档位越高，不会回落。
+  const ranks = [0, 0.19, 1, 5, 10, 20, 100].map(rate => order.indexOf(assess(completeReport(rate)).level));
+  assert.deepEqual(ranks, [...ranks].sort((left, right) => right - left));
+  // 依据不足与无报告不给档位，避免拿缺失当低风险。
+  assert.equal(assess(null).level, null);
+  const broken = completeReport(0);
+  broken.records = broken.records.filter(record => record.section !== 'large4');
+  assert.equal(assess(broken).status, 'insufficient');
+  assert.equal(assess(broken).level, null);
 });

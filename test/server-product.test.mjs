@@ -40,9 +40,14 @@ test('看板摘要、覆盖对比与登录边界端到端一致', { timeout: 200
     await rm(directory, { recursive: true, force: true });
   });
   let ready = false;
-  for (let attempt = 0; attempt < 80; attempt++) {
-    try { await fetch(`${base}/api/session`); ready = true; break; } catch {}
-    if (child.exitCode !== null) break;
+  // 就绪要同时满足两件事：子进程打出启动行，且 /api/session 真能连上。
+  // 原来固定 80×50ms（4 秒）在整仓并发跑时不够：server.mjs 的模块图变大或机器忙一点，
+  // 子进程的启动就会被拖过窗口，而单独跑只要约 1 秒 —— 于是变成"概率性红灯"。
+  const deadline = Date.now() + 20000;
+  while (Date.now() < deadline && child.exitCode === null) {
+    if (output.includes('TQ Archive running at')) {
+      try { await fetch(`${base}/api/session`); ready = true; break; } catch {}
+    }
     await new Promise(resolve => setTimeout(resolve, 50));
   }
   assert.ok(ready, output);
@@ -58,6 +63,23 @@ test('看板摘要、覆盖对比与登录边界端到端一致', { timeout: 200
   assert.ok(dashboard.entries[0].assessment.reasons.length);
   assert.ok(!JSON.stringify(dashboard).includes('rawRows'));
   assert.ok(!Object.hasOwn(dashboard.entries[0], 'records'));
+  // 视图层：候选优先级评分随视角参数重算，并与旧 assessment 并存（口径迁移期间两者都在）
+  assert.equal(dashboard.priorityAlgorithm.version, 'priority-p0-candidate-3');
+  assert.equal(dashboard.priorityAlgorithm.calibration, 'candidate');
+  assert.equal(dashboard.view.id, dashboard.entries[0].priority.view.id);
+  assert.equal(dashboard.entries[0].priority.algorithmVersion, 'priority-p0-candidate-3');
+  // 本夹具塞了一条未注册的国际子组记录，所以候选覆盖不足 —— 这正是要守住的：
+  // 接口不能因此报错，且依据不足时不许给档位（不能拿缺失当低风险）。
+  assert.ok(['ready', 'insufficient'].includes(dashboard.entries[0].priority.status));
+  if (dashboard.entries[0].priority.status === 'insufficient') assert.equal(dashboard.entries[0].priority.level, null);
+  else assert.equal(dashboard.entries[0].priority.levelSource, 'candidate-scenario');
+  const mobile = await (await fetch(`${base}/api/dashboard?access=cm:4`, { headers })).json();
+  assert.notEqual(mobile.view.id, dashboard.view.id);
+  assert.equal(mobile.entries[0].priority.view.shares.access.cm, 4 / 7);
+  // 非法视角参数直接 400，不静默回退到默认 —— 否则用户以为自己调对了
+  assert.equal((await fetch(`${base}/api/dashboard?usage=speed:1`, { headers })).status, 400);
+  assert.equal((await fetch(`${base}/api/dashboard?access=cm:9`, { headers })).status, 400);
+  assert.equal((await fetch(`${base}/api/dashboard?bogus=1`, { headers })).status, 400);
   const detail = await (await fetch(`${base}/api/reports/${current.id}`, { headers })).json();
   assert.deepEqual(detail.insight.assessment, dashboard.entries[0].assessment);
   const compared = await (await fetch(`${base}/api/compare?base=${previous.id}&current=${current.id}`, { headers })).json();

@@ -120,6 +120,55 @@
       </nav>
 
       <section id="view-dashboard" class="view active">
+        <div class="card view-bar" id="viewBar">
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="card-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="9"/>
+                  <path d="M12 3v18M3 12h18"/>
+                </svg>
+              </span>
+              <h2>关注视角</h2>
+            </div>
+            <p class="hint" id="viewSummary">默认视角（各维度等权）</p>
+          </div>
+          <div class="view-bar-body">
+            <div class="view-group">
+              <span class="view-group-label">你从哪接入</span>
+              <div class="view-chips" id="viewAccess" role="group" aria-label="接入方式">
+                <button type="button" class="view-chip" data-axis="access" data-key="ct" aria-pressed="true">电信</button>
+                <button type="button" class="view-chip" data-axis="access" data-key="cu" aria-pressed="true">联通</button>
+                <button type="button" class="view-chip" data-axis="access" data-key="cm" aria-pressed="true">移动</button>
+                <button type="button" class="view-chip" data-axis="access" data-key="cernet" aria-pressed="true">教育网</button>
+              </div>
+            </div>
+            <div class="view-group">
+              <span class="view-group-label">你主要干什么</span>
+              <div class="view-chips" id="viewUsage" role="group" aria-label="使用用途">
+                <button type="button" class="view-chip" data-axis="usage" data-key="intl" aria-pressed="true">国际访问</button>
+                <button type="button" class="view-chip" data-axis="usage" data-key="domesticSpeed" aria-pressed="true">国内带宽</button>
+                <button type="button" class="view-chip" data-axis="usage" data-key="bulk" aria-pressed="true">大文件传输</button>
+              </div>
+            </div>
+            <div class="view-actions">
+              <button type="button" class="secondary small" id="viewTuneToggle" aria-expanded="false">精调权重</button>
+              <button type="button" class="secondary small" id="viewReset">恢复默认</button>
+            </div>
+          </div>
+          <div class="view-tune hidden" id="viewTune">
+            <label class="view-tune-field">电信 <input type="number" min="0.25" max="4" step="0.25" data-axis="access" data-key="ct"></label>
+            <label class="view-tune-field">联通 <input type="number" min="0.25" max="4" step="0.25" data-axis="access" data-key="cu"></label>
+            <label class="view-tune-field">移动 <input type="number" min="0.25" max="4" step="0.25" data-axis="access" data-key="cm"></label>
+            <label class="view-tune-field">教育网 <input type="number" min="0.25" max="4" step="0.25" data-axis="access" data-key="cernet"></label>
+            <label class="view-tune-field">国际访问 <input type="number" min="0.25" max="4" step="0.25" data-axis="usage" data-key="intl"></label>
+            <label class="view-tune-field">国内带宽 <input type="number" min="0.25" max="4" step="0.25" data-axis="usage" data-key="domesticSpeed"></label>
+            <label class="view-tune-field">大文件传输 <input type="number" min="0.25" max="4" step="0.25" data-axis="usage" data-key="bulk"></label>
+          </div>
+          <p class="hint view-note">排序分随视角变化，<strong>不代表线路质量的绝对好坏</strong>；质量判断请看报告详情里的档位与热力图。未勾选仍保留 1/4 权重（0.25），不会完全忽略；拉高一项会按比例压低同一组的其他项。</p>
+          <p class="hint" id="viewAlgorithm"></p>
+        </div>
+
         <div class="card dash-overview-card">
           <div class="card-header">
             <div class="card-title-group">
@@ -154,7 +203,7 @@
               </span>
               <h2>需要关注的节点</h2>
             </div>
-            <p class="hint">按严重程度排序，只列最需要注意的几台；点击整行直达详情</p>
+            <p class="hint">按当前视角的优先级排序，只列最需要注意的几台；点击整行直达详情</p>
           </div>
           <div id="dashAlerts" class="list"></div>
         </div>

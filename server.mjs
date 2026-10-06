@@ -8,12 +8,14 @@ import { loadProbeNodes } from './lib/probe.mjs';
 import { createStore } from './lib/store.mjs';
 import { summarize } from './lib/insight.mjs';
 import { aggregate, bandsOf, GROUPS, SECTIONS } from './lib/stats.mjs';
-import { significance, isSignificantChange } from './lib/thresholds.mjs';
+import { significance, isSignificantChange, priorityRules } from './lib/thresholds.mjs';
 import { createAuth } from './lib/auth.mjs';
 import { listKeys, getKey, createKey, updateKey, deleteKey, touchKey, scopeOf, authorizeKey, keysLoadError, backupBrokenKeys } from './lib/keys.mjs';
 import { parseTqCsv, csvFingerprint, CSV_PARSER_VERSION } from './lib/csv-parser.mjs';
 import { packDirectory } from './lib/backup.mjs';
 import { reportCoverage, compareCoverage, comparisonConclusion } from './lib/report-quality.mjs';
+import { assessPriority, sortPriorities } from './lib/priority.mjs';
+import { parsePriorityView } from './lib/priority-view.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const dataDir = process.env.DATA_DIR || join(root, 'data');
@@ -250,19 +252,31 @@ const server = http.createServer(async (request, response) => {
 
     if (request.method === 'GET' && url.pathname === '/api/session') return send(response, 200, { authenticated: session.ok, enabled: auth.enabled });
     if (request.method === 'GET' && url.pathname === '/api/dashboard') {
+      // 视角只影响视图层：排序分与次序随视角变；事实层（报告详情、热力图、异常列表）
+      // 一律不接收视角参数，永远按绝对档位渲染。
+      let view;
+      try { view = parsePriorityView(url.searchParams); } catch (error) { return send(response, 400, { error: error.message }); }
       const entries = store.database.nodes.filter(node => node.enabled !== false && !node.archived).map(node => {
         const history = store.database.reports.filter(report => report.nodeId === node.id).sort((left, right) => Date.parse(right.testedAt) - Date.parse(left.testedAt)).slice(0, 5);
         const reports = history.map(index => ({ index, detail: detailOf(index.id) }));
         const latest = reports[0];
-        if (!latest) return { nodeId: node.id, reportId: null };
-        if (!latest.detail) return { nodeId: node.id, reportId: latest.index.id, error: '最新报告明细不可读' };
+        // 每个节点都带一份 priority（含 no-report），否则视图层排序拿不到可比对象。
+        if (!latest) return { nodeId: node.id, reportId: null, priority: assessPriority(null, node, null, view.weights) };
+        if (!latest.detail) return { nodeId: node.id, reportId: latest.index.id, testedAt: latest.index.testedAt, error: '最新报告明细不可读', priority: { ...assessPriority(null, node, null, view.weights), label: '明细不可读' } };
         const insight = insightFor(latest.detail);
+        // 前份取时间上严格更早的一份：只喂给历史速度通道，缺了不影响当前覆盖。
+        const previous = reports.slice(1).find(item => item.detail && Date.parse(item.index.testedAt) < Date.parse(latest.index.testedAt))?.detail ?? null;
         return {
-          nodeId: node.id, reportId: latest.index.id, cards: insight.cards, assessment: insight.assessment, coverage: reportCoverage(latest.detail),
+          nodeId: node.id, reportId: latest.index.id, testedAt: latest.index.testedAt,
+          cards: insight.cards, assessment: insight.assessment, coverage: reportCoverage(latest.detail),
+          priority: assessPriority(latest.detail, node, previous, view.weights),
           trend: reports.slice().reverse().map(({ index, detail }) => ({ id: index.id, testedAt: index.testedAt, latency: detail ? summarize(detail, node).cards.find(card => card.id === 'latency')?.value ?? null : null }))
         };
       });
-      return send(response, 200, { entries });
+      // 视图层排序：分数 → 同等分段内按可比广度 → 时间与 ID；规则见 lib/priority.mjs 的 sortPriorities
+      const byNodeId = new Map(entries.map(entry => [entry.nodeId, entry]));
+      const ordered = sortPriorities(entries.map(entry => ({ nodeId: entry.nodeId, testedAt: entry.testedAt ?? '', priority: entry.priority }))).map(item => byNodeId.get(item.nodeId));
+      return send(response, 200, { entries: ordered, view, priorityAlgorithm: { version: priorityRules.algorithmVersion, calibration: 'candidate', levels: priorityRules.levels } });
     }
     if (request.method === 'GET' && url.pathname === '/api/state') {
       // 归属建议每次现算：先绑定的一份会让同一台机器后续的报告自动带上推荐

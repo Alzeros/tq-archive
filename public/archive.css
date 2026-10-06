@@ -4,6 +4,13 @@
 .archive-status.observe { color: var(--text); background: var(--panel-2); }
 .archive-status.healthy { color: var(--ok-text); background: var(--ok-bg); }
 .archive-status.info { color: var(--muted); }
+/* 视角化排序分的候选档位（priority-p0-candidate-3）。五档是「注意力优先级」口径，
+   不是线路质量的绝对值：now/soon/scheduled/watch/none 对应当前视角下该不该马上看。 */
+.archive-status.now { color: var(--red); background: var(--warn-bg); }
+.archive-status.soon { color: var(--warn-text); background: var(--warn-bg); }
+.archive-status.scheduled { color: var(--text); background: var(--panel-2); }
+.archive-status.watch { color: var(--muted); }
+.archive-status.none { color: var(--ok-text); background: var(--ok-bg); }
 .primary-signal { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 7px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; max-width: 100%; }
 .primary-signal.severe { color: var(--red); border-color: var(--danger-border); }
 .primary-signal.warn { color: var(--warn-text); border-color: var(--warn-border); }
@@ -24,3 +31,20 @@
 .anomaly-info { margin-top: 12px; color: var(--muted); }
 .anomaly-info summary { cursor: pointer; padding: 8px 0; }
 .anomaly-info .anomalies-list { margin-top: 8px; }
+
+/* ============ 关注视角条 ============
+   底层是权重，表层是「你从哪接入」＋「你主要干什么」两个多选组，想精调再展开输入框。
+   默认全选＝等权＝与不分视角时完全一致；未勾选落到下限 0.25，不会完全忽略。 */
+.view-bar .view-bar-body { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; margin-top: 14px; }
+.view-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.view-group-label { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.view-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.view-chip { padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel-2); color: var(--muted); font-size: 12px; line-height: 1.5; cursor: pointer; transition: color .15s, border-color .15s, background .15s; }
+.view-chip:hover { border-color: var(--border-hover); color: var(--text); }
+.view-chip[aria-pressed="true"] { color: var(--teal); border-color: var(--teal-border); background: var(--teal-bg); }
+.view-actions { display: flex; gap: 8px; margin-left: auto; }
+.view-tune { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); }
+.view-tune-field { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.view-tune-field input { width: 68px; }
+.view-note { margin-top: 10px; }
+.view-bar .hint strong { color: var(--text); font-weight: 500; }

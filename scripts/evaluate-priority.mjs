@@ -52,12 +52,21 @@ export async function evaluatePriority(inputDirectory, outputDirectory) {
       }
     }
   }
-  const result = { algorithmVersion: priorityRules.algorithmVersion, calibration: 'candidate', capturedAt, inputHash: createHash('sha256').update(bytes).digest('hex'), parameters: priorityRules, views, sensitivity, singleAxisSensitivity };
-  const lines = ['# P0 离线候选演算', '', `算法：${result.algorithmVersion}；样本抓取时间：${capturedAt}。仅候选参数，不是上线分数。`, '', '分档待 G0 确认；没有前份时历史通道不可用，不影响当前覆盖。原始事实、失败及所有覆盖原因见同目录 evaluation.json。', '', '国内带宽优先提高国内测速和大包的相对份额；国际方向测速仍属于国际访问。', '', '| 样本 | 旧分 | 默认 | 移动优先 | 电信优先 | 国内带宽优先 | 默认主贡献 |', '| --- | ---: | ---: | ---: | ---: | ---: | --- |'];
+  const levelCounts = {};
+  for (const entry of views.default.entries) {
+    const level = entry.priority.status === 'ready' ? entry.priority.level : null;
+    if (level) levelCounts[level] = (levelCounts[level] ?? 0) + 1;
+  }
+  const result = { algorithmVersion: priorityRules.algorithmVersion, calibration: 'candidate', capturedAt, inputHash: createHash('sha256').update(bytes).digest('hex'), parameters: priorityRules, views, sensitivity, singleAxisSensitivity, levels: { source: 'candidate-scenario', boundary: priorityRules.levels, counts: levelCounts } };
+  const lines = ['# P0 离线候选演算', '', `算法：${result.algorithmVersion}；样本抓取时间：${capturedAt}。仅候选参数，不是上线分数。`, '', '档位是**场景校准**的候选值（`levelSource=candidate-scenario`），不是按样本分位切分，也未经 G0 认可；没有前份时历史通道不可用，不影响当前覆盖。原始事实、失败及所有覆盖原因见同目录 evaluation.json。', '', '国内带宽优先提高国内测速和大包的相对份额；国际方向测速仍属于国际访问。', '', '| 样本 | 旧分 | 档位 | 默认 | 移动优先 | 电信优先 | 国内带宽优先 | 默认主贡献 |', '| --- | ---: | --- | ---: | ---: | ---: | ---: | --- |'];
   for (const sample of samples) {
     const priorities = Object.values(views).map(view => view.entries.find(entry => entry.nodeId === sample.node.id).priority);
-    lines.push(`| ${sample.node.id} | ${sample.baseline.score} | ${priorities.map(priority => priority.score ?? '依据不足').join(' | ')} | ${priorities[0].primary?.leaf ?? '—'} |`);
+    lines.push(`| ${sample.node.id} | ${sample.baseline.score} | ${priorities[0].level ? `${priorities[0].label}（${priorities[0].level}）` : '—'} | ${priorities.map(priority => priority.score ?? '依据不足').join(' | ')} | ${priorities[0].primary?.leaf ?? '—'} |`);
   }
+  lines.push('', '## 候选档位（场景校准）', '', '边界读自「整份报告比例读数统一为同一个值」的标定曲线，不是样本分位。每个边界对应一个可复现场景，改 `rateAnchors`、`meanShare` 或权重结构后必须重新推导；`test/priority.test.mjs` 有守卫测试会用同一条曲线重新计算并对齐。', '', '| 档位 | 下限 | 对应场景 | 本批样本数 |', '| --- | ---: | --- | ---: |');
+  const scenarios = { now: '整机普遍到达重度门槛（统一 20%）', soon: '普遍轻中度（统一 10%）', scheduled: '普遍可感（统一 5%）', watch: '普遍轻微（统一 1%）', none: '与统一 0.19% 同量级，无实质信号' };
+  for (const rule of priorityRules.levels) lines.push(`| ${rule.label}（${rule.level}） | ${rule.min} | ${scenarios[rule.level] ?? '—'} | ${levelCounts[rule.level] ?? 0} |`);
+  lines.push('');
   lines.push('', '## 覆盖与历史限制', '');
   for (const sample of samples) {
     const priority = views.default.entries.find(entry => entry.nodeId === sample.node.id).priority;

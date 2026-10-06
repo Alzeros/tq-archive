@@ -80,6 +80,98 @@ function coverageBadge(coverage) {
   if (!label) return '';
   return `<span class="archive-status ${warning ? 'warn' : ''}" title="${escapeHtml(`${coverage.coverageHint || ''} ${coverage.validMetrics} 项有效数值；${coverage.failedMetrics} 项明确失败；${coverage.expectedMissingMetrics || 0} 项预期内单栈未测。`)}">${escapeHtml(label)}</span>`;
 }
+// ===== 关注视角（只作用于视图层）=====
+// 视角影响看板的排序分与次序；报告详情、热力图、异常列表是事实层，一律不读这里。
+const VIEW_KEY = 'tq_priority_view';
+const VIEW_AXES = { access: ['ct', 'cu', 'cm', 'cernet'], usage: ['intl', 'domesticSpeed', 'bulk'] };
+const MIN_VIEW_WEIGHT = 0.25;
+const MAX_VIEW_WEIGHT = 4;
+const LEAF_LABELS = {
+  'A.ct.v4': '电信·IPv4 回程', 'A.ct.v6': '电信·IPv6 回程', 'A.cu.v4': '联通·IPv4 回程', 'A.cu.v6': '联通·IPv6 回程',
+  'A.cm.v4': '移动·IPv4 回程', 'A.cm.v6': '移动·IPv6 回程', 'A.cernet.v4': '教育网·IPv4 回程', 'A.cernet.v6': '教育网·IPv6 回程',
+  'B.ct.v4': '电信·IPv4 大包回程', 'B.cu.v4': '联通·IPv4 大包回程', 'B.cm.v4': '移动·IPv4 大包回程',
+  'D.ct.v4': '电信·国内测速', 'D.cu.v4': '联通·国内测速', 'D.cm.v4': '移动·国内测速', 'D.cm.v6': '移动·IPv6 国内测速',
+  'I.nodes.v4': '国际节点·IPv4', 'I.nodes.v6': '国际节点·IPv6', 'I.web.v4': '常用网站', 'I.cdn.v4': '常用 CDN', 'I.speed.v4': '国际方向测速'
+};
+const leafLabel = leaf => LEAF_LABELS[leaf] || leaf;
+const defaultView = () => Object.fromEntries(Object.entries(VIEW_AXES).map(([axis, keys]) => [axis, Object.fromEntries(keys.map(key => [key, 1]))]));
+function normalizeView(input) {
+  const view = defaultView();
+  for (const [axis, keys] of Object.entries(VIEW_AXES)) for (const key of keys) {
+    const value = Number(input?.[axis]?.[key]);
+    if (Number.isFinite(value)) view[axis][key] = Math.min(MAX_VIEW_WEIGHT, Math.max(MIN_VIEW_WEIGHT, value));
+  }
+  return view;
+}
+const readView = () => {
+  try { return normalizeView(JSON.parse(localStorage.getItem(VIEW_KEY) || 'null')); } catch { return defaultView(); }
+};
+const viewIsDefault = () => Object.values(state.view).every(values => new Set(Object.values(values)).size === 1);
+// 默认视角不带参数：请求与加视角能力之前完全一致，便于比对与缓存。
+const viewQuery = () => viewIsDefault() ? '' : `?${Object.entries(state.view).map(([axis, values]) => `${axis}=${Object.entries(values).map(([key, value]) => `${key}:${Number(value.toPrecision(12))}`).join(',')}`).join('&')}`;
+
+// 优先级主因的文案：候选算法只输出数字通道，这里拼成能读的一行。
+function prioritySignalText(contribution) {
+  const channel = contribution?.primary;
+  if (!channel) return '';
+  const name = leafLabel(contribution.leaf);
+  const cover = leafCoverageFor(contribution.leaf);
+  const breadth = contribution.breadth || {};
+  if (channel.kind === 'rate') return `${name}：重度 ${breadth.heavy ?? 0}/${breadth.valid ?? 0} 条，最高 ${breadth.worst ?? '—'}%`;
+  if (channel.kind === 'test-failed') return `${name}：${cover?.failed ?? '—'}/${cover?.knownExecutions ?? '—'} 条执行失败或超时`;
+  if (channel.kind === 'unreachable') return `${name}：${cover?.failed ?? 0} 条不可达`;
+  if (channel.kind === 'latency') {
+    const worst = (channel.details || []).slice().sort((left, right) => right.score - left.score)[0];
+    return worst ? `${name}：${metricLabel(worst.metric)} p50 ${worst.value}${worst.unit}，超出区域参考` : `${name}：延迟超出区域参考`;
+  }
+  if (channel.kind === 'speed-outlier') return `${name}：测速点相对同组明显偏低（离群）`;
+  if (channel.kind === 'speed-change') {
+    const worst = (channel.channels || []).slice().sort((left, right) => right.score - left.score)[0];
+    return worst ? `${name}：相对上一份下降约 ${Math.round((1 - worst.ratio) * 100)}%（${worst.points} 个共同测速点）` : `${name}：相对上一份明显下降`;
+  }
+  return name;
+}
+// 每渲染一台机器前会把这台机器各叶子的覆盖情况放进来，供主因文案取执行失败条数等。
+let leafCoverageMap = {};
+const leafCoverageFor = leaf => leafCoverageMap[leaf] || null;
+const priorityBadge = priority => {
+  if (!priority?.level) return '';
+  const reasons = (priority.reasons || []).slice(0, 3).map(prioritySignalText).filter(Boolean);
+  const title = [reasons.join('；') || '当前视角下无扣分项', `口径：${priority.algorithmVersion || '候选'}（${priority.calibration || 'candidate'}，未标定）`].join('｜');
+  return `<span class="archive-status ${escapeHtml(priority.level)}" title="${escapeHtml(title)}">${escapeHtml(priority.label)}${Number.isFinite(priority.score) ? ` · ${priority.score}` : ''}</span>`;
+};
+// 关注卡的行内理由：只取有扣分的贡献，按叶子单独成句。
+const priorityReasonLine = priority => (priority?.reasons || [])
+  .filter(item => item.contribution > 0)
+  .slice(0, 2)
+  .map(prioritySignalText)
+  .filter(Boolean)
+  .join('；');
+const priorityPrimaryBadge = priority => {
+  const top = priority?.primary;
+  if (!top) return '';
+  const reasons = (priority.reasons || []).slice(0, 3).map(prioritySignalText).filter(Boolean);
+  return `<span class="primary-signal ${escapeHtml(priority.level || '')}" title="${escapeHtml(reasons.join('；'))}">主因：${escapeHtml(leafLabel(top.leaf))}</span>`;
+};
+state.view = readView();
+function renderViewBar() {
+  const isDefault = viewIsDefault();
+  for (const button of document.querySelectorAll('.view-chip')) {
+    const weight = state.view[button.dataset.axis][button.dataset.key];
+    button.setAttribute('aria-pressed', String(weight > MIN_VIEW_WEIGHT));
+  }
+  for (const input of document.querySelectorAll('#viewTune input')) input.value = state.view[input.dataset.axis][input.dataset.key];
+  el('viewSummary').textContent = isDefault ? '默认视角（各维度等权，与不分视角时一致）' : `当前视角：${Object.entries(state.view).flatMap(([axis, values]) => Object.entries(values).filter(([, value]) => value !== 1).map(([key, value]) => `${chipLabel(axis, key)}×${value}`)).join(' ') || '自定义'}`;
+  el('viewAlgorithm').textContent = state.dashboard?.algorithm
+    ? `排序分口径：${state.dashboard.algorithm.version}（${state.dashboard.algorithm.calibration}，档位未标定）；与旧版看板分数不是同一尺度，数值下降不代表线路变差。`
+    : '排序分口径：候选（未标定）；与旧版看板分数不是同一尺度，数值下降不代表线路变差。';
+}
+const chipLabel = (axis, key) => document.querySelector(`.view-chip[data-axis="${axis}"][data-key="${key}"]`)?.textContent?.trim() || key;
+async function applyView() {
+  if (!viewIsDefault()) { try { localStorage.setItem(VIEW_KEY, JSON.stringify(state.view)); } catch {} } else { try { localStorage.removeItem(VIEW_KEY); } catch {} }
+  renderViewBar();
+  await renderDashboard();
+}
 function primarySignalBadge(assessment) {
   const signal = assessment?.primary;
   if (!signal) return '';
@@ -846,13 +938,15 @@ async function renderDashboard() {
   // 每个节点取最近 5 份报告：够了画迷你走势，又不至于把整个历史拉下来。
   // 详情有会话级缓存，切换视图不会重复请求。
   let dashboard;
-  try { dashboard = await api('/api/dashboard'); } catch {
+  try { dashboard = await api(`/api/dashboard${viewQuery()}`); } catch {
     if (token !== dashRequestToken) return;
     healthBox.querySelectorAll('.metrics').forEach(host => { host.textContent = '摘要暂不可用'; });
     alertsBox.textContent = '关注摘要暂不可用，请稍后重试';
     alertCard.classList.remove('hidden');
     return;
   }
+  state.dashboard = { algorithm: dashboard.priorityAlgorithm || null };
+  renderViewBar();
   const entries = new Map(dashboard.entries.map(entry => [entry.nodeId, entry]));
   const results = healthRows.map(({ row, report }) => ({ row, report, entry: entries.get(report.nodeId) }));
   if (token !== dashRequestToken) return;
@@ -867,6 +961,10 @@ async function renderDashboard() {
     const latency = cards.get('latency');
     const loss = cards.get('loss');
     const speed = cards.get('speed');
+    // 视图层：排序分与主因来自候选优先级算法；没有 priority 时退回旧的 assessment，
+    // 这样接口灰度期间页面仍然可用。
+    const priority = entry.priority || null;
+    leafCoverageMap = Object.fromEntries((priority?.coverage?.leaves || []).map(item => [item.id, item]));
     // 健康表与"需要关注"两张卡以前展示的是同一批徽章。关注卡只列有问题的节点，
     // 这里则是全量索引，所以补一样它独有的信息：最近几份的延迟走势 + 与上一份的差值。
     // 只摆一个时点数字看不出"在变好还是在变差"。
@@ -880,16 +978,19 @@ async function renderDashboard() {
       ? ''
       : `<span class="dash-delta ${delta > 0 ? 'worse' : 'better'}" title="与上一份有读数的报告相比（${previous}ms → ${latestValue}ms）">${delta > 0 ? '↑' : '↓'}${Math.abs(Math.round(delta))}ms</span>`;
     row.querySelector('.metrics').innerHTML = `
-      ${primarySignalBadge(entry.assessment)}
+      ${priority ? priorityPrimaryBadge(priority) : primarySignalBadge(entry.assessment)}
       ${svgSparkline(series)}
       ${latency && typeof latency.value === 'number' ? `<span class="metric l${latency.level}"><span class="m-icon">⚡</span>延迟 ${latency.value}${latency.unit}</span>` : ''}
       ${loss && typeof loss.value === 'number' ? `<span class="metric l${loss.level}"><span class="m-icon">📉</span>丢包 ${loss.value}${loss.unit}</span>` : ''}
       ${speed && typeof speed.value === 'number' ? `<span class="metric l${speed.level}"><span class="m-icon">🚀</span>带宽 ${speed.value}${speed.unit}</span>` : ''}
       ${deltaText}
       ${coverageBadge(entry.coverage)}
-      <span class="archive-status ${escapeHtml(entry.assessment.level)}" title="${escapeHtml(entry.assessment.reasons.join('；') || entry.assessment.basis)}">${escapeHtml(entry.assessment.label)}${entry.assessment.score > 0 ? ` · ${entry.assessment.score}` : ''}</span>
+      ${priority ? priorityBadge(priority) : `<span class="archive-status ${escapeHtml(entry.assessment.level)}" title="${escapeHtml(entry.assessment.reasons.join('；') || entry.assessment.basis)}">${escapeHtml(entry.assessment.label)}${entry.assessment.score > 0 ? ` · ${entry.assessment.score}` : ''}</span>`}
     `;
-    if (['severe', 'warn', 'observe'].includes(entry.assessment.level)) alerts.push({ report, latency, loss, speed, worst: entry.assessment.score, assessment: entry.assessment });
+    const notable = priority
+      ? priority.status === 'ready' && priority.level !== 'none'
+      : ['severe', 'warn', 'observe'].includes(entry.assessment.level);
+    if (notable) alerts.push({ report, latency, loss, speed, worst: priority ? priority.score : entry.assessment.score, priority, assessment: entry.assessment });
   }
 
   // 需要关注的节点：最严重的排前面，同级再看时间。
@@ -904,7 +1005,8 @@ async function renderDashboard() {
   alertsBox.innerHTML = '';
   const shown = alerts.slice(0, 6);
   const rest = alerts.length - shown.length;
-  for (const { report, latency, loss, speed, assessment } of shown) {
+  for (const { report, latency, loss, speed, priority } of shown) {
+    leafCoverageMap = Object.fromEntries((priority?.coverage?.leaves || []).map(item => [item.id, item]));
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'title-link dash-alert';
@@ -913,13 +1015,13 @@ async function renderDashboard() {
         <div class="title">
           <div class="alert-title-row">
             <strong>${escapeHtml(nodeName(report.nodeId))}</strong>
-            <span class="archive-status ${escapeHtml(assessment.level)}" title="${escapeHtml(assessment.basis)}">${escapeHtml(assessment.label)} · ${assessment.score}</span>
+            ${priorityBadge(priority)}
           </div>
           <span class="meta">评测时间：${timeCell(report)}</span>
-          <p class="alert-reason">${assessment.reasons.slice(0, 2).map(escapeHtml).join('；')}</p>
+          <p class="alert-reason">${escapeHtml(priorityReasonLine(priority))}</p>
         </div>
         <div class="metrics">
-          ${primarySignalBadge(assessment)}
+          ${priorityPrimaryBadge(priority)}
           ${latency && typeof latency.value === 'number' ? `<span class="metric l${latency.level}"><span class="m-icon">⚡</span>延迟 ${latency.value}${latency.unit}</span>` : ''}
           ${loss && typeof loss.value === 'number' ? `<span class="metric l${loss.level}"><span class="m-icon">📉</span>丢包 ${loss.value}${loss.unit}</span>` : ''}
           ${speed && typeof speed.value === 'number' ? `<span class="metric l${speed.level}"><span class="m-icon">🚀</span>带宽 ${speed.value}${speed.unit}</span>` : ''}
@@ -941,7 +1043,7 @@ async function renderDashboard() {
   if (rest > 0) {
     const more = document.createElement('p');
     more.className = 'empty dash-idle';
-    more.textContent = `另有 ${rest} 个节点有观察或关注信号，具体等级已在下方总览中标出`;
+    more.textContent = `另有 ${rest} 个节点在当前视角下有扣分项，具体档位已在下方总览中标出`;
     alertsBox.append(more);
   }
 }
@@ -1314,4 +1416,29 @@ window.addEventListener('keydown', event => {
     el('nodeFilter').select();
   }
 });
+// 视角条：chip 是多选，未勾选落到下限 0.25（保留 1/4 权重，不会完全忽略）；精调可写 0.25–4。
+// 改一下要重算整块看板，所以做 300ms 防抖，避免每敲一个数字都打一次接口。
+let viewDebounce = 0;
+const scheduleView = () => {
+  clearTimeout(viewDebounce);
+  viewDebounce = setTimeout(() => { applyView().catch(error => toast(error.message, true)); }, 300);
+};
+for (const button of document.querySelectorAll('.view-chip')) button.addEventListener('click', () => {
+  const { axis, key } = button.dataset;
+  const next = state.view[axis][key] > MIN_VIEW_WEIGHT ? MIN_VIEW_WEIGHT : 1;
+  state.view = normalizeView({ ...state.view, [axis]: { ...state.view[axis], [key]: next } });
+  scheduleView();
+});
+for (const input of document.querySelectorAll('#viewTune input')) input.addEventListener('change', () => {
+  const { axis, key } = input.dataset;
+  state.view = normalizeView({ ...state.view, [axis]: { ...state.view[axis], [key]: input.value } });
+  input.value = state.view[axis][key];
+  scheduleView();
+});
+el('viewTuneToggle').addEventListener('click', () => {
+  const tune = el('viewTune');
+  tune.classList.toggle('hidden');
+  el('viewTuneToggle').setAttribute('aria-expanded', String(!tune.classList.contains('hidden')));
+});
+el('viewReset').addEventListener('click', () => { state.view = defaultView(); scheduleView(); });
 refresh().catch(error => toast(error.message, true));
