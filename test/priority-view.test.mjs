@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { priorityView, parsePriorityView, priorityPresets } from '../lib/priority-view.mjs';
 
 test('default weights, missing keys, boundaries and equivalent views', () => {
-  assert.deepEqual(priorityView().weights, { access: { ct: 1, cu: 1, cm: 1, cernet: 1 }, usage: { intl: 1, speed: 1, bulk: 1 } });
+  assert.deepEqual(priorityView().weights, { access: { ct: 1, cu: 1, cm: 1, cernet: 1 }, usage: { intl: 1, domesticSpeed: 1, bulk: 1 } });
   const parsed = parsePriorityView(new URLSearchParams('access=cm:4&usage=bulk:0.25'));
   assert.equal(parsed.weights.access.ct, 1);
   assert.equal(parsed.weights.access.cm, 4);
@@ -18,5 +18,10 @@ test('malformed query weights are rejected, never silently defaulted', () => {
 });
 
 test('object weights reject unknown, null, non-finite and string values', () => {
-  for (const input of [null, [], { other: {} }, { access: null }, { access: [] }, { access: { foo: 1 } }, { usage: { intl: NaN } }, { usage: { speed: Infinity } }, { access: { ct: '1' } }]) assert.throws(() => priorityView(input));
+  for (const input of [null, [], { other: {} }, { access: null }, { access: [] }, { access: { foo: 1 } }, { usage: { intl: NaN } }, { usage: { domesticSpeed: Infinity } }, { access: { ct: '1' } }, { usage: { speed: 1 } }]) assert.throws(() => priorityView(input));
+});
+
+test('domestic speed name is explicit and old ambiguous query key is rejected', () => {
+  assert.equal(parsePriorityView(new URLSearchParams('usage=domesticSpeed:4')).weights.usage.domesticSpeed, 4);
+  for (const query of ['usage=speed:1', 'usage=domesticSpeed:1,domesticSpeed:2']) assert.throws(() => parsePriorityView(new URLSearchParams(query)));
 });

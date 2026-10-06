@@ -1,9 +1,51 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildPriorityInput, rateDamage, rateSeverity, classifyCarrier, recordState } from '../lib/priority-input.mjs';
-import { completeReport, deepFreeze } from './fixtures/priority/factory.mjs';
+import { completeReport, dualStackReport, deepFreeze } from './fixtures/priority/factory.mjs';
 
 const input = report => buildPriorityInput(report, { region: 'US' });
+
+test('verified template registers only mobile domestic IPv6 without excluding other IPv6 families', () => {
+  const result = input(deepFreeze(dualStackReport()));
+  assert.equal(result.status, 'ready');
+  assert.equal(result.coverage.singleStack, false);
+  assert.ok(result.leaves.some(leaf => leaf.id === 'D.cm.v6'));
+  assert.ok(!result.leaves.some(leaf => ['D.ct.v6', 'D.cu.v6'].includes(leaf.id)));
+  assert.deepEqual(result.coverage.templateExclusions.map(item => item.leaf), ['D.ct.v6', 'D.cu.v6']);
+  assert.ok(result.coverage.templateExclusions.every(item => item.state === 'not-in-template'));
+  assert.equal(result.coverage.conditionalTests[0].state, 'present');
+  for (const id of ['A.ct.v6', 'A.cu.v6', 'A.cm.v6', 'A.cernet.v6', 'I.nodes.v6']) assert.ok(result.leaves.some(leaf => leaf.id === id && leaf.status === 'ready'));
+});
+
+test('missing required IPv6, malformed optional readings and unexpected carriers remain insufficient', () => {
+  for (const mutate of [
+    report => { report.records = report.records.filter(record => !(record.section === 'ipv6' && record.carrier === '电信')); },
+    report => { report.records = report.records.filter(record => !(record.section === 'intl' && record.carrier === 'IPv6')); },
+    report => { delete report.records.find(record => record.section === 'speedtest' && record.group === 'IPv6').metrics.returnSpeed; },
+    report => { report.records.find(record => record.section === 'speedtest' && record.group === 'IPv6').carrier = '未知'; },
+    report => { const record = report.records.find(record => record.section === 'speedtest' && record.group === 'IPv6'); record.target = '新增电信'; record.carrier = '电信'; record.key = 'unexpected-v6-carrier'; }
+  ]) {
+    const report = dualStackReport();
+    mutate(report);
+    assert.equal(input(report).status, 'insufficient');
+  }
+});
+
+test('conditional group absence is visible and explicit mobile IPv6 failure is retained', () => {
+  const report = dualStackReport();
+  const mobile = report.records.filter(record => record.section === 'speedtest' && record.group === 'IPv6');
+  for (const record of mobile) record.metrics = { route: { value: 'failed', unit: '', status: 'text' } };
+  const failed = input(report);
+  assert.equal(failed.status, 'ready');
+  const leaf = failed.leaves.find(item => item.id === 'D.cm.v6');
+  assert.equal(leaf.score, 90);
+  assert.equal(leaf.coverage.failed, mobile.length);
+  report.records = report.records.filter(record => !mobile.includes(record));
+  const absent = input(report);
+  assert.equal(absent.status, 'ready');
+  assert.equal(absent.coverage.conditionalTests[0].state, 'not-declared');
+  assert.ok(!absent.leaves.some(item => item.id === 'D.cm.v6'));
+});
 
 test('continuous rate anchors, monotonicity and magnitude/breadth boundaries', () => {
   for (const [value, expected] of [[0, 0], [0.2, 1], [1, 5], [5, 20], [10, 40], [20, 65], [50, 85], [100, 100]]) assert.equal(rateDamage(value), expected);

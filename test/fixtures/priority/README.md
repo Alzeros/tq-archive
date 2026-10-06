@@ -13,7 +13,11 @@
 离线演算：
 
 ```sh
-node scripts/evaluate-priority.mjs --input test/fixtures/priority --output .workbuddy/design/priority-evaluation/candidate-1
+node scripts/evaluate-priority.mjs --input test/fixtures/priority --output .workbuddy/design/priority-evaluation/candidate-2
 ```
 
-候选参数和未决决策见原设计稿的 P0 实施记录；G0 确认之前不得用于看板。
+国内 IPv6 测速的预期范围依据见 `template-evidence.md`；缺失与明确失败仍严格区分。国内测速参数为 `usage.domesticSpeed`，国际方向测速属于 `usage.intl`，预设名称为「国内带宽优先」。旧 `usage.speed` 在尚未上线的候选接口中不再接受。
+
+输出包含 4 个预设、原有 9 组组合敏感性和 35 组单项权重扫描。单项扫描每次只改一个权重，其余为 1，记录分数、名次、相对默认差值和贡献变化；名次不变不等于没有影响。
+
+候选参数和未决决策见原设计稿的 P0 实施记录；G0 确认之前不得用于看板。等级继续待确认，不根据实时样本分位自动划档。

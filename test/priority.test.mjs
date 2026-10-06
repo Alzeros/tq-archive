@@ -43,6 +43,17 @@ test('international-only risk is invariant under access changes, not usage chang
   assert.notEqual(normal.score, assess(report, priorityPresets.bandwidth).score);
 });
 
+test('domestic speed weighting does not reassign international speed to the domestic seat', () => {
+  const report = completeReport();
+  report.records.find(record => record.group === '国际方向').metrics.downloadRetransRate.value = 100;
+  const international = weights => assess(report, weights).contributions.find(item => item.leaf === 'I.speed.v4');
+  const normal = international({});
+  almost(normal.weight, 1 / 24);
+  almost(international({ usage: { intl: 4 } }).weight, normal.weight * 2);
+  almost(international({ usage: { domesticSpeed: 4 } }).weight, normal.weight / 2);
+  assert.equal(international({ usage: { domesticSpeed: 4 } }).localScore, normal.localScore);
+});
+
 test('scaling all four access weights preserves score and canonical id', () => {
   const report = completeReport(10);
   report.records[0].metrics.loss.value = 100;
