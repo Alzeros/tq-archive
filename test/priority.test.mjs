@@ -108,6 +108,29 @@ test('mixed breadth scopes use a transitive tie-cohort ordering', () => {
   for (const permutation of [entries, [...entries].reverse(), [entries[1], entries[0], entries[2]]]) assert.deepEqual(sortPriorities(permutation).map(entry => entry.nodeId), ['c', 'b', 'a']);
 });
 
+test('整族被跳过时权重退出分母，分数按实际参与的叶子重新归一化', () => {
+  const damaged = () => {
+    const report = completeReport(0);
+    report.records.find(record => record.section === 'ipv4' && record.carrier === '电信').metrics.loss.value = 100;
+    return report;
+  };
+  const baseline = assess(damaged());
+  const report = damaged();
+  for (const record of report.records.filter(record => record.section === 'large4')) {
+    record.status = 'skipped';
+    for (const metric of Object.values(record.metrics)) metric.status = 'skipped';
+  }
+  const skipped = assess(report);
+  assert.equal(skipped.status, 'ready');
+  assert.deepEqual(skipped.coverage.skippedFamilies.map(item => item.leaf), ['B.ct.v4', 'B.cu.v4', 'B.cm.v4']);
+  // 跳过的整族不参与分子也不留在分母里：按实际参与的叶子重新归一化
+  const participating = skipped.contributions.filter(item => item.contribution !== null);
+  almost(skipped.unroundedScore, participating.reduce((sum, item) => sum + item.contribution, 0) / participating.reduce((sum, item) => sum + item.weight, 0));
+  // 它的权重被分给了剩下的叶子，所以分数比"带着一个零贡献族"时更高
+  assert.ok(skipped.unroundedScore > baseline.unroundedScore, `${skipped.unroundedScore} 应高于 ${baseline.unroundedScore}`);
+  assert.ok(!skipped.reasons.some(item => item.leaf.startsWith('B.')));
+});
+
 test('same frozen inputs are deterministic and no node population is required', () => {
   const report = deepFreeze(completeReport(5));
   const before = assess(report);

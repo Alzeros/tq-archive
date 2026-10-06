@@ -78,7 +78,8 @@ function coverageBadge(coverage) {
   else if (coverage.coverageStatus === 'empty') label = '无可用记录';
   else if ((coverage.missingMetrics || 0) > (coverage.expectedMissingMetrics || 0)) label = '存在缺测';
   if (!label) return '';
-  return `<span class="archive-status ${warning ? 'warn' : ''}" title="${escapeHtml(`${coverage.coverageHint || ''} ${coverage.validMetrics} 项有效数值；${coverage.failedMetrics} 项明确失败；${coverage.expectedMissingMetrics || 0} 项预期内单栈未测。`)}">${escapeHtml(label)}</span>`;
+  const skipped = (coverage.skippedMetrics || 0) > 0 ? `；其中 ${coverage.skippedMetrics} 项被探针跳过（状态 SKIP，未执行）` : '';
+  return `<span class="archive-status ${warning ? 'warn' : ''}" title="${escapeHtml(`${coverage.coverageHint || ''} ${coverage.validMetrics} 项有效数值；${coverage.failedMetrics} 项明确失败；${coverage.expectedMissingMetrics || 0} 项预期内单栈未测${skipped}。`)}">${escapeHtml(label)}</span>`;
 }
 // ===== 关注视角（只作用于视图层）=====
 // 视角影响看板的排序分与次序；报告详情、热力图、异常列表是事实层，一律不读这里。
@@ -137,7 +138,9 @@ const leafCoverageFor = leaf => leafCoverageMap[leaf] || null;
 const priorityBadge = priority => {
   if (!priority?.level) return '';
   const reasons = (priority.reasons || []).slice(0, 3).map(prioritySignalText).filter(Boolean);
-  const title = [reasons.join('；') || '当前视角下无扣分项', `口径：${priority.algorithmVersion || '候选'}（${priority.calibration || 'candidate'}，未标定）`].join('｜');
+  // 被探针整族跳过的不算扣分项，但要在悬停里说清"这段没执行"，否则用户会以为数据丢了
+  const skipped = (priority.coverage?.skippedFamilies || []).map(item => leafLabel(item.leaf));
+  const title = [reasons.join('；') || '当前视角下无扣分项', skipped.length ? `未执行（探针跳过）：${skipped.join('、')}` : '', `口径：${priority.algorithmVersion || '候选'}（${priority.calibration || 'candidate'}，未标定）`].filter(Boolean).join('｜');
   return `<span class="archive-status ${escapeHtml(priority.level)}" title="${escapeHtml(title)}">${escapeHtml(priority.label)}${Number.isFinite(priority.score) ? ` · ${priority.score}` : ''}</span>`;
 };
 // 关注卡的行内理由：只取有扣分的贡献，按叶子单独成句。

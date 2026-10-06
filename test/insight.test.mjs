@@ -146,10 +146,11 @@ test('parser 的每一类告警都能被归并规则识别，不会落进"其他
     '报告没有 IPv6 回程 维度',
     '未知维度 foo，仅保留原始文字',
     '5 个指标为缺失、失败或未知格式，已保留原值，不按零处理',
+    '186 个指标由探针主动跳过（状态 SKIP），未执行，不计为缺失',
     '教育网回程 未解析出结构化记录，请检查原始文字'
   ]);
   assert.deepEqual(result.rest, [], '有告警文案没被规则覆盖');
-  assert.equal(result.groups.length, 7);
+  assert.equal(result.groups.length, 8);
 });
 
 test('未识别的提示仍会展示，只是不参与归并', () => {

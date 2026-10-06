@@ -25,6 +25,37 @@ test('真实 CSV 解析出 31 省 × 三网，带上测试时间与来源', () =
   assert.equal(anhui.metrics.route.value, '4837');
 });
 
+test('探针主动跳过的行（状态 SKIP）单独标状态，不混进"缺失、失败或未知格式"', () => {
+  // 真实案例：某台机器的大包回程整段被探针跳过（状态 SKIP、线路 Hidden），
+  // 如果按"读数缺失"处理，界面会建议重传一份本来就跳过这段的报告。
+  const text = [header,
+    ...rowsOf('三网,IPv4,'),
+    ...rowsOf('IPv4大包,IPv4,').map(line => line.replace(',OK,', ',SKIP,')),
+    'CERNET,IPv4,河北,教育网,he-edu.example,1.1.1.1,OK,25,25,0.00,190.000,4538'
+  ].join('\n');
+  const report = parse(text);
+  const skippedRows = report.records.filter(record => record.section === 'large4');
+  assert.equal(skippedRows.length, 93);
+  assert.ok(skippedRows.every(record => record.status === 'skipped'));
+  assert.ok(skippedRows.every(record => record.metrics.latency.status === 'skipped' && record.metrics.retrans.status === 'skipped'));
+  // 93 条 × (延迟 + 重传)
+  assert.ok(report.warnings.some(warning => /^186 个指标由探针主动跳过（状态 SKIP）/.test(warning)));
+  assert.ok(!report.warnings.some(warning => /缺失、失败或未知格式/.test(warning)));
+  // 正常行不受影响，不该被顺手打上 skipped
+  assert.ok(report.records.filter(record => record.section === 'ipv4').every(record => !record.status));
+});
+
+test('国际互联上传下载一条 SKIP 时保留另一方向的有效读数', () => {
+  const lines = [header,
+    '国际互联,IPv4,节点,延迟,,203.0.113.1,OK,1,1,0,100,线路,,,,,2,download',
+    '国际互联,IPv4,节点,延迟,,203.0.113.1,SKIP,1,1,0,100,Hidden,,,,,2,upload'
+  ];
+  const record = parseTqCsv(lines.join('\n'), meta).records[0];
+  assert.equal(record.metrics.downloadLatency.status, 'ok');
+  assert.equal(record.metrics.uploadLatency.status, 'skipped');
+  assert.equal(record.status, undefined);
+});
+
 test('记录 key 与单位和链接导入的网页报告一致，可以直接做变化对比', () => {
   const fromCsv = parse();
   const fromHtml = parseReport(html, 'https://tcpquality.ibsgss.uk/r/Bv0B-Hu6iM');

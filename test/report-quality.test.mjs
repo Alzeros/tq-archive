@@ -13,6 +13,30 @@ const fullCsv = readFileSync(new URL('./fixtures/tq-full.csv', import.meta.url),
 const parseCsv = source => parseTqCsv(source, { sourceUrl: 'csv:test', testedAt: '2026-10-04T01:02:27+08:00' });
 const aggregateWarning = '48 个指标为缺失、失败或未知格式，已保留原值，不按零处理';
 
+test('探针主动跳过的指标单列一项，不冒充缺失也不建议重传', () => {
+  // 真实案例：大包回程整段状态 SKIP。按"读数缺失"处理，提示会让人去重传
+  // 一份本来就跳过这段的报告 —— 这是最误导的一类文案。
+  const source = parseCsv(fullCsv);
+  const before = reportCoverage(source);
+  assert.equal(before.skippedMetrics, 0);
+  assert.equal(before.missingMetrics, before.expectedMissingMetrics);
+  for (const item of source.records.filter(entry => entry.section === 'large4')) {
+    item.status = 'skipped';
+    for (const metric of Object.values(item.metrics)) metric.status = 'skipped';
+  }
+  const after = reportCoverage(source);
+  assert.equal(after.skippedMetrics, 186);
+  assert.equal(after.validMetrics, before.validMetrics - 186);
+  assert.equal(after.missingMetrics, before.missingMetrics, '跳过的不能冒充缺失');
+  assert.equal(after.failedMetrics, 0);
+  assert.equal(after.unavailableMetrics, before.unavailableMetrics, '跳过也不算"不可用"');
+  assert.equal(after.partial, true, '整段没执行仍算覆盖不足');
+  assert.equal(after.coverageStatus, 'insufficient');
+  assert.equal(after.badgeStatus, 'neutral', 'SKIP 只能进入中性提示，不能显示解析告警');
+  assert.match(after.coverageHint, /探针主动跳过（状态 SKIP）/);
+  assert.doesNotMatch(after.coverageHint, /请重传/);
+});
+
 test('空报告与缺省输入安全返回，不把无数据认作完整覆盖', () => {
   for (const input of [undefined, null, {}, report()]) {
     const coverage = reportCoverage(input);

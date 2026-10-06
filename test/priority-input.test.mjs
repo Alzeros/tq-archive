@@ -164,6 +164,44 @@ test('service unreachable supports HTML and CSV symbols without invented packet 
   }
 });
 
+test('整族被探针跳过时不算依据不足，只把该族退出计分并如实标注', () => {
+  // 真实案例：大包回程整段状态 SKIP。它既不是失败也不是漏传，
+  // 所以不能拖累整份报告变成"依据不足"，也不该产生"必需读数缺失"这类 issue。
+  const report = dualStackReport();
+  for (const record of report.records.filter(record => record.section === 'large4')) {
+    record.status = 'skipped';
+    for (const metric of Object.values(record.metrics)) metric.status = 'skipped';
+  }
+  const result = input(report);
+  assert.equal(result.status, 'ready');
+  assert.deepEqual(result.coverage.skippedFamilies.map(item => item.leaf), ['B.ct.v4', 'B.cu.v4', 'B.cm.v4']);
+  for (const leaf of result.leaves.filter(leaf => leaf.branch === 'B')) {
+    assert.equal(leaf.status, 'skipped');
+    assert.equal(leaf.score, null);
+    assert.equal(leaf.coverage.skipped, leaf.coverage.records);
+  }
+  assert.equal(result.issues.filter(issue => String(issue.leaf ?? '').startsWith('B.')).length, 0);
+  // 其他分支照常评分，没有被顺带放过
+  assert.ok(result.leaves.filter(leaf => leaf.branch === 'A').every(leaf => leaf.status === 'ready'));
+});
+
+test('历史速度：相对跌幅够大就报，不被绝对 Mbps 门槛挡住', () => {
+  const speeds = (before, after) => {
+    const report = completeReport();
+    const previous = structuredClone(report);
+    previous.testedAt = '2026-10-05T00:00:00Z';
+    for (const record of previous.records.filter(record => record.section === 'speedtest' && record.group === 'IPv4')) record.metrics.returnSpeed.value = before;
+    for (const record of report.records.filter(record => record.section === 'speedtest' && record.group === 'IPv4')) record.metrics.returnSpeed.value = after;
+    return buildPriorityInput(report, { region: 'US' }, previous).leaves.find(leaf => leaf.id === 'D.ct.v4').channels.find(channel => channel.kind === 'speed-change');
+  };
+  // 腰斩：34 → 16Mbps，绝对降幅只有 18（不到 historyDrop=20），比例已经腰斩
+  const halved = speeds(34, 16);
+  assert.ok(halved.score > 0, '腰斩应被判为历史下降');
+  assert.equal(halved.channels.find(channel => channel.metric === 'returnSpeed').drop, 18);
+  // 轻微波动 100 → 90：两个门槛都没到，仍然不报
+  assert.equal(speeds(100, 90).score, 0);
+});
+
 test('history matches same node, earlier time, carrier, family, units and at least three points', () => {
   const report = completeReport();
   const previous = structuredClone(report);
