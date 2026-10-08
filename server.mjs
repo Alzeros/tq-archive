@@ -6,14 +6,14 @@ import { randomUUID, createHash } from 'node:crypto';
 import { parseReport, compareReports, metricNames, PARSER_VERSION } from './lib/parser.mjs';
 import { loadProbeNodes } from './lib/probe.mjs';
 import { createStore } from './lib/store.mjs';
-import { summarize } from './lib/insight.mjs';
+import { summarize, cardsOf } from './lib/insight.mjs';
 import { aggregate, bandsOf, GROUPS, SECTIONS } from './lib/stats.mjs';
 import { significance, isSignificantChange, priorityRules } from './lib/thresholds.mjs';
 import { createAuth } from './lib/auth.mjs';
 import { listKeys, getKey, createKey, updateKey, deleteKey, touchKey, scopeOf, authorizeKey, keysLoadError, backupBrokenKeys } from './lib/keys.mjs';
 import { parseTqCsv, csvFingerprint, CSV_PARSER_VERSION } from './lib/csv-parser.mjs';
 import { packDirectory } from './lib/backup.mjs';
-import { reportCoverage, compareCoverage, comparisonConclusion } from './lib/report-quality.mjs';
+import { reportCoverage, badgeCoverage, compareCoverage, comparisonConclusion } from './lib/report-quality.mjs';
 import { assessPriority, sortPriorities } from './lib/priority.mjs';
 import { parsePriorityView } from './lib/priority-view.mjs';
 
@@ -402,6 +402,26 @@ const server = http.createServer(async (request, response) => {
         // 只在这个 group 下有意义，其余分组本来就有 byCarrier 的汇总口径。
         splitCarrier: url.searchParams.get('split') === 'carrier' && group === 'report'
       });
+      // group=report 附带趋势图与历史行徽章要用的字段：三条指标卡 + 精简覆盖。
+      // 前端原本逐份拉 /api/reports/:id（单份 114–170KB），十几份 2MB+，只为换回几十个数字
+      // —— 正是这个接口要避免的开销。指标卡取自 lib/insight.mjs 同一份 buildCards，
+      // 图上那个点和详情页那张卡不会各算一遍（丢包卡是 ipv4.loss 与 large4.retrans 的
+      // 合并口径，stats.mjs 里按 section 分开算）；覆盖只留徽章读的字段，
+      // 完整 coverage 光 issues 就十几 KB 一份。
+      if (group === 'report') {
+        const detailById = new Map(details.map(detail => [detail.id, detail]));
+        const nodeById = new Map(store.database.nodes.map(node => [node.id, node]));
+        for (const stat of groups) {
+          const detail = detailById.get(stat.key);
+          if (!detail) continue;
+          const cards = cardsOf(detail, nodeById.get(detail.nodeId));
+          stat.series = ['latency', 'loss', 'speed']
+            .map(id => cards.find(card => card.id === id))
+            .filter(card => card && typeof card.value === 'number')
+            .map(card => ({ id: card.id, value: card.value, unit: card.unit, level: card.level || null }));
+          stat.coverage = badgeCoverage(reportCoverage(detail));
+        }
+      }
       return send(response, 200, {
         group,
         section,

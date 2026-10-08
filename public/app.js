@@ -321,6 +321,37 @@ const TREND_DEFS = [
   { key: 'loss', label: '丢包/重传', note: '严重优先 · 越低越好', lowerBetter: true },
   { key: 'speed', label: '回程速度', note: '回程 · 越高越好', lowerBetter: false }
 ];
+// ============ 一台机器的历史只需要一次聚合请求 ============
+// 趋势的三条线和历史列表每行的指标徽章吃同一份数据。逐份拉 /api/reports/:id 是
+// 每份 120KB，十几份 2MB，换回来的只是几十个数字 —— 聚合接口存在的理由正在于此。
+let seriesCache = { key: '', data: null, pending: null };
+// 报告集合决定缓存键：增删归档会改变它，切换节点也是，所以不必手动失效
+const seriesKeyOf = reports => `${reports[0].nodeId}|${reports.map(report => report.id).sort().join(',')}`;
+function loadSeries(reports) {
+  const key = seriesKeyOf(reports);
+  if (seriesCache.key !== key) seriesCache = { key, data: null, pending: null };
+  if (seriesCache.data) return Promise.resolve(seriesCache.data);
+  if (seriesCache.pending) return seriesCache.pending;
+  const ids = new Set(reports.map(report => report.id));
+  seriesCache.pending = api(`/api/stats?group=report&node=${encodeURIComponent(reports[0].nodeId)}&split=carrier`)
+    .then(response => {
+      // 接口按节点返回，可能含界面没列出的更早报告，按当前这份报告集合筛掉
+      const groups = response.groups.filter(group => ids.has(group.key));
+      const data = {
+        byId: new Map(groups.map(group => [group.key, { cards: group.series || [], coverage: group.coverage || null }])),
+        carriers: new Map(groups.map(group => [group.key, group]))
+      };
+      seriesCache.data = data;
+      seriesCache.pending = null;
+      return data;
+    })
+    .catch(error => {
+      // 失败不留缓存，下次进来重拉；否则一次网络抖动会把趋势永久钉死
+      if (seriesCache.key === key) seriesCache.pending = null;
+      throw error;
+    });
+  return seriesCache.pending;
+}
 let trendRequestToken = 0;
 async function renderTrends(reports) {
   const panel = el('trendPanel');
@@ -328,40 +359,17 @@ async function renderTrends(reports) {
   if (reports.length < 2) { panel.classList.add('hidden'); panel.innerHTML = ''; return; }
   panel.classList.remove('hidden');
   panel.innerHTML = '<p class="trend-loading">载入趋势…</p>';
-  state.trend = { mode: 'all', reports: [...reports].sort((left, right) => left.testedAt.localeCompare(right.testedAt)), carriers: null };
+  const sorted = [...reports].sort((left, right) => left.testedAt.localeCompare(right.testedAt));
+  state.trend = { mode: 'all', reports: sorted, data: null };
   try {
-    const details = await Promise.all(state.trend.reports.map(report => fetchDetail(report.id)));
+    const data = await loadSeries(sorted);
     if (token !== trendRequestToken) return;
-    state.trend.details = [...details].sort((left, right) => left.testedAt.localeCompare(right.testedAt));
+    state.trend.data = data;
     drawTrendPanel();
-    // 运营商口径是趋势最有价值的一维，默认就一起拉（一台机器的历史通常几份到几十份）
-    loadCarrierTrend(token);
   } catch (error) {
     if (token !== trendRequestToken) return;
     panel.innerHTML = `<p class="empty">趋势加载失败：${escapeHtml(error.message)}</p>`;
   }
-}
-// 同一节点的历史：节点 + 报告集合没变就不重复请求（切换视图时要用同一份数据）
-let carrierTrendKey = '';
-async function loadCarrierTrend(token) {
-  const trend = state.trend;
-  if (!trend) return;
-  const nodeId = trend.reports[0].nodeId;
-  const key = `${nodeId}:${trend.reports.map(report => report.id).join(',')}`;
-  if (carrierTrendKey !== key) {
-    try {
-      const data = await api(`/api/stats?group=report&node=${encodeURIComponent(nodeId)}&split=carrier`);
-      if (token !== trendRequestToken || !state.trend) return;
-      // 只要选中节点的那几份：接口按节点返回，可能还包含更早的报告
-      const ids = new Set(trend.reports.map(report => report.id));
-      state.trend.carriers = new Map(data.groups.filter(group => ids.has(group.key)).map(group => [group.key, group]));
-      carrierTrendKey = key;
-    } catch {
-      // 拿不到运营商数据不该让整块趋势消失：整机视图仍然可用
-      if (token === trendRequestToken && state.trend) state.trend.carriers = new Map();
-    }
-  }
-  if (token === trendRequestToken) drawTrendPanel();
 }
 const CARRIER_COLORS = { 电信: 'var(--teal)', 联通: 'var(--yellow)', 移动: 'var(--red)' };
 const CARRIER_ORDER = ['电信', '联通', '移动'];
@@ -369,9 +377,8 @@ const CARRIER_ORDER = ['电信', '联通', '移动'];
 // 后两者回答的是存档最该回答的问题 —— "这台机器的移动是不是一直在绕"、
 // "某家丢包从哪一份开始变" —— 整机口径会把三家的差异平均掉。
 function trendCarrierSeries(trend, field) {
-  return CARRIER_ORDER.filter(carrier => trend.reports.some((_, index) => {
-    const stat = trend.carriers?.get(trend.reports[index].id);
-    const value = stat?.carriers?.[carrier]?.[field];
+  return CARRIER_ORDER.filter(carrier => trend.reports.some(report => {
+    const value = trend.data.carriers.get(report.id)?.carriers?.[carrier]?.[field];
     return typeof value === 'number';
   })).map(carrier => ({
     key: carrier,
@@ -379,8 +386,8 @@ function trendCarrierSeries(trend, field) {
     color: CARRIER_COLORS[carrier],
     unit: field === 'latency' ? 'ms' : '条',
     lowerBetter: true,
-    values: trend.reports.map((_, index) => {
-      const value = trend.carriers?.get(trend.reports[index].id)?.carriers?.[carrier]?.[field];
+    values: trend.reports.map(report => {
+      const value = trend.data.carriers.get(report.id)?.carriers?.[carrier]?.[field];
       return typeof value === 'number' ? value : null;
     })
   }));
@@ -388,7 +395,7 @@ function trendCarrierSeries(trend, field) {
 function drawTrendPanel() {
   const panel = el('trendPanel');
   const trend = state.trend;
-  if (!panel || !trend?.details) return;
+  if (!panel || !trend?.data) return;
   const modes = [
     ['all', '全部指标', ''],
     ['latency', '运营商延迟', '每家运营商的回程延迟 p50，看谁一直在绕路'],
@@ -397,17 +404,18 @@ function drawTrendPanel() {
   const tabs = `<div class="trend-tabs">${modes.map(([id, label, title]) => `<button type="button" class="trend-tab${trend.mode === id ? ' active' : ''}" data-mode="${id}" title="${escapeHtml(title)}">${escapeHtml(label)}</button>`).join('')}</div>`;
   let body = '';
   if (trend.mode === 'all') {
-    body = drawTrends(trend.details);
+    body = drawTrends(trend);
   } else {
     const field = trend.mode === 'latency' ? 'latency' : 'lines';
     const series = trendCarrierSeries(trend, field);
     if (!series.length) {
-      body = `<p class="empty">${trend.carriers ? '这几份报告里没有可用的运营商数据。' : '正在载入运营商数据…'}</p>`;
+      body = '<p class="empty">这几份报告里没有可用的运营商数据。</p>';
     } else {
+      // 这句是整块图的读法，不是每张卡各自的注脚：放进格子里会重复三遍并被挤到截断
       const note = field === 'latency'
         ? '三家的 p50 分开画：整机口径会把绕路的那家平均掉'
         : '每条线是"该运营商有多少条线路丢包/重传"，0 是正常，抬头就是那家开始出问题';
-      body = `<div class="trend-grid">${series.map(serie => svgForSeries(trend.reports, { ...serie, note })).join('')}</div>`;
+      body = `<p class="hint">${escapeHtml(note)}</p><div class="trend-grid">${series.map(serie => svgForSeries(trend.reports, serie)).join('')}</div>`;
     }
   }
   panel.innerHTML = `${tabs}<div class="trend-body">${body}</div>`;
@@ -419,10 +427,11 @@ function drawTrendPanel() {
   }
 }
 // 原有三条整机走势。返回 HTML，由 drawTrendPanel 决定放不放进面板
-function drawTrends(points) {
+function drawTrends(trend) {
   // 每个图至少要有 2 个有数值的点才有"走势"可言。单线/全空时整格隐藏
   const series = TREND_DEFS.map(def => {
-    const cardList = points.map(report => (report.insight?.cards || []).find(card => card.id === def.key));
+    // 没测过该维度的报告不会出现在聚合结果里，取不到就是空点，不拿 0 冒充"零丢包"
+    const cardList = trend.reports.map(report => (trend.data.byId.get(report.id)?.cards || []).find(card => card.id === def.key));
     const values = cardList.map(card => (card && typeof card.value === 'number') ? card.value : null);
     const present = values.filter(value => value !== null);
     // 有 2 个及以上数据点就画，哪怕数值完全一样——长期平稳本身就是信息
@@ -435,7 +444,7 @@ function drawTrends(points) {
     };
   }).filter(Boolean);
   if (!series.length) return '<p class="empty">还不够画出走势：至少需要两份含同类指标的报告。</p>';
-  return `<div class="trend-grid">${series.map(serie => svgForSeries(points, serie)).join('')}</div>`;
+  return `<div class="trend-grid">${series.map(serie => svgForSeries(trend.reports, serie)).join('')}</div>`;
 }
 function svgForSeries(points, serie) {
   const W = 320, H = 76, PAD = 10;
@@ -475,10 +484,11 @@ function svgForSeries(points, serie) {
     const title = `${shortTimeCell(report)} · ${value === null ? '无数据' : `${value}${serie.unit}`}${timeIsEstimated(report) ? '（时间按上传估算）' : ''}`;
     return `<button type="button" class="tp" data-id="${report.id}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"></button>`;
   }).join('');
+  // serie.levels 只有整机三条线才有：运营商线一条线就代表一家，点上没有档位可言，画成中性色
   return `<div class="trend-cell">
     <div class="trend-head">
       <span class="trend-label">${escapeHtml(serie.label)}</span>
-      <span class="trend-note">${escapeHtml(serie.note)}</span>
+      ${serie.note ? `<span class="trend-note">${escapeHtml(serie.note)}</span>` : ''}
     </div>
     <svg class="trend-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-hidden="true">
       <defs>
@@ -489,7 +499,7 @@ function svgForSeries(points, serie) {
       </defs>
       ${areaPath ? `<path class="trend-area" fill="url(#${gradId})" d="${areaPath}"/>` : ''}
       ${path ? `<path class="trend-line" style="stroke:${color}" d="${path}"/>` : ''}
-      ${coords.map(point => `<circle class="tp l${serie.levels[point.index] || 'na'}" cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="4.5"/>`).join('')}
+      ${coords.map(point => `<circle class="tp l${serie.levels?.[point.index] || 'na'}" cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="4.5"/>`).join('')}
     </svg>
     <div class="trend-dots">${dots}</div>
     <div class="trend-foot">
@@ -520,6 +530,7 @@ function renderHistory() {
   }
   list.innerHTML = '';
   renderTrends(reports);
+  const metricHosts = [];
   for (const [index, report] of reports.entries()) {
     const warnCount = report.warnings?.length || 0;
     const item = document.createElement('div');
@@ -572,31 +583,41 @@ function renderHistory() {
       } catch (error) { toast(error.message, true); remove.disabled = false; }
     });
     list.append(item);
-    const metricsHost = item.querySelector('.metrics');
-    fillMetrics(metricsHost, report.id);
+    metricHosts.push({ host: item.querySelector('.metrics'), id: report.id });
   }
+  fillHistoryMetrics(reports, metricHosts);
 }
 const BADGE_DEFS = [
   { key: 'latency', short: '延迟', icon: '⚡' },
   { key: 'loss', short: '丢包', icon: '📉' },
   { key: 'speed', short: '回程', icon: '🚀' }
 ];
-async function fillMetrics(host, reportId) {
-  if (!host) return;
-  try {
-    const detail = await fetchDetail(reportId);
-    if (!host.isConnected) return;
+async function fillHistoryMetrics(reports, hosts) {
+  let data;
+  try { data = await loadSeries(reports); }
+  catch {
+    for (const { host } of hosts) if (host?.isConnected) host.innerHTML = '<span class="metric na">指标暂不可用</span>';
+    return;
+  }
+  await Promise.all(hosts.map(async ({ host, id }) => {
+    if (!host?.isConnected) return;
+    let entry = data.byId.get(id);
+    if (!entry) {
+      // 整份报告没测过 IPv4 回程时它不在聚合结果里（group=report 按 section 过滤），
+      // 这种行退回拉一次明细，总比徽章空着强
+      const detail = await fetchDetail(id).catch(() => null);
+      if (!detail || !host.isConnected) return;
+      entry = { cards: detail.insight?.cards || [], coverage: detail.coverage || null };
+    }
     const oldWarning = host.closest('.history-item')?.querySelector('.history-title-row > .warn-pill');
-    if (oldWarning && detail.coverage) oldWarning.hidden = true;
-    const cards = new Map((detail.insight?.cards || []).map(card => [card.id, card]));
+    if (oldWarning && entry.coverage) oldWarning.hidden = true;
+    const cards = new Map(entry.cards.map(card => [card.id, card]));
     host.innerHTML = BADGE_DEFS.map(def => {
       const card = cards.get(def.key);
       if (!card || typeof card.value !== 'number') return `<span class="metric na"><span class="m-icon">${def.icon}</span>${def.short} —</span>`;
       return `<span class="metric l${card.level || 'na'}"><span class="m-icon">${def.icon}</span>${def.short} ${card.value}${escapeHtml(card.unit || '')}</span>`;
-    }).join('') + coverageBadge(detail.coverage);
-  } catch {
-    host.innerHTML = '<span class="metric na">指标暂不可用</span>';
-  }
+    }).join('') + coverageBadge(entry.coverage);
+  }));
 }
 // ============ 洞察视图：把 278 行表格压缩成「结论」 ============
 // 指标卡给客观数字，异常清单靠相对离群（不受机房地理位置影响），热力图按报告内分位着色（不设绝对阈值）

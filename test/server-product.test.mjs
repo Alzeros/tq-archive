@@ -82,6 +82,41 @@ test('看板摘要、覆盖对比与登录边界端到端一致', { timeout: 200
   assert.equal((await fetch(`${base}/api/dashboard?bogus=1`, { headers })).status, 400);
   const detail = await (await fetch(`${base}/api/reports/${current.id}`, { headers })).json();
   assert.deepEqual(detail.insight.assessment, dashboard.entries[0].assessment);
+  // 趋势图改走聚合接口：一次请求同时给出整机三条线与三家运营商。
+  // 逐份拉 /api/reports/:id 是每份 120KB，十几份就是 2MB，只为换几十个数字。
+  const series = await (await fetch(`${base}/api/stats?group=report&node=active&split=carrier`, { headers })).json();
+  assert.deepEqual(series.groups.map(group => group.key).sort(), [previous.id, current.id].sort());
+  const currentStat = series.groups.find(group => group.key === current.id);
+  assert.deepEqual(currentStat.series.map(card => card.id), ['latency', 'loss', 'speed']);
+  // 数字必须与详情页那张卡完全同源：丢包卡是 ipv4.loss + large4.retrans 的合并口径，
+  // 在 stats 层另写一遍迟早算出两个结论
+  for (const card of currentStat.series) {
+    const source = detail.insight.cards.find(item => item.id === card.id);
+    assert.ok(source, `夹具里应当有 ${card.id} 卡`);
+    assert.deepEqual(card, { id: source.id, value: source.value, unit: source.unit, level: source.level });
+  }
+  assert.ok(Object.keys(currentStat.carriers).length, 'split=carrier 要一并给出逐家口径');
+  // 历史列表的行内徽章也吃这个响应：coverage 只留徽章真正读的字段。
+  // 完整 coverage 光 issues 就按每条失败读数展开（实测一份 15KB），逐份挂上去
+  // 就把聚合接口压回了明细接口的量级；逐条提示属于报告详情页，那里仍取完整 coverage。
+  const full = detail.coverage;
+  assert.deepEqual(currentStat.coverage, {
+    badgeStatus: full.badgeStatus,
+    coverageStatus: full.coverageStatus,
+    importIncomplete: full.importIncomplete,
+    coverageHint: full.coverageHint,
+    validMetrics: full.validMetrics,
+    failedMetrics: full.failedMetrics,
+    missingMetrics: full.missingMetrics,
+    expectedMissingMetrics: full.expectedMissingMetrics,
+    skippedMetrics: full.skippedMetrics
+  });
+  for (const heavy of ['issues', 'expectedMissing', 'sections', 'notices']) {
+    assert.ok(!Object.hasOwn(currentStat.coverage, heavy), `${heavy} 不该出现在聚合响应里`);
+  }
+  // 其余 group 既没有 series 也没有 coverage：只有逐份时间序列需要这两样
+  const regionGroups = await (await fetch(`${base}/api/stats?group=region`, { headers })).json();
+  assert.ok(!regionGroups.groups.some(group => Object.hasOwn(group, 'series') || Object.hasOwn(group, 'coverage')));
   const compared = await (await fetch(`${base}/api/compare?base=${previous.id}&current=${current.id}`, { headers })).json();
   assert.equal(compared.coverage.records.added, 1);
   assert.equal(compared.coverage.metrics.statusIncomparable, 1);

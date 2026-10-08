@@ -78,6 +78,9 @@ curl -H "X-Tq-Key: $READ_KEY" 'https://你的域名/api/stats?group=carrier'
 | `section` | `ipv4`（默认）/ `large4` / `ipv6` / `cernet` |
 | `since` / `until` | ISO 日期，如 `2026-10-01` |
 | `node` / `region` / `carrier` | 过滤 |
+| `split` | `carrier`：逐家展开，目前只对 `group=report` 生效 |
+
+`group=report` 每组额外带两样：`series`（`latency` / `loss` / `speed` 三条趋势线的 `{ id, value, unit, level }`）和 `coverage`（列表徽章要读的那几个字段，不含 `issues`）。网页的历史页就靠它们 —— 一次请求同时画出趋势线、填好每行的指标徽章，不再逐份拉 `/api/reports/{id}`（每份 120KB，十几份 2MB，换回的只是几十个数字）。指标卡取自 `lib/insight.mjs` 的 `cardsOf`，与报告详情页那张卡同源，不在汇总层重算：丢包卡是 `ipv4.loss` 与 `large4.retrans` 的合并口径，因此 `series` 里的 `loss` 与顶层按 `section` 分开算的 `loss` 不是一回事。整份报告都没测过 `section` 时它不会出现在结果里（前端对这种行退回拉明细）。
 
 **汇总口径**：基本单位是**机器** —— 一台机器名下所有报告的记录倒在一起算；跨机器再汇总时每台等权（取各机器 p50 的分布），这样报告多的机器不会把区域数字带偏。每组返回延迟分位与离散度、按区域基准判出的 `level`、分运营商 p50、丢包线路数与 ≥10% 的重度条数、回程/去程速度中位数，以及 `worstMachines`（最差三台，便于下钻）。
 
