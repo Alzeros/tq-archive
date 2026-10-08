@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assessPriority, sortPriorities } from '../lib/priority.mjs';
+import { assessPriority, sortPriorities, priorityForBoard } from '../lib/priority.mjs';
 import { priorityPresets } from '../lib/priority-view.mjs';
 import { priorityRules } from '../lib/thresholds.mjs';
 import { completeReport, dualStackReport, deepFreeze } from './fixtures/priority/factory.mjs';
@@ -168,4 +168,31 @@ test('candidate levels come from the uniform-damage curve, not sample quantiles'
   broken.records = broken.records.filter(record => record.section !== 'large4');
   assert.equal(assess(broken).status, 'insufficient');
   assert.equal(assess(broken).level, null);
+});
+
+test('看板投影只留界面读的字段，且不许改变排序', () => {
+  const full = assess(deepFreeze(completeReport()));
+  const board = priorityForBoard(full);
+  // 单节点实测 29KB 的算法中间产物，界面一个都不读；要它们的人直接调 assessPriority
+  for (const heavy of ['facts', 'contributions']) assert.ok(!Object.hasOwn(board, heavy), `${heavy} 不该进 HTTP 响应`);
+  assert.ok(!board.reasons.some(item => Object.hasOwn(item, 'channels')), 'reasons 里的全量通道数组没人读');
+  // 主因文案、徽章、排序依赖的东西必须都在
+  assert.equal(board.reasons.length, full.reasons.length);
+  assert.deepEqual(board.primary, full.primary);
+  assert.deepEqual(board.breadth, full.breadth);
+  assert.deepEqual(board.view, full.view);
+  assert.equal(board.score, full.score);
+  assert.deepEqual(board.coverage.skippedFamilies, full.coverage.skippedFamilies);
+  assert.deepEqual(board.coverage.leaves.map(leaf => leaf.id), full.coverage.leaves.map(leaf => leaf.id));
+  for (const [index, leaf] of board.coverage.leaves.entries()) {
+    assert.deepEqual(Object.keys(leaf).sort(), ['failed', 'id', 'knownExecutions']);
+    assert.equal(leaf.failed, full.coverage.leaves[index].failed);
+    assert.equal(leaf.knownExecutions, full.coverage.leaves[index].knownExecutions);
+  }
+  // 服务端先投影再排序：投影漏掉排序要读的任何一个字段，这里就会走形
+  const many = [0, 5, 40].map((rate, index) => ({ nodeId: `n${index}`, testedAt: `2026-10-0${index + 1}T00:00:00Z`, priority: assess(completeReport(rate)) }));
+  assert.deepEqual(
+    sortPriorities(many.map(entry => ({ ...entry, priority: priorityForBoard(entry.priority) }))).map(entry => entry.nodeId),
+    sortPriorities(many).map(entry => entry.nodeId)
+  );
 });

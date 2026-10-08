@@ -73,6 +73,11 @@ test('看板摘要、覆盖对比与登录边界端到端一致', { timeout: 200
   assert.ok(['ready', 'insufficient'].includes(dashboard.entries[0].priority.status));
   if (dashboard.entries[0].priority.status === 'insufficient') assert.equal(dashboard.entries[0].priority.level, null);
   else assert.equal(dashboard.entries[0].priority.levelSource, 'candidate-scenario');
+  // 看板响应只发界面读的字段：实测单节点从 64KB 降到 12KB，四成是算法中间产物。
+  // 需要 facts / contributions 的离线演算直接调 assessPriority，不绕这个接口。
+  for (const heavy of ['facts', 'contributions']) assert.ok(!Object.hasOwn(dashboard.entries[0].priority, heavy));
+  assert.ok(!dashboard.entries[0].priority.reasons.some(item => Object.hasOwn(item, 'channels')));
+  assert.ok(!Object.hasOwn(dashboard.entries[0].coverage, 'issues'), '逐条失败读数留在明细接口，看板徽章用不上');
   const mobile = await (await fetch(`${base}/api/dashboard?access=cm:4`, { headers })).json();
   assert.notEqual(mobile.view.id, dashboard.view.id);
   assert.equal(mobile.entries[0].priority.view.shares.access.cm, 4 / 7);

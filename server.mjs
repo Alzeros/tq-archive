@@ -14,7 +14,7 @@ import { listKeys, getKey, createKey, updateKey, deleteKey, touchKey, scopeOf, a
 import { parseTqCsv, csvFingerprint, CSV_PARSER_VERSION } from './lib/csv-parser.mjs';
 import { packDirectory } from './lib/backup.mjs';
 import { reportCoverage, badgeCoverage, compareCoverage, comparisonConclusion } from './lib/report-quality.mjs';
-import { assessPriority, sortPriorities } from './lib/priority.mjs';
+import { assessPriority, sortPriorities, priorityForBoard } from './lib/priority.mjs';
 import { parsePriorityView } from './lib/priority-view.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
@@ -261,15 +261,15 @@ const server = http.createServer(async (request, response) => {
         const reports = history.map(index => ({ index, detail: detailOf(index.id) }));
         const latest = reports[0];
         // 每个节点都带一份 priority（含 no-report），否则视图层排序拿不到可比对象。
-        if (!latest) return { nodeId: node.id, reportId: null, priority: assessPriority(null, node, null, view.weights) };
-        if (!latest.detail) return { nodeId: node.id, reportId: latest.index.id, testedAt: latest.index.testedAt, error: '最新报告明细不可读', priority: { ...assessPriority(null, node, null, view.weights), label: '明细不可读' } };
+        if (!latest) return { nodeId: node.id, reportId: null, priority: priorityForBoard(assessPriority(null, node, null, view.weights)) };
+        if (!latest.detail) return { nodeId: node.id, reportId: latest.index.id, testedAt: latest.index.testedAt, error: '最新报告明细不可读', priority: { ...priorityForBoard(assessPriority(null, node, null, view.weights)), label: '明细不可读' } };
         const insight = insightFor(latest.detail);
         // 前份取时间上严格更早的一份：只喂给历史速度通道，缺了不影响当前覆盖。
         const previous = reports.slice(1).find(item => item.detail && Date.parse(item.index.testedAt) < Date.parse(latest.index.testedAt))?.detail ?? null;
         return {
           nodeId: node.id, reportId: latest.index.id, testedAt: latest.index.testedAt,
-          cards: insight.cards, assessment: insight.assessment, coverage: reportCoverage(latest.detail),
-          priority: assessPriority(latest.detail, node, previous, view.weights),
+          cards: insight.cards, assessment: insight.assessment, coverage: badgeCoverage(reportCoverage(latest.detail)),
+          priority: priorityForBoard(assessPriority(latest.detail, node, previous, view.weights)),
           trend: reports.slice().reverse().map(({ index, detail }) => ({ id: index.id, testedAt: index.testedAt, latency: detail ? summarize(detail, node).cards.find(card => card.id === 'latency')?.value ?? null : null }))
         };
       });
