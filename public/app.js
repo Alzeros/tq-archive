@@ -293,11 +293,23 @@ function renderNodes() {
     }
   }
 }
+// 窄屏下节点区默认收起：搜索框 + 列表有 400 多 px 高，会把数据全部推出首屏。
+// 收起状态由 CSS 的 ≤640px 断点控制，宽屏时加不加这个 class 都不影响布局。
+const sideNarrow = matchMedia('(max-width: 640px)');
+function setSideOpen(open) {
+  document.querySelector('.sidebar').classList.toggle('collapsed', !open);
+  el('sideToggle').setAttribute('aria-expanded', String(open));
+}
+const sideIsOpen = () => !document.querySelector('.sidebar').classList.contains('collapsed');
+setSideOpen(!sideNarrow.matches);
+el('sideToggle').addEventListener('click', () => setSideOpen(!sideIsOpen()));
 function selectNode(nodeId) {
   state.selectedNodeId = nodeId;
   renderNodes();
   renderHistory();
   showView('history');
+  // 手机上选完节点就该看到内容，不然还得自己滚回来看
+  if (sideNarrow.matches) setSideOpen(false);
   // 收起详情后主区会留下大片空白，把视图拉回历史列表
   document.querySelector('.content').scrollTop = 0;
 }
@@ -676,7 +688,7 @@ function renderInsight(insight) {
     <div class="insight-block">
       <div class="insight-head"><h3 class="section-title">省份 × 运营商</h3><div class="hm-tabs">${tabs}</div></div>
       <div id="heatmap"></div>
-      <p class="hint">颜色按「${escapeHtml(region.label)}」基准判绝对档位：≤${region.good}ms 好、≤${region.fair}ms 一般、超过为差。悬停查看去程线路。${insight.matrices.some(matrix => matrix.id === 'speedtest') && insight.speedRule ? `测速色阶仅为参考：≥${insight.speedRule.good}Mbps 高速、≥${insight.speedRule.fair}Mbps 中速、低于为低速，不代表故障，也不参与看板绝对带宽告警。` : ''}</p>
+      <p class="hint">颜色按「${escapeHtml(region.label)}」基准判绝对档位：≤${region.good}ms 好、≤${region.fair}ms 一般、超过为差。点按格子看该格的去程线路（桌面端悬停也会显示）。${insight.matrices.some(matrix => matrix.id === 'speedtest') && insight.speedRule ? `测速色阶仅为参考：≥${insight.speedRule.good}Mbps 高速、≥${insight.speedRule.fair}Mbps 中速、低于为低速，不代表故障，也不参与看板绝对带宽告警。` : ''}</p>
     </div>${services}`;
   state.heatmap = { matrixId: insight.matrices[0]?.id || null, metricId: null };
   for (const button of el('detailSummary').querySelectorAll('.hm-tab[data-matrix]')) {
@@ -704,14 +716,24 @@ function drawHeatmap() {
       const text = cell && cell.v !== null ? `${cell.v}${metric.unit}` : '—';
       // l=null 表示缺失或测量失败，画成中性样式，不能冒充"最优"
       const tone = cell && cell.l !== null ? `l${cell.l}` : 'na';
-      return `<span class="hm-cell ${tone}" title="${escapeHtml(`${row}·${column} ${text}｜去程 ${route || '未知'}`)}">${escapeHtml(text)}</span>`;
+      // 去程线路只有这一处有，触屏又不会弹 title —— 做成可按的格子，点一下念到下面那行
+      const detailText = `${row} · ${column} ${text}｜去程 ${route || '未知'}`;
+      return `<button type="button" class="hm-cell ${tone}" data-detail="${escapeHtml(detailText)}" title="${escapeHtml(detailText)}" aria-label="${escapeHtml(detailText)}">${escapeHtml(text)}</button>`;
     }).join('');
     return `<span class="hm-row-name">${escapeHtml(row)}</span>${cells}`;
   }).join('');
   const head = `<span class="hm-row-name"></span>${matrix.columns.map(column => `<span class="hm-col">${escapeHtml(column)}</span>`).join('')}`;
-  el('heatmap').innerHTML = `<div class="hm-tabs">${tabs}</div><div class="hm-grid cols-${Math.min(3, matrix.columns.length)}">${head}${body}</div>${legend}`;
+  el('heatmap').innerHTML = `<div class="hm-tabs">${tabs}</div><div class="hm-grid cols-${Math.min(3, matrix.columns.length)}">${head}${body}</div><p class="hm-detail" id="hmDetail" aria-live="polite" hidden></p>${legend}`;
   for (const button of el('heatmap').querySelectorAll('.hm-tab[data-metric]')) {
     button.addEventListener('click', () => { state.heatmap.metricId = button.dataset.metric; drawHeatmap(); });
+  }
+  for (const cell of el('heatmap').querySelectorAll('.hm-cell[data-detail]')) {
+    cell.addEventListener('click', () => {
+      const box = el('hmDetail');
+      if (!box.hidden && box.textContent === cell.dataset.detail) { box.hidden = true; return; }
+      box.textContent = cell.dataset.detail;
+      box.hidden = false;
+    });
   }
 }
 // ============ 解析提示：按类归并 ============
@@ -1436,6 +1458,8 @@ setupBind();
 window.addEventListener('keydown', event => {
   if (event.key === '/' && document.activeElement !== el('nodeFilter') && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
     event.preventDefault();
+    // 窄屏下搜索框在收起的节点区里，先展开再聚焦，否则快捷键按了没反应
+    setSideOpen(true);
     el('nodeFilter').focus();
     el('nodeFilter').select();
   }

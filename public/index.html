@@ -60,16 +60,25 @@
         </a>
       </div>
 
-      <div class="search-wrap">
-        <svg class="search-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <circle cx="11" cy="11" r="7"/>
-          <path d="m20 20-3.5-3.5"/>
+      <!-- 窄屏下节点区默认收起：它连同搜索框有 400 多 px 高，会把数据全部推出首屏 -->
+      <button id="sideToggle" class="side-toggle ghost" type="button" aria-expanded="false" aria-controls="sideBody">
+        <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
         </svg>
-        <input id="nodeFilter" class="search" type="search" placeholder="筛选节点…" autocomplete="off">
-        <kbd class="search-key" title="快捷键 /">/</kbd>
-      </div>
+        <span>节点列表</span>
+      </button>
+      <div class="side-body" id="sideBody">
+        <div class="search-wrap">
+          <svg class="search-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="11" cy="11" r="7"/>
+            <path d="m20 20-3.5-3.5"/>
+          </svg>
+          <input id="nodeFilter" class="search" type="search" placeholder="筛选节点…" autocomplete="off">
+          <kbd class="search-key" title="快捷键 /">/</kbd>
+        </div>
 
-      <div id="nodeList" class="node-list"></div>
+        <div id="nodeList" class="node-list"></div>
+      </div>
 
       <div class="sidebar-foot">
         <button id="logoutButton" class="ghost wide logout-btn" type="button">

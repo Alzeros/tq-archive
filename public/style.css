@@ -1544,6 +1544,18 @@ button.danger:disabled { opacity: .5; cursor: not-allowed; }
 .hm-cell.l4 { background: var(--heat-4); color: var(--heat-bad-text); }
 .hm-cell.text { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
 .hm-cell.na { background: transparent; color: var(--muted); border: 1px dashed var(--border); }
+/* 数值格是可按按钮（触屏没有 hover，去程线路只能点出来）；.text / .na 自己的边框靠特异性照常生效 */
+button.hm-cell { appearance: none; font: inherit; border: 0; cursor: pointer; }
+button.hm-cell:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+.hm-detail {
+  margin: 8px 0 0;
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: var(--panel-3);
+  color: var(--text-secondary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
 .hm-legend {
   display: flex;
   align-items: center;
@@ -1943,12 +1955,26 @@ body.sub-body, body.login-body { overflow-y: auto; }
   }
   .dash-cell.metrics { grid-column: span 2; }
   .dash-cell.action { display: none; }
+  /* 历史行：右侧操作区有 280px 且不参与收缩，横排会把左边整列挤成 0 宽
+     （时间戳与指标徽章逐字换行）。窄屏改成上下两段，各自占满宽度。 */
+  .history-item { flex-direction: column; align-items: stretch; gap: 10px; }
+  .history-actions { justify-content: flex-start; flex-wrap: wrap; }
+  /* 四个 tab 横排在 358px 里放不下，标签会折成两行；等分并收紧内边距 */
+  .tabs { display: flex; width: 100%; }
+  .tab { flex: 1 1 auto; min-width: 0; justify-content: center; padding: 7px 6px; gap: 6px; }
 }
 
 /* ============ 侧边栏设置入口（节点管理 / API Key） ============ */
 .side-actions { display: flex; gap: 8px; }
 .side-action { flex: 1; min-width: 0; padding: 6px 8px; gap: 6px; }
 .side-action .btn-svg { width: 14px; height: 14px; }
+/* 搜索框 + 节点列表整体包一层，桌面端沿用原来的 flex 撑满行为，窄屏才能整块收起 */
+.side-body { display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 0; }
+.side-toggle { display: none; width: 100%; justify-content: center; }
+@media (max-width: 640px) {
+  .side-toggle { display: flex; }
+  .sidebar.collapsed .side-body { display: none; }
+}
 .empty a { color: var(--teal); text-decoration: none; font-weight: 600; }
 .empty a:hover { text-decoration: underline; }
 
