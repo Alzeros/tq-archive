@@ -1075,6 +1075,16 @@ button.danger:disabled { opacity: .5; cursor: not-allowed; }
   stroke-linejoin: round;
   stroke-linecap: round;
 }
+/* 运营商分色只能走类名：CSP 的 style-src 不含 'unsafe-inline'，内联 style 属性会被
+   直接丢弃（曾经就这么写的，三家运营商的线全部退回上面的 --teal）；
+   而 stroke="var(--red)" 这种展示属性里 var() 又不解析，会算成 none。
+   色值跟主题变量一起切，浅色下同样成立。 */
+.trend-carrier-ct { stroke: var(--teal); }
+.trend-carrier-cu { stroke: var(--yellow); }
+.trend-carrier-cm { stroke: var(--red); }
+.trend-stop.trend-carrier-ct { stop-color: var(--teal); }
+.trend-stop.trend-carrier-cu { stop-color: var(--yellow); }
+.trend-stop.trend-carrier-cm { stop-color: var(--red); }
 .trend-svg circle.tp {
   stroke: var(--panel-2);
   stroke-width: 1.8;

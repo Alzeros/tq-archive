@@ -16,10 +16,10 @@ import { packDirectory } from './lib/backup.mjs';
 import { reportCoverage, badgeCoverage, compareCoverage, comparisonConclusion } from './lib/report-quality.mjs';
 import { assessPriority, sortPriorities, priorityForBoard } from './lib/priority.mjs';
 import { parsePriorityView } from './lib/priority-view.mjs';
+import { businessError, isBusinessError } from './lib/business-error.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const dataDir = process.env.DATA_DIR || join(root, 'data');
-const store = createStore(dataDir);
 const previews = new Map();
 const port = Number(process.env.PORT || 4173);
 // 反代后浏览器发送的 Host 不含端口（标准 443/80），而本机直连带端口。
@@ -49,6 +49,15 @@ let syncing = false;
 const failures = new Map();
 const maxAttempts = 10;
 const lockMs = 5 * 60 * 1000;
+// 键来自请求头，可以被伪造：不做上限的话，攻击者轮换伪造地址就能把这个 Map 撑到内存爆。
+// 过期条目顺手一起清掉 —— 锁定本身也只持续 lockMs，留着没有意义。
+function noteFailure(ip, record) {
+  failures.set(ip, record);
+  const now = Date.now();
+  if (failures.size > 1000) {
+    for (const [key, value] of failures) if (value.lockedUntil <= now) failures.delete(key);
+  }
+}
 function summary(report) {
   const { records, rawRows, ...metadata } = report;
   const sectionCounts = Object.fromEntries(report.sections.map(section => [section.id, records.filter(record => record.section === section.id).length]));
@@ -77,6 +86,8 @@ function rebuildDetail(index) {
 }
 // 需要区分"重建也失败"的调用方（如聚合接口要报告 skipped）用这个；
 // 只关心拿到数据的调用方直接用 detailOf。
+// 显式传 rebuildDetail 而不是依赖 store 里的注入，是为了让"这次读的重建失败原因"
+// 只有在本次调用走过重建时才被记下（注入的自愈也会失败，但那是另一条路径）。
 function loadDetail(id) {
   lastRebuildError = null;
   const detail = store.detail(id, rebuildDetail);
@@ -84,6 +95,10 @@ function loadDetail(id) {
   return { detail: null, error: lastRebuildError };
 }
 const detailOf = id => loadDetail(id).detail;
+// store 自己的读明细入口（改绑等）也用同一套自愈：注入在这里而不是每个调用点，
+// 是为了兑现 lib/store.mjs 里「自愈必须在这一层」的约定 —— 曾经 move 走的是纯读取，
+// 同一份坏数据「点开能自愈、改绑却报明细缺失」，正是那条注释要防的情况。
+const store = createStore(dataDir, { rebuild: rebuildDetail });
 function insightFor(report) {
   const previous = store.database.reports.filter(item => item.nodeId === report.nodeId && item.id !== report.id && Date.parse(item.testedAt) < Date.parse(report.testedAt)).sort((left, right) => Date.parse(right.testedAt) - Date.parse(left.testedAt))[0];
   return summarize(report, store.database.nodes.find(node => node.id === report.nodeId), previous ? detailOf(previous.id) : null);
@@ -98,7 +113,7 @@ async function readText(request, limit) {
   let size = 0;
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > limit) throw new Error('请求过大');
+    if (size > limit) throw businessError('请求过大');
     chunks.push(chunk);
   }
   return Buffer.concat(chunks).toString('utf8');
@@ -120,6 +135,19 @@ function clientIp(request) {
   const ip = String(forwarded).trim().replace(/^::ffff:/, '');
   return /^[\da-fA-F:.]{2,45}$/.test(ip) ? ip : '';
 }
+// 登录失败计数用哪个地址做键。socket 地址在反代后面永远是 127.0.0.1，
+// 拿它当键等于全站共用一个桶：任何一个人输错 10 次，所有人被一起锁 5 分钟，
+// 同时也是一个任何人可触发的拒绝服务。所以这里必须取真实来源。
+//
+// 权衡：直接绕过反代连 127.0.0.1:4173 的调用方可以伪造 X-Real-IP 来绕开自己的锁定。
+// 这只影响「能发起多少轮尝试」，不影响是否放行（auth.verify 是全量比对），
+// 且需要本机可达，威胁模型内可接受。真正被防住的是针对某个用户的在线爆破。
+//
+// 取不到任何有效地址时退回 socket 地址，而不是共用一个空串桶 ——
+// 否则一堆解析不出 IP 的请求会互相把彼此锁掉。
+function loginSource(request) {
+  return clientIp(request) || String(request.socket.remoteAddress || 'unknown').replace(/^::ffff:/, '');
+}
 const headerText = (value, pattern, max) => {
   const text = String(value || '').trim().slice(0, max);
   return pattern.test(text) ? text : '';
@@ -127,15 +155,26 @@ const headerText = (value, pattern, max) => {
 // 与网页报告的"报告时间"同口径：北京时间带偏移，排序与展示都不受服务器时区影响
 const beijingIso = ms => `${new Date(ms + 8 * 3600 * 1000).toISOString().slice(0, 19)}+08:00`;
 // 时间过滤参数归一化。报告的 testedAt 是 `2026-10-05T04:29:54+08:00` 这种北京时间串，
-// 直接和纯日期做字符串比较有两个坑：
-//   until=2026-10-05 会排掉 10-05 全天（因为 '2026-10-05T…' > '2026-10-05'），
-//   带 Z 的调用方边界又和字典序对不上。统一补成当天的起止再比较。
+// 后续一律用字符串比较（比 Date.parse 快，且与排序口径一致），所以边界也必须是同一形态。
+// 三个坑：
+//   1. until=2026-10-05 会排掉 10-05 全天（因为 '2026-10-05T…' > '2026-10-05'）→ 补成当天 23:59:59
+//   2. 带 Z 的边界（UTC 形态）字典序与 +08:00 形态对不上：
+//      '2026-10-06T02:00:00+08:00' <= '2026-10-05T20:00:00Z' 按时间是 true，按字典序是 false，
+//      会把本该包含的报告悄悄漏掉 → 一律换算回北京时间
+//   3. 毫秒不能保留：'…T02:00:00.000+08:00' 比 '…T02:00:00+08:00' 大（'.' > '+'），
+//      带毫秒的边界会把同一秒内的报告挡在 until 之外 → 截到秒
+// 换算用 epoch 而不是解析偏移串：Date.parse 按 UTC 解释无时区的串，本地时区一变结果就变。
 function dateBound(raw, edge) {
   const text = String(raw || '').trim();
   if (!text) return '';
   if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return `${text}T${edge === 'end' ? '23:59:59' : '00:00:00'}+08:00`;
-  if (!/^\d{4}-\d{2}-\d{2}T/.test(text) || !Number.isFinite(Date.parse(text))) return null;
-  return text;
+  if (!/^\d{4}-\d{2}-\d{2}T/.test(text)) return null;
+  const ms = Date.parse(text);
+  if (!Number.isFinite(ms)) return null;
+  const normalized = beijingIso(ms);
+  // 纯日期之外只接受带时区的串（Z 或 ±HH:MM）。没带时区的 '2026-10-05T04:00:00'
+  // 会按服务器本地时区解析 —— 换个时区部署，同一个边界含义就变了。
+  return /(?:Z|[+-]\d{2}:?\d{2})$/.test(text) ? normalized : null;
 }
 // wrapper 传 CSV 的修改时间：core 写完 CSV 的同一秒生成报告时间，误差约 1 秒且不受时区影响。
 // 缺失或离谱（超过一年前 / 晚于现在）时退回上传时间，并标注来源
@@ -162,13 +201,17 @@ function pendingEntry(id, csv, meta) {
 }
 async function downloadReport(input) {
   const url = new URL(input);
-  if (url.origin !== 'https://tcpquality.ibsgss.uk' || url.username || url.password || !/^\/r\/[A-Za-z0-9_-]+\/?$/.test(url.pathname)) throw new Error('请填写 tcpquality.ibsgss.uk/r/… 格式的报告链接');
+  if (url.origin !== 'https://tcpquality.ibsgss.uk' || url.username || url.password || !/^\/r\/[A-Za-z0-9_-]+\/?$/.test(url.pathname)) throw businessError('请填写 tcpquality.ibsgss.uk/r/… 格式的报告链接');
   url.search = ''; url.hash = ''; url.pathname = url.pathname.replace(/\/$/, '');
-  const response = await fetch(url, { signal: AbortSignal.timeout(20000), redirect: 'error' });
-  if (!response.ok) throw new Error(`报告下载失败 (${response.status})`);
+  // fetch 的异常（DNS 失败、TLS 中断、超时）带的是英文底层文案，且可能含内部地址，
+  // 转成业务错误只保留「无法下载报告」这一层，具体原因进服务端日志
+  let response;
+  try { response = await fetch(url, { signal: AbortSignal.timeout(20000), redirect: 'error' }); }
+  catch (error) { console.warn(`下载 ${url.href} 失败：${error.message}`); throw businessError('无法下载该报告，请检查链接是否正确或稍后重试'); }
+  if (!response.ok) throw businessError(`报告下载失败 (${response.status})`);
   let size = 0;
   const chunks = [];
-  for await (const chunk of response.body) { size += chunk.length; if (size > 4 * 1024 * 1024) throw new Error('报告超过 4MB 限制'); chunks.push(chunk); }
+  for await (const chunk of response.body) { size += chunk.length; if (size > 4 * 1024 * 1024) throw businessError('报告超过 4MB 限制'); chunks.push(chunk); }
   return { html: Buffer.concat(chunks).toString('utf8'), url: url.href };
 }
 // ─── 静态资源版本号 ─────────────────────────────────────────────────────
@@ -207,24 +250,28 @@ const server = http.createServer(async (request, response) => {
   // 登录页与静态资源必须可匿名访问，否则未登录时前端根本加载不出来
   // 图标路径需匿名可达：多数抓取器（链接预览、书签同步、Safari）只请求 /favicon.ico 与 /apple-touch-icon.png，且不读页面
   const publicPaths = new Set(['/login', '/login.js', '/theme.js', '/style.css', '/favicon.svg', '/favicon.ico', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png']);
+  // catch 里要用 url.pathname 写日志，所以提到 try 外面；但解析本身仍要兜住 ——
+  // 畸形地址若在这里抛出去，handler 整个 reject，客户端拿到的不是 400 而是一个空连接。
+  let url;
+  try { url = new URL(request.url, `http://127.0.0.1:${port}`); }
+  catch { return send(response, 400, { error: '请求地址无效' }); }
   try {
     if (!allowedHosts.has(request.headers.host)) return send(response, 403, { error: '仅允许本机访问' });
     // 认证只配了一半时直接拒绝服务，而不是按"未启用登录"放行：
     // 静默 fail-open 会让公网部署在没有任何拦截的情况下对外开放。
     if (auth.misconfigured) return send(response, 503, { error: `认证配置不完整（${auth.misconfigured}），已停止服务以免裸奔；请补全后重启` });
     if (request.method === 'POST' && request.headers.origin && !allowedOrigins.has(request.headers.origin)) return send(response, 403, { error: '不允许跨站请求' });
-    const url = new URL(request.url, `http://127.0.0.1:${port}`);
     // 带版本号的静态资源地址还原成原路径，后续的公开路径判断与文件查找不受影响
     url.pathname = url.pathname.replace(/^\/v\/[\da-f]{10}(?=\/)/, '');
 
     if (request.method === 'POST' && url.pathname === '/api/login') {
-      const ip = request.socket.remoteAddress || 'unknown';
+      const ip = loginSource(request);
       const record = failures.get(ip);
       if (record?.lockedUntil > Date.now()) return send(response, 429, { error: '尝试过多，请稍后再试' });
       const { username, password } = await body(request);
       if (!auth.verify(username, password)) {
         const attempts = (record?.attempts || 0) + 1;
-        failures.set(ip, { attempts, lockedUntil: attempts >= maxAttempts ? Date.now() + lockMs : 0 });
+        noteFailure(ip, { attempts, lockedUntil: attempts >= maxAttempts ? Date.now() + lockMs : 0 });
         return send(response, 401, { error: '账号或密码不正确' });
       }
       failures.delete(ip);
@@ -284,17 +331,17 @@ const server = http.createServer(async (request, response) => {
       return send(response, 200, { nodes: store.database.nodes, reports: store.database.reports, pending, syncedAt: store.database.syncedAt, metricNames, authEnabled: auth.enabled });
     }
     if (request.method === 'POST' && url.pathname === '/api/sync') {
-      if (syncing) throw new Error('正在同步，请稍候');
+      if (syncing) throw businessError('正在同步，请稍候');
       syncing = true;
       try { store.sync(await loadProbeNodes()); return send(response, 200, { count: store.database.nodes.filter(node => !node.archived).length }); } finally { syncing = false; }
     }
     if (request.method === 'PATCH' && url.pathname === '/api/nodes') {
       const { ids, enabled } = await body(request);
-      if (!Array.isArray(ids) || !ids.length || typeof enabled !== 'boolean') throw new Error('参数不正确');
+      if (!Array.isArray(ids) || !ids.length || typeof enabled !== 'boolean') throw businessError('参数不正确');
       return send(response, 200, { nodes: store.setNodesEnabled(ids.map(String), enabled) });
     }
     if (request.method === 'POST' && url.pathname === '/api/preview') {
-      if (importing) throw new Error('正在解析另一份报告，请稍候');
+      if (importing) throw businessError('正在解析另一份报告，请稍候');
       importing = true;
       try {
         const input = await body(request);
@@ -310,7 +357,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === 'POST' && url.pathname === '/api/import') {
       const { token, nodeId } = await body(request);
       const preview = previews.get(token);
-      if (!preview || Date.now() - preview.created > 30 * 60 * 1000) throw new Error('预览已过期，请重新解析');
+      if (!preview || Date.now() - preview.created > 30 * 60 * 1000) throw businessError('预览已过期，请重新解析');
       const report = store.insert(nodeId, preview.parsed, preview.html);
       previews.delete(token);
       return send(response, 201, summary(report));
@@ -484,13 +531,13 @@ const server = http.createServer(async (request, response) => {
     // 其余机器测了二十分钟的数据没理由陪着一起卡在队列里。
     function bindOne(id, nodeId) {
       const entry = store.database.pending.find(item => item.id === id);
-      if (!entry) throw new Error('待绑定记录不存在，可能已被处理');
+      if (!entry) throw businessError('待绑定记录不存在，可能已被处理');
       // 不指定节点时用"同一台机器上次归到的节点"（主机名 + 出口 IP 记忆）
       const target = nodeId || store.rememberedNode(entry.identity)?.nodeId;
-      if (!target) throw new Error('没有可用的归属建议，请手动选择节点');
+      if (!target) throw businessError('没有可用的归属建议，请手动选择节点');
       const csv = store.pendingCsv(id);
       // 源文件没了就没法归档：明确说清楚并提示丢弃，而不是让 parseTqCsv 去撞一个 null
-      if (csv === null) { store.markPendingBroken([id]); throw new Error('这份记录的 CSV 源文件已丢失，无法归档；请直接丢弃该条'); }
+      if (csv === null) { store.markPendingBroken([id]); throw businessError('这份记录的 CSV 源文件已丢失，无法归档；请直接丢弃该条'); }
       const parsed = parseTqCsv(csv, { sourceUrl: `csv:${id}`, testedAt: entry.testedAt, identity: entry.identity });
       const upload = { hostname: entry.hostname, sourceIp: entry.sourceIp, keyName: entry.keyName, receivedAt: entry.receivedAt, timeSource: entry.timeSource };
       return summary(store.bindPending(id, target, { ...parsed, upload }, csv));
@@ -651,7 +698,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === 'GET' && url.pathname === '/api/compare') {
       const current = detailOf(url.searchParams.get('current'));
       const previous = detailOf(url.searchParams.get('base'));
-      if (!current || !previous || current.nodeId !== previous.nodeId || current.id === previous.id) throw new Error('请选择同一节点的两份不同报告');
+      if (!current || !previous || current.nodeId !== previous.nodeId || current.id === previous.id) throw businessError('请选择同一节点的两份不同报告');
       const coverage = compareCoverage(current, previous);
       const excluded = new Set(coverage.incomparableMetrics.map(item => `${item.key}\u0000${item.metric}`));
       const changes = compareReports(current, previous).filter(change => !excluded.has(`${change.key}\u0000${change.metric}`));
@@ -729,7 +776,17 @@ const server = http.createServer(async (request, response) => {
     // 登录页与主界面都不应被缓存，避免发版后拿到旧壳子
     response.writeHead(200, { 'Content-Type': `${asset[1]}; charset=utf-8`, 'Cache-Control': 'no-cache' });
     response.end(page);
-  } catch (error) { send(response, 400, { error: error.message || '请求失败' }); }
+  } catch (error) {
+    // 只回传路由层显式标记过的业务错误（参数不对、记录不存在、去重命中…）。
+    // 其余异常一律当作服务端故障：node:fs 的 ENOENT/EACCES 会把 DATA_DIR 的绝对路径
+    // 和系统用户名原样带进响应体，公网部署上等于白送目录结构，而且 400 还会让调用方
+    // 以为是自己参数写错了、反复重试。
+    if (!isBusinessError(error)) {
+      console.error(`${request.method} ${url?.pathname || request.url} 处理失败：${error.stack || error}`);
+      return send(response, 500, { error: '服务器内部错误，请查看服务端日志' });
+    }
+    send(response, 400, { error: error.message || '请求失败' });
+  }
 });
 // 旧版上传接口只把 CSV 落盘、没有登记；启动时补进待绑定队列，测试时间按文件写入时间估算
 for (const orphan of store.orphanPoolFiles()) {

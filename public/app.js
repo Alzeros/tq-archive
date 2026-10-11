@@ -383,8 +383,10 @@ async function renderTrends(reports) {
     panel.innerHTML = `<p class="empty">趋势加载失败：${escapeHtml(error.message)}</p>`;
   }
 }
-const CARRIER_COLORS = { 电信: 'var(--teal)', 联通: 'var(--yellow)', 移动: 'var(--red)' };
 const CARRIER_ORDER = ['电信', '联通', '移动'];
+// 类名后缀：SVG 里上色只能走类名（CSP 不放行内联样式，展示属性又不解析 var()），
+// 所以运营商到类名的映射放在这里，具体的色值仍在 style.css 里跟主题变量一起切。
+const CARRIER_SLOT = { 电信: 'ct', 联通: 'cu', 移动: 'cm' };
 // 趋势视图：全部（原有三条整机线）/ 运营商延迟 / 运营商丢包。
 // 后两者回答的是存档最该回答的问题 —— "这台机器的移动是不是一直在绕"、
 // "某家丢包从哪一份开始变" —— 整机口径会把三家的差异平均掉。
@@ -395,7 +397,7 @@ function trendCarrierSeries(trend, field) {
   })).map(carrier => ({
     key: carrier,
     label: carrier,
-    color: CARRIER_COLORS[carrier],
+    carrier,
     unit: field === 'latency' ? 'ms' : '条',
     lowerBetter: true,
     values: trend.reports.map(report => {
@@ -477,8 +479,13 @@ function svgForSeries(points, serie) {
     ? `M${coords[0].x.toFixed(1)},${H - PAD} L${coords.map(point => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' L')} L${coords.at(-1).x.toFixed(1)},${H - PAD} Z` 
     : '';
   const gradId = `trendGrad_${serie.key}_${Math.random().toString(36).slice(2, 8)}`;
-  // 多序列（三家运营商）必须能分清谁是谁：颜色由 serie.color 给，缺省沿用原来的青色
-  const color = serie.color || 'var(--teal)';
+  // 多序列（三家运营商）必须能分清谁是谁，颜色由 serie.carrier 决定。
+  // 上色只能走类名：style="stroke:…" 会被 CSP 的 style-src 'self' 拦掉
+  //（server.mjs 的响应头没有 'unsafe-inline'），三条线于是全部退回 style.css 的
+  // --teal，"分清谁是谁"直接失效。而换成 stroke="var(--yellow)" 展示属性也不行 ——
+  // var() 在 SVG 展示属性里不解析，会算成 none（已用真实 Chrome 验过）。类名是唯一出路。
+  const carrierKey = serie.carrier && CARRIER_ORDER.includes(serie.carrier) ? serie.carrier : '';
+  const carrierClass = carrierKey ? ` trend-carrier-${CARRIER_SLOT[carrierKey]}` : '';
 
   let summary = '';
   if (coords.length >= 2) {
@@ -505,12 +512,12 @@ function svgForSeries(points, serie) {
     <svg class="trend-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-hidden="true">
       <defs>
         <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${color}" stop-opacity="0.32"/>
-          <stop offset="100%" stop-color="${color}" stop-opacity="0.0"/>
+          <stop class="trend-stop${carrierClass}" offset="0%" stop-opacity="0.32"/>
+          <stop class="trend-stop${carrierClass}" offset="100%" stop-opacity="0.0"/>
         </linearGradient>
       </defs>
       ${areaPath ? `<path class="trend-area" fill="url(#${gradId})" d="${areaPath}"/>` : ''}
-      ${path ? `<path class="trend-line" style="stroke:${color}" d="${path}"/>` : ''}
+      ${path ? `<path class="trend-line${carrierClass}" d="${path}"/>` : ''}
       ${coords.map(point => `<circle class="tp l${serie.levels?.[point.index] || 'na'}" cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="4.5"/>`).join('')}
     </svg>
     <div class="trend-dots">${dots}</div>
