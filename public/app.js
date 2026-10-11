@@ -112,11 +112,17 @@ const viewIsDefault = () => Object.values(state.view).every(values => new Set(Ob
 const viewQuery = () => viewIsDefault() ? '' : `?${Object.entries(state.view).map(([axis, values]) => `${axis}=${Object.entries(values).map(([key, value]) => `${key}:${Number(value.toPrecision(12))}`).join(',')}`).join('&')}`;
 
 // 优先级主因的文案：候选算法只输出数字通道，这里拼成能读的一行。
-function prioritySignalText(contribution) {
+// coverage（各叶子执行失败/已执行条数）就挂在同一个 priority 对象上，直接取，
+// 不用靠一个模块级变量传递 —— 那样会变成"谁最后赋过值就渲染谁的"，
+// 而本函数在徽章、关注卡、主因徽章多处被调用，彼此的遍历顺序并不保证一致。
+function coverageOf(priority) {
+  const leaves = priority?.coverage?.leaves || [];
+  return leaf => leaves.find(item => item.id === leaf) || null;
+}
+function prioritySignalText(contribution, cover) {
   const channel = contribution?.primary;
   if (!channel) return '';
   const name = leafLabel(contribution.leaf);
-  const cover = leafCoverageFor(contribution.leaf);
   const breadth = contribution.breadth || {};
   if (channel.kind === 'rate') return `${name}：重度 ${breadth.heavy ?? 0}/${breadth.valid ?? 0} 条，最高 ${breadth.worst ?? '—'}%`;
   if (channel.kind === 'test-failed') return `${name}：${cover?.failed ?? '—'}/${cover?.knownExecutions ?? '—'} 条执行失败或超时`;
@@ -132,30 +138,42 @@ function prioritySignalText(contribution) {
   }
   return name;
 }
-// 每渲染一台机器前会把这台机器各叶子的覆盖情况放进来，供主因文案取执行失败条数等。
-let leafCoverageMap = {};
-const leafCoverageFor = leaf => leafCoverageMap[leaf] || null;
+// 把一组贡献渲染成文案；cover 一次性取好，避免每条都重建一次查找表
+const signalTexts = (priority, limit = 3) => {
+  const cover = coverageOf(priority);
+  return (priority?.reasons || []).slice(0, limit).map(item => prioritySignalText(item, cover(item.leaf))).filter(Boolean);
+};
 const priorityBadge = priority => {
   if (!priority?.level) return '';
-  const reasons = (priority.reasons || []).slice(0, 3).map(prioritySignalText).filter(Boolean);
+  const reasons = signalTexts(priority);
   // 被探针整族跳过的不算扣分项，但要在悬停里说清"这段没执行"，否则用户会以为数据丢了
   const skipped = (priority.coverage?.skippedFamilies || []).map(item => leafLabel(item.leaf));
   const title = [reasons.join('；') || '当前视角下无扣分项', skipped.length ? `未执行（探针跳过）：${skipped.join('、')}` : '', `口径：${priority.algorithmVersion || '候选'}（${priority.calibration || 'candidate'}，未标定）`].filter(Boolean).join('｜');
   return `<span class="archive-status ${escapeHtml(priority.level)}" title="${escapeHtml(title)}">${escapeHtml(priority.label)}${Number.isFinite(priority.score) ? ` · ${priority.score}` : ''}</span>`;
 };
 // 关注卡的行内理由：只取有扣分的贡献，按叶子单独成句。
-const priorityReasonLine = priority => (priority?.reasons || [])
-  .filter(item => item.contribution > 0)
-  .slice(0, 2)
-  .map(prioritySignalText)
-  .filter(Boolean)
-  .join('；');
+const priorityReasonLine = priority => {
+  const cover = coverageOf(priority);
+  return (priority?.reasons || [])
+    .filter(item => item.contribution > 0)
+    .slice(0, 2)
+    .map(item => prioritySignalText(item, cover(item.leaf)))
+    .filter(Boolean)
+    .join('；');
+};
 const priorityPrimaryBadge = priority => {
   const top = priority?.primary;
   if (!top) return '';
-  const reasons = (priority.reasons || []).slice(0, 3).map(prioritySignalText).filter(Boolean);
-  return `<span class="primary-signal ${escapeHtml(priority.level || '')}" title="${escapeHtml(reasons.join('；'))}">主因：${escapeHtml(leafLabel(top.leaf))}</span>`;
+  return `<span class="primary-signal ${escapeHtml(priority.level || '')}" title="${escapeHtml(signalTexts(priority).join('；'))}">主因：${escapeHtml(leafLabel(top.leaf))}</span>`;
 };
+// 延迟 / 丢包 / 带宽三枚徽章。健康表与关注卡要展示的是同一组数字，
+// 两处曾各抄一份，逐字相同；改文案时漏改一处就会两边不一致。
+// 档位 class 由卡片自带的 level 决定（与服务端 grade 同源），这里不重算。
+const oneMetric = (card, icon, label) => card && typeof card.value === 'number'
+  ? `<span class="metric l${card.level}"><span class="m-icon">${icon}</span>${label} ${card.value}${card.unit}</span>`
+  : '';
+const metricBadges = ({ latency, loss, speed }) =>
+  oneMetric(latency, '⚡', '延迟') + oneMetric(loss, '📉', '丢包') + oneMetric(speed, '🚀', '带宽');
 state.view = readView();
 function renderViewBar() {
   const isDefault = viewIsDefault();
@@ -1026,7 +1044,6 @@ async function renderDashboard() {
     // 视图层：排序分与主因来自候选优先级算法；没有 priority 时退回旧的 assessment，
     // 这样接口灰度期间页面仍然可用。
     const priority = entry.priority || null;
-    leafCoverageMap = Object.fromEntries((priority?.coverage?.leaves || []).map(item => [item.id, item]));
     // 健康表与"需要关注"两张卡以前展示的是同一批徽章。关注卡只列有问题的节点，
     // 这里则是全量索引，所以补一样它独有的信息：最近几份的延迟走势 + 与上一份的差值。
     // 只摆一个时点数字看不出"在变好还是在变差"。
@@ -1042,9 +1059,7 @@ async function renderDashboard() {
     row.querySelector('.metrics').innerHTML = `
       ${priority ? priorityPrimaryBadge(priority) : primarySignalBadge(entry.assessment)}
       ${svgSparkline(series)}
-      ${latency && typeof latency.value === 'number' ? `<span class="metric l${latency.level}"><span class="m-icon">⚡</span>延迟 ${latency.value}${latency.unit}</span>` : ''}
-      ${loss && typeof loss.value === 'number' ? `<span class="metric l${loss.level}"><span class="m-icon">📉</span>丢包 ${loss.value}${loss.unit}</span>` : ''}
-      ${speed && typeof speed.value === 'number' ? `<span class="metric l${speed.level}"><span class="m-icon">🚀</span>带宽 ${speed.value}${speed.unit}</span>` : ''}
+      ${metricBadges({ latency, loss, speed })}
       ${deltaText}
       ${coverageBadge(entry.coverage)}
       ${priority ? priorityBadge(priority) : `<span class="archive-status ${escapeHtml(entry.assessment.level)}" title="${escapeHtml(entry.assessment.reasons.join('；') || entry.assessment.basis)}">${escapeHtml(entry.assessment.label)}${entry.assessment.score > 0 ? ` · ${entry.assessment.score}` : ''}</span>`}
@@ -1068,7 +1083,6 @@ async function renderDashboard() {
   const shown = alerts.slice(0, 6);
   const rest = alerts.length - shown.length;
   for (const { report, latency, loss, speed, priority } of shown) {
-    leafCoverageMap = Object.fromEntries((priority?.coverage?.leaves || []).map(item => [item.id, item]));
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'title-link dash-alert';
@@ -1084,9 +1098,7 @@ async function renderDashboard() {
         </div>
         <div class="metrics">
           ${priorityPrimaryBadge(priority)}
-          ${latency && typeof latency.value === 'number' ? `<span class="metric l${latency.level}"><span class="m-icon">⚡</span>延迟 ${latency.value}${latency.unit}</span>` : ''}
-          ${loss && typeof loss.value === 'number' ? `<span class="metric l${loss.level}"><span class="m-icon">📉</span>丢包 ${loss.value}${loss.unit}</span>` : ''}
-          ${speed && typeof speed.value === 'number' ? `<span class="metric l${speed.level}"><span class="m-icon">🚀</span>带宽 ${speed.value}${speed.unit}</span>` : ''}
+          ${metricBadges({ latency, loss, speed })}
         </div>
       </div>
       <div class="alert-arrow">
