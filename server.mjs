@@ -11,7 +11,7 @@ import { aggregate, bandsOf, GROUPS, SECTIONS } from './lib/stats.mjs';
 import { significance, isSignificantChange, priorityRules } from './lib/thresholds.mjs';
 import { createAuth } from './lib/auth.mjs';
 import { listKeys, getKey, createKey, updateKey, deleteKey, touchKey, scopeOf, authorizeKey, keysLoadError, backupBrokenKeys } from './lib/keys.mjs';
-import { parseTqCsv, csvFingerprint, CSV_PARSER_VERSION } from './lib/csv-parser.mjs';
+import { parseTqCsv, csvFingerprint, hasTqHeader, CSV_PARSER_VERSION } from './lib/csv-parser.mjs';
 import { packDirectory } from './lib/backup.mjs';
 import { reportCoverage, badgeCoverage, compareCoverage, comparisonConclusion } from './lib/report-quality.mjs';
 import { assessPriority, sortPriorities, priorityForBoard } from './lib/priority.mjs';
@@ -375,7 +375,8 @@ const server = http.createServer(async (request, response) => {
         return send(response, 400, { error: '请使用 text/csv 上传' });
       }
       const csv = await readText(request, 4 * 1024 * 1024);
-      if (!/^\uFEFF?网络,IP版本,省份,运营商/.test(csv)) return send(response, 400, { error: 'CSV 表头不匹配，可能不是 TcpQuality 输出' });
+      // 按列名判定，不按列序：core 调整列的顺序不该让好数据被挡在门外
+      if (!hasTqHeader(csv)) return send(response, 400, { error: 'CSV 表头不匹配，可能不是 TcpQuality 输出' });
       // 查重与入队之间没有 await，并发的同一份上传不会都挤进队列
       const duplicate = store.duplicateOf(csvFingerprint(csv));
       if (duplicate) {
