@@ -100,8 +100,10 @@ const detailOf = id => loadDetail(id).detail;
 // 同一份坏数据「点开能自愈、改绑却报明细缺失」，正是那条注释要防的情况。
 const store = createStore(dataDir, { rebuild: rebuildDetail });
 function insightFor(report) {
-  const previous = store.database.reports.filter(item => item.nodeId === report.nodeId && item.id !== report.id && Date.parse(item.testedAt) < Date.parse(report.testedAt)).sort((left, right) => Date.parse(right.testedAt) - Date.parse(left.testedAt))[0];
-  return summarize(report, store.database.nodes.find(node => node.id === report.nodeId), previous ? detailOf(previous.id) : null);
+  // 两处都走 store 的派生索引：此前是全表 filter+sort（找"上一份"）和一次 nodes.find()，
+  // 而这个函数每次请求会被调用很多次（看板每节点两次、报告详情一次）。
+  const previous = store.previousOf(report);
+  return summarize(report, store.node(report.nodeId) || {}, previous ? detailOf(previous.id) : null);
 }
 function send(response, status, data) {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -304,7 +306,8 @@ const server = http.createServer(async (request, response) => {
       let view;
       try { view = parsePriorityView(url.searchParams); } catch (error) { return send(response, 400, { error: error.message }); }
       const entries = store.database.nodes.filter(node => node.enabled !== false && !node.archived).map(node => {
-        const history = store.database.reports.filter(report => report.nodeId === node.id).sort((left, right) => Date.parse(right.testedAt) - Date.parse(left.testedAt)).slice(0, 5);
+        // reportsOfNode 返回的是按测试时间倒序的索引表，取前 5 份即最近 5 份
+        const history = store.reportsOfNode(node.id).slice(0, 5);
         const reports = history.map(index => ({ index, detail: detailOf(index.id) }));
         const latest = reports[0];
         // 每个节点都带一份 priority（含 no-report），否则视图层排序拿不到可比对象。
@@ -423,8 +426,8 @@ const server = http.createServer(async (request, response) => {
         .filter(report => (since ? report.testedAt >= since : true))
         .filter(report => (until ? report.testedAt <= until : true))
         .filter(report => (nodeParam ? report.nodeId === nodeParam : true))
-        .filter(report => store.database.nodes.find(item => item.id === report.nodeId)?.enabled !== false)
-        .filter(report => (regionParam ? store.database.nodes.find(item => item.id === report.nodeId)?.region === regionParam : true));
+        .filter(report => store.node(report.nodeId)?.enabled !== false)
+        .filter(report => (regionParam ? store.node(report.nodeId)?.region === regionParam : true));
       // 明细要逐份读盘：报告多了会变慢，这是明接口的固有代价，
       // 换来的是不必把 2MB 传给客户端再在本地重复算一遍。
       // 读不出来（源文件也没了）的记下来随响应返回，免得数字变少却毫无提示。

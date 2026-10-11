@@ -774,7 +774,12 @@ function renderWarnings(report) {
     </div>`;
 }
 async function openDetail(reportId) {
-  const report = await fetchDetail(reportId);
+  // 明细拉取可能失败（网络抖动、报告刚被删、登录过期）。这里必须兜住：
+  // 五个调用点都是裸调 openDetail(...)，没有一处 await 或 catch，
+  // 失败会变成 unhandled rejection —— 用户点了没反应，控制台才有一条红字。
+  let report;
+  try { report = await fetchDetail(reportId); }
+  catch (error) { toast(`打开报告失败：${error.message}`, true); return; }
   state.detail = report;
   el('comparePrevious').hidden = !previousReport(state.reports, report);
   el('comparePrevious').onclick = () => comparePreviousReport(report);
@@ -836,6 +841,10 @@ function setupBind() {
       toast(`已改绑到「${nodeName(nodeId)}」`);
       el('bindPanel').classList.add('hidden');
       bindPicker = null;
+      // 必须清缓存：detailCache 存的是整份明细（含 nodeId）。不清的话，
+      // 改绑后再打开这份报告会拿到改绑前的归属，界面上显示的节点与服务端对不上。
+      // 删除报告时已经这么做了（见历史列表的删除按钮），改绑是同一类「明细已变」。
+      detailCache.delete(state.detail.id);
       state.selectedNodeId = nodeId;
       el('detailCard').classList.add('hidden');
       state.detail = null;

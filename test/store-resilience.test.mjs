@@ -146,3 +146,52 @@ test('重建回调抛异常时也不把异常漏给调用方', () => {
   assert.doesNotThrow(() => store.detail(report.id, () => { throw new Error('解析炸了'); }));
   assert.equal(store.detail(report.id, () => { throw new Error('解析炸了'); }), null);
 });
+
+test('明细缓存不改变可读性，自愈与改绑后仍然正确', () => {
+  const { dir, store } = makeStore();
+  store.sync([{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }]);
+  const report = store.insert('a', sampleReport, '<html>x</html>');
+  const first = store.detail(report.id);
+  const second = store.detail(report.id);
+  assert.equal(first, second, '重复读取应命中缓存，返回同一个对象');
+  assert.equal(store.cachedDetailCount(), 1);
+
+  // 缓存里已经有一份好的，磁盘文件随后被截断 —— 此时仍应读到那份好的，
+  // 而不是因为文件坏了就把已知可用的数据丢掉（这正是自愈存在的意义）。
+  truncateSync(join(dir, 'reports', `${report.id}.json`), 20);
+  assert.equal(store.detail(report.id), first, '磁盘损坏时缓存里那份仍然可用');
+
+  // 反过来：没有缓存可依、文件又坏掉时，自愈重建的结果必须进缓存，
+  // 避免后续每次读都重跑一次重建。
+  store.invalidateDetail(report.id);
+  const healed = store.detail(report.id, () => ({ ...sampleReport, id: report.id, nodeId: 'a', marker: '重建' }));
+  assert.equal(healed.marker, '重建', '无缓存且文件损坏时应自愈重建');
+  assert.equal(store.detail(report.id).marker, '重建', '重建结果应进缓存，后续直接命中');
+
+  // 改绑要同步更新缓存，否则下一次读到的还是改之前的归属
+  store.move(report.id, 'b');
+  assert.equal(store.detail(report.id).nodeId, 'b', '改绑后缓存里的归属应同步更新');
+  assert.equal(store.database.reports.find(item => item.id === report.id).nodeId, 'b');
+});
+
+test('明细缓存有上限，超出后按最久未用淘汰', () => {
+  const { store } = makeStore();
+  store.sync([{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }]);
+  const limit = 256;   // 与 store 里的 detailCacheLimit 一致
+  const ids = [];
+  for (let i = 0; i < limit + 20; i++) {
+    const report = store.insert('a', { ...sampleReport, fingerprint: `fp${i}`, sourceUrl: `u${i}` }, `<html>${i}</html>`);
+    ids.push(report.id);
+    store.detail(report.id);
+  }
+  // 缓存是按内存占上限的（实测约 260KB/份，256 份约 65MB），不能无界增长
+  assert.ok(store.cachedDetailCount() <= limit, `缓存应被限制在 ${limit} 份以内，实际 ${store.cachedDetailCount()}`);
+  // 读满上限后应稳定在上限，不继续增长
+  assert.equal(store.cachedDetailCount(), limit, '读满上限后应稳定在上限，不继续增长');
+  const before = store.cachedDetailCount();
+  store.detail(ids.at(-1));
+  assert.equal(store.cachedDetailCount(), before, '命中已有项时总数不变');
+  // 最近插入的那份（ids.at(-1)）应还在，最早的（ids[0]）应已被淘汰 —— 重新读它会挤掉最久未用的
+  assert.ok(store.detail(ids[0]), '被淘汰的报告仍可正常读出，只是要重新读盘');
+  assert.equal(store.cachedDetailCount(), limit, '重新读入后仍受上限约束');
+});
