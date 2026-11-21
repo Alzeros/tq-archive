@@ -17,6 +17,7 @@ import { reportCoverage, badgeCoverage, compareCoverage, comparisonConclusion } 
 import { assessPriority, sortPriorities, priorityForBoard } from './lib/priority.mjs';
 import { parsePriorityView } from './lib/priority-view.mjs';
 import { businessError, isBusinessError } from './lib/business-error.mjs';
+import { summarizeReportSnapshot, compactSnapshot, buildCompactDiff, analyzeComparison } from './lib/compare-analysis.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const dataDir = process.env.DATA_DIR || join(root, 'data');
@@ -220,7 +221,7 @@ async function downloadReport(input) {
 // 反代 / CDN 会把 js、css 改成长缓存（线上 Cloudflare 改写为 max-age=14400 并在边缘缓存），
 // 发版后页面是新的、脚本却还是旧的。HTML 本身不缓存，由它引用带内容版本号的地址即可绕过各层缓存。
 // 版本号放在路径里（/v/<hash>/app.js）：部分 CDN 配置会忽略查询参数。
-const versionedAssets = ['app.js', 'style.css', 'archive.css', 'archive.js', 'theme.js', 'picker.js', 'login.js', 'keys.js', 'nodes.js', 'favicon.svg', 'favicon.ico', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'];
+const versionedAssets = ['app.js', 'charts.js', 'style.css', 'archive.css', 'archive.js', 'theme.js', 'picker.js', 'login.js', 'keys.js', 'nodes.js', 'favicon.svg', 'favicon.ico', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'];
 const assetReference = new RegExp(`(["'])/(${versionedAssets.map(name => name.replace(/\./g, '\\.')).join('|')})\\1`, 'g');
 const assetFiles = new Map();
 async function assetFile(name) {
@@ -305,7 +306,9 @@ const server = http.createServer(async (request, response) => {
       // 一律不接收视角参数，永远按绝对档位渲染。
       let view;
       try { view = parsePriorityView(url.searchParams); } catch (error) { return send(response, 400, { error: error.message }); }
-      const entries = store.database.nodes.filter(node => node.enabled !== false && !node.archived).map(node => {
+      const enabledNodes = store.database.nodes.filter(node => node.enabled !== false && !node.archived);
+      const enabledNodeMap = new Map(enabledNodes.map(node => [node.id, node]));
+      const entries = enabledNodes.map(node => {
         // reportsOfNode 返回的是按测试时间倒序的索引表，取前 5 份即最近 5 份
         const history = store.reportsOfNode(node.id).slice(0, 5);
         const reports = history.map(index => ({ index, detail: detailOf(index.id) }));
@@ -316,17 +319,58 @@ const server = http.createServer(async (request, response) => {
         const insight = insightFor(latest.detail);
         // 前份取时间上严格更早的一份：只喂给历史速度通道，缺了不影响当前覆盖。
         const previous = reports.slice(1).find(item => item.detail && Date.parse(item.index.testedAt) < Date.parse(latest.index.testedAt))?.detail ?? null;
+        const snap = summarizeReportSnapshot(latest.detail, node);
+        const diff = previous ? buildCompactDiff(latest.detail, previous, node, { after: snap }) : null;
         return {
           nodeId: node.id, reportId: latest.index.id, testedAt: latest.index.testedAt,
           cards: insight.cards, assessment: insight.assessment, coverage: badgeCoverage(reportCoverage(latest.detail)),
           priority: priorityForBoard(assessPriority(latest.detail, node, previous, view.weights)),
-          trend: reports.slice().reverse().map(({ index, detail }) => ({ id: index.id, testedAt: index.testedAt, latency: detail ? summarize(detail, node).cards.find(card => card.id === 'latency')?.value ?? null : null }))
+          trend: reports.slice().reverse().map(({ index, detail }) => ({ id: index.id, testedAt: index.testedAt, latency: detail ? summarize(detail, node).cards.find(card => card.id === 'latency')?.value ?? null : null })),
+          snapshot: compactSnapshot(snap),
+          diff
         };
       });
       // 视图层排序：分数 → 同等分段内按可比广度 → 时间与 ID；规则见 lib/priority.mjs 的 sortPriorities
       const byNodeId = new Map(entries.map(entry => [entry.nodeId, entry]));
       const ordered = sortPriorities(entries.map(entry => ({ nodeId: entry.nodeId, testedAt: entry.testedAt ?? '', priority: entry.priority }))).map(item => byNodeId.get(item.nodeId));
-      return send(response, 200, { entries: ordered, view, priorityAlgorithm: { version: priorityRules.algorithmVersion, calibration: 'candidate', levels: priorityRules.levels } });
+      const latestByReportId = new Map(entries.filter(entry => entry.reportId && entry.snapshot).map(entry => [entry.reportId, entry]));
+      const recentReports = store.database.reports
+        .filter(report => enabledNodeMap.has(report.nodeId))
+        .slice()
+        .sort((left, right) => Date.parse(right.testedAt) - Date.parse(left.testedAt) || String(right.importedAt || '').localeCompare(String(left.importedAt || '')))
+        .slice(0, 8);
+      const recentChanges = recentReports.map(index => {
+        const node = enabledNodeMap.get(index.nodeId) || {};
+        const cached = latestByReportId.get(index.id);
+        const prevIdx = store.previousOf(index);
+        let snap = cached?.snapshot || null;
+        let diff = cached?.diff ?? null;
+        if (!snap) {
+          const detail = detailOf(index.id);
+          if (detail) {
+            const fullSnap = summarizeReportSnapshot(detail, node);
+            snap = compactSnapshot(fullSnap);
+            const prevDetail = prevIdx ? detailOf(prevIdx.id) : null;
+            diff = prevDetail ? buildCompactDiff(detail, prevDetail, node, { after: fullSnap }) : null;
+          }
+        }
+        return {
+          reportId: index.id,
+          nodeId: index.nodeId,
+          nodeName: node.name || index.nodeId,
+          region: node.region || null,
+          testedAt: index.testedAt,
+          importedAt: index.importedAt,
+          timeSource: index.upload?.timeSource || '',
+          recordCount: index.recordCount,
+          identity: index.identity || '',
+          sourceIp: snap?.sourceIp || '',
+          snapshot: snap,
+          diff,
+          previousId: diff?.baseId || prevIdx?.id || null
+        };
+      });
+      return send(response, 200, { entries: ordered, recentChanges, view, priorityAlgorithm: { version: priorityRules.algorithmVersion, calibration: 'candidate', levels: priorityRules.levels } });
     }
     if (request.method === 'GET' && url.pathname === '/api/state') {
       // 归属建议每次现算：先绑定的一份会让同一台机器后续的报告自动带上推荐
@@ -462,15 +506,46 @@ const server = http.createServer(async (request, response) => {
       if (group === 'report') {
         const detailById = new Map(details.map(detail => [detail.id, detail]));
         const nodeById = new Map(store.database.nodes.map(node => [node.id, node]));
+        const prevByNode = new Map();
         for (const stat of groups) {
           const detail = detailById.get(stat.key);
           if (!detail) continue;
-          const cards = cardsOf(detail, nodeById.get(detail.nodeId));
+          const node = nodeById.get(detail.nodeId) || {};
+          const cards = cardsOf(detail, node);
           stat.series = ['latency', 'loss', 'speed']
             .map(id => cards.find(card => card.id === id))
             .filter(card => card && typeof card.value === 'number')
             .map(card => ({ id: card.id, value: card.value, unit: card.unit, level: card.level || null }));
           stat.coverage = badgeCoverage(reportCoverage(detail));
+          const snap = summarizeReportSnapshot(detail, node);
+          stat.intl = { latency: snap.intl.latencyP50, level: snap.intl.level, unreachable: snap.intl.unreachableCount };
+          stat.retrans = { lines: snap.overall.large4RetransLines, lossLines: snap.overall.ipv4LossLines, totalLines: snap.overall.lossLines, severe: snap.overall.lossSevere };
+          stat.sourceIp = snap.sourceIp || '';
+          stat.regionBand = snap.region;
+          if (stat.carriers) {
+            for (const [carrier, info] of Object.entries(stat.carriers)) {
+              const cSnap = snap.carriers[carrier];
+              if (!cSnap) continue;
+              info.retransLines = cSnap.retransLines;
+              info.returnSpeed = cSnap.returnSpeed;
+            }
+          }
+          const tracker = prevByNode.get(detail.nodeId);
+          const curTs = Date.parse(detail.testedAt);
+          const prevCandidate = tracker && tracker.lastTs < curTs ? tracker.last : tracker?.strictPrev || null;
+          if (prevCandidate && Date.parse(prevCandidate.detail.testedAt) < curTs) {
+            const d = buildCompactDiff(detail, prevCandidate.detail, node, { before: prevCandidate.snap, after: snap });
+            stat.diffFromPrev = { baseId: prevCandidate.detail.id, ipChanged: d.ipChanged, tags: d.tags, verdict: d.verdict };
+          } else {
+            stat.diffFromPrev = null;
+          }
+          if (!tracker) {
+            prevByNode.set(detail.nodeId, { last: { detail, snap }, lastTs: curTs, strictPrev: null });
+          } else if (curTs > tracker.lastTs) {
+            prevByNode.set(detail.nodeId, { last: { detail, snap }, lastTs: curTs, strictPrev: tracker.last });
+          } else {
+            tracker.last = { detail, snap };
+          }
         }
       }
       return send(response, 200, {
@@ -712,7 +787,8 @@ const server = http.createServer(async (request, response) => {
         ...change,
         significant: isSignificantChange(change.metric, change.delta, change.before, change.after)
       }));
-      return send(response, 200, { changes: marked, significance, currentTestedAt: current.testedAt, baseTestedAt: previous.testedAt, added: coverage.records.added, removed: coverage.records.missing, coverage, conclusion: comparisonConclusion(marked) });
+      const analysis = analyzeComparison(current, previous, marked, store.node(current.nodeId) || {});
+      return send(response, 200, { changes: marked, significance, currentTestedAt: current.testedAt, baseTestedAt: previous.testedAt, added: coverage.records.added, removed: coverage.records.missing, coverage, conclusion: comparisonConclusion(marked), analysis });
     }
     const reportMatch = url.pathname.match(/^\/api\/reports\/([a-f\d-]+)(\/(export|raw|move))?$/);
     if (reportMatch) {
@@ -737,12 +813,18 @@ const server = http.createServer(async (request, response) => {
       if (reportMatch[3] === 'export') response.setHeader('Content-Disposition', `attachment; filename="tq-${id}.json"`);
       // 洞察在服务端算：parser 依赖 node:crypto，浏览器端跑不了。
       // 必须带上节点，延迟基准按机房区域选档，否则会把"离得远"判成"线路差"。
-      return send(response, 200, { ...report, coverage: reportCoverage(report), insight: insightFor(report) });
+      const node = store.node(report.nodeId) || {};
+      const snap = summarizeReportSnapshot(report, node);
+      const prevIdx = store.previousOf(report);
+      const prevDetail = prevIdx ? detailOf(prevIdx.id) : null;
+      const previousDiff = prevDetail ? buildCompactDiff(report, prevDetail, node, { after: snap }) : null;
+      return send(response, 200, { ...report, coverage: reportCoverage(report), insight: insightFor(report), snapshot: snap, previousDiff });
     }
     if (request.method !== 'GET') return send(response, 404, { error: '接口不存在' });
     const assets = {
       '/': ['index.html', 'text/html'],
       '/app.js': ['app.js', 'text/javascript'],
+      '/charts.js': ['charts.js', 'text/javascript'],
       '/style.css': ['style.css', 'text/css'],
       '/archive.css': ['archive.css', 'text/css'],
       '/archive.js': ['archive.js', 'text/javascript'],
