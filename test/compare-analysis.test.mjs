@@ -217,3 +217,77 @@ test('analyzeComparison 在仅线路数上升但无显著单条恶化时不抛 T
   assert.equal(latMetric.cells[bjIdx][ctIdx].delta, null);
   assert.equal(latMetric.cells[bjIdx][ctIdx].tone, 'na');
 });
+
+test('100% 丢包产生的 0ms 假延迟在恢复时不会误报延迟恶化或绕路', () => {
+  const outage = makeFullReport({
+    id: 'outage',
+    testedAt: '2026-11-04T23:17:00+08:00',
+    ctLat: 0,
+    cuLat: 0,
+    cmLat: 0
+  });
+  for (const r of outage.records) {
+    if (r.section === 'ipv4') {
+      r.metrics.latency = ok(0, 'ms');
+      r.metrics.loss = ok(100, '%');
+    }
+  }
+  const recovered = makeFullReport({
+    id: 'recovered',
+    testedAt: '2026-11-05T11:03:00+08:00',
+    ctLat: 160,
+    cuLat: 198,
+    cmLat: 159,
+    lossCount: 0
+  });
+  const outageSnap = summarizeReportSnapshot(outage, { region: 'US' });
+  assert.equal(outageSnap.carriers.电信.latencyP50, null);
+  assert.equal(outageSnap.carriers.联通.latencyP50, null);
+  assert.equal(outageSnap.carriers.移动.latencyP50, null);
+
+  const rawChanges = compareReports(recovered, outage).map(c => ({
+    ...c,
+    significant: isSignificantChange(c.metric, c.delta, c.before, c.after)
+  }));
+  const diff = buildCompactDiff(recovered, outage, { region: 'US' });
+  assert.equal(diff.carriers.电信.delta, null);
+  assert.ok(!diff.tags.some(t => /电信 \+|联通 \+|移动 \+/.test(t.text)), '恢复正常时不应出现延迟暴涨标签');
+  assert.ok(diff.tags.some(t => t.kind === 'loss' && t.tone === 'good'), '应保留丢包缓解正向标签');
+
+  const analysis = analyzeComparison(recovered, outage, rawChanges, { region: 'US' });
+  assert.ok(!analysis.brief.some(b => b.kind === 'latency'), '0ms 假延迟恢复不应生成延迟恶化简报');
+  const lossBrief = analysis.brief.find(b => b.scope === 'IPv4 丢包');
+  assert.ok(lossBrief && lossBrief.severity === 'good');
+  const ipv4Matrix = analysis.diffMatrices.find(m => m.id === 'ipv4');
+  assert.equal(ipv4Matrix.metrics.find(m => m.id === 'latency'), undefined, '前值全 0ms 无效时延迟矩阵无有效可比格');
+});
+
+test('极低基数带宽恢复不输出爆炸百分比，国际常用服务延迟取到 1 位小数', () => {
+  const before = makeFullReport({ id: 'sp-b', testedAt: '2026-11-09T17:19:00+08:00', returnSpeed: 1.7 });
+  const after = makeFullReport({ id: 'sp-a', testedAt: '2026-11-17T09:26:00+08:00', returnSpeed: 212.8 });
+  before.records.find(r => r.target === 'Google').metrics.latency = ok(96.347, 'ms');
+  after.records.find(r => r.target === 'Google').metrics.latency = ok(14.442, 'ms');
+
+  const diff = buildCompactDiff(after, before, { region: 'HK' });
+  const speedTag = diff.tags.find(t => t.kind === 'speed');
+  assert.equal(speedTag?.text, '带宽 1.7→213M');
+
+  const rawChanges = compareReports(after, before).map(c => ({
+    ...c,
+    significant: isSignificantChange(c.metric, c.delta, c.before, c.after)
+  }));
+  const analysis = analyzeComparison(after, before, rawChanges, { region: 'HK' });
+  const speedBrief = analysis.brief.find(b => b.kind === 'speed');
+  assert.ok(speedBrief && speedBrief.detail.includes('约 125 倍'), `实际简报：${speedBrief?.detail}`);
+  assert.ok(!speedBrief.detail.includes('%'), '爆炸增幅不应显示数万百分比');
+
+  const googleSvc = analysis.intlDiff.services.find(s => s.target === 'Google');
+  assert.equal(googleSvc.beforeLatency, 96.3);
+  assert.equal(googleSvc.afterLatency, 14.4);
+
+  // 带宽暴跌至接近 0（-100%）时也改为具体值，避免误导成完全为 0
+  const dropBefore = makeFullReport({ id: 'dr-b', testedAt: '2026-11-11T18:38:00+08:00', returnSpeed: 105.4 });
+  const dropAfter = makeFullReport({ id: 'dr-a', testedAt: '2026-11-12T21:36:00+08:00', returnSpeed: 0.2 });
+  const dropDiff = buildCompactDiff(dropAfter, dropBefore, { region: 'US' });
+  assert.equal(dropDiff.tags.find(t => t.kind === 'speed')?.text, '带宽 105→0.2M');
+});

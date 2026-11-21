@@ -19,6 +19,9 @@ const fmtAxisDate = (iso, shortSpan = false) => {
   return shortSpan ? `${md} ${pad(date.getHours())}:${pad(date.getMinutes())}` : md;
 };
 
+const fmtNum = v => (typeof v === 'number' && Number.isFinite(v) ? String(Math.round(v * 10) / 10) : '—');
+const fmtUnit = (v, unit) => (typeof v === 'number' && Number.isFinite(v) ? `${Math.round(v * 10) / 10}${unit}` : '—');
+
 const fmtDelta = (val, unit = '', isSpeed = false) => {
   if (val === null || val === undefined || !Number.isFinite(val)) return '—';
   const rounded = Math.abs(val) >= 10 || Number.isInteger(val) ? Math.round(val) : Math.round(val * 10) / 10;
@@ -272,12 +275,12 @@ export function renderInteractiveTrendChart(container, {
         </div>
       </div>
       <div class="chart-snap-vals">
-        <span class="snap-kv"><i class="dot ct"></i>电信 <b>${ct ?? '—'}ms</b></span>
-        <span class="snap-kv"><i class="dot cu"></i>联通 <b>${cu ?? '—'}ms</b></span>
-        <span class="snap-kv"><i class="dot cm"></i>移动 <b>${cm ?? '—'}ms</b></span>
-        <span class="snap-kv"><i class="dot intl"></i>国际 <b>${intl ?? '—'}ms</b>${unreach ? `<em>(${unreach}不可达)</em>` : ''}</span>
+        <span class="snap-kv"><i class="dot ct"></i>电信 <b>${fmtUnit(ct, 'ms')}</b></span>
+        <span class="snap-kv"><i class="dot cu"></i>联通 <b>${fmtUnit(cu, 'ms')}</b></span>
+        <span class="snap-kv"><i class="dot cm"></i>移动 <b>${fmtUnit(cm, 'ms')}</b></span>
+        <span class="snap-kv"><i class="dot intl"></i>国际 <b>${fmtUnit(intl, 'ms')}</b>${unreach ? `<em>(${unreach}不可达)</em>` : ''}</span>
         <span class="snap-kv">丢包/重传 <b>${lossLines}/${retransLines}条</b></span>
-        <span class="snap-kv">回程带宽 <b>${speed ?? '—'}Mbps</b></span>
+        <span class="snap-kv">回程带宽 <b>${fmtUnit(speed, 'Mbps')}</b></span>
       </div>`;
   }
 
@@ -288,7 +291,10 @@ export function renderInteractiveTrendChart(container, {
     const allValues = activeSeries.flatMap(s => s.values);
     const axis = buildYAxis(allValues, { minSpan: cfg.minSpan, startZero: cfg.startZero, bench: cfg.bench });
 
-    const W = 720, H = 228;
+    const wideSeries = reports.length > 16;
+    const hostW = container.clientWidth || 720;
+    const W = wideSeries ? Math.max(680, Math.min(920, reports.length * 42)) : Math.max(460, Math.min(760, Math.round(hostW)));
+    const H = 228;
     const L = 50, R = 18, T = 16, B = 30;
     const plotW = W - L - R;
     const plotH = H - T - B;
@@ -385,7 +391,7 @@ export function renderInteractiveTrendChart(container, {
       <div class="chart-legend-row">${legendHtml}<span class="chart-legend-hint">点图例可开关线条 · 顶部三角表示出口 IP 变更</span></div>
       ${compareBanner}
       <div class="chart-svg-wrap">
-        <svg class="trend-chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="节点历史趋势折线图">
+        <svg class="trend-chart-svg${wideSeries ? ' wide-series' : ''}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="节点历史趋势折线图">
           ${gridSvg}
           ${benchSvg}
           ${xLabelsSvg}
@@ -439,6 +445,10 @@ export function renderInteractiveTrendChart(container, {
       });
     };
     bindSnapshotButtons();
+    const svgWrap = container.querySelector('.chart-svg-wrap');
+    if (svgWrap && svgWrap.scrollWidth > svgWrap.clientWidth && ui.activeIndex >= reports.length - 1) {
+      svgWrap.scrollLeft = svgWrap.scrollWidth - svgWrap.clientWidth;
+    }
 
     for (const hit of container.querySelectorAll('.chart-hit')) {
       const idx = Number(hit.dataset.index);
@@ -568,13 +578,13 @@ export function renderCompareVisuals(container, analysis, state = {}) {
         <div class="intl-diff-cell ${escapeHtml(n.tone || 'neutral')}">
           <div class="intl-diff-name">${escapeHtml(n.target)}</div>
           <div class="intl-diff-delta">${n.delta !== null ? escapeHtml(fmtDelta(n.delta, 'ms')) : '—'}</div>
-          <div class="intl-diff-sub">${n.beforeLatency ?? '—'} → ${n.afterLatency ?? '—'}ms</div>
+          <div class="intl-diff-sub">${fmtNum(n.beforeLatency)} → ${fmtNum(n.afterLatency)}ms</div>
         </div>`).join('')}</div>` : ''}
       ${intlServices.length ? `<div class="svc-diff-list">${intlServices.map(s => `
         <span class="svc-diff-chip ${escapeHtml(s.tone || 'neutral')}">
           <strong>${escapeHtml(s.target)}</strong>
           ${s.reachChanged ? `<span>${s.beforeReachable ? '✓' : '✗'} → ${s.afterReachable ? '✓' : '✗'}</span>` : ''}
-          ${s.delta !== null ? `<span>${s.beforeLatency ?? '—'}→${s.afterLatency ?? '—'}ms (${escapeHtml(fmtDelta(s.delta, 'ms'))})</span>` : ''}
+          ${s.delta !== null ? `<span>${fmtNum(s.beforeLatency)}→${fmtNum(s.afterLatency)}ms (${escapeHtml(fmtDelta(s.delta, 'ms'))})</span>` : ''}
         </span>`).join('')}</div>` : '<p class="hint svc-ok-hint">常用网站与 CDN 可达性及延迟均无显著变化。</p>'}
     </div>` : '';
 

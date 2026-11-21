@@ -526,6 +526,7 @@ const server = http.createServer(async (request, response) => {
             for (const [carrier, info] of Object.entries(stat.carriers)) {
               const cSnap = snap.carriers[carrier];
               if (!cSnap) continue;
+              if (cSnap.latencyP50 === null && info.latency === 0) info.latency = null;
               info.retransLines = cSnap.retransLines;
               info.returnSpeed = cSnap.returnSpeed;
             }
