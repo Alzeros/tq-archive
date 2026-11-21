@@ -15,7 +15,7 @@
     <header class="sub-header">
       <div>
         <h1 class="sub-title">节点管理</h1>
-        <p class="sub-desc">节点从探针同步。只有<strong>启用</strong>的节点会出现在侧边栏、看板和变化对比里；停用只是隐藏，已有报告不会删除，重新启用即可恢复。</p>
+        <p class="sub-desc">节点从探针同步。只有<strong>启用</strong>的节点会出现在侧边栏、看板和变化对比里；停用只是隐藏，已有报告不会删除，重新启用即可恢复。从探针下线的节点会标记为「探针已移除」并保留历史数据（绝不自动删除），如需彻底清理可手动删除。</p>
       </div>
       <a href="/" class="button ghost sub-back">← 返回首页</a>
     </header>
@@ -48,6 +48,23 @@
       <div id="nodeGroups" class="nodes-groups"></div>
     </section>
   </div>
+
+  <dialog id="deleteNodeDialog" class="confirm-dialog" aria-labelledby="delDialogTitle">
+    <form method="dialog" id="delDialogForm" class="confirm-dialog-box">
+      <h3 id="delDialogTitle" class="confirm-dialog-title"></h3>
+      <p id="delDialogDesc" class="confirm-dialog-desc"></p>
+      <div id="delDialogWarn" class="confirm-dialog-warn" hidden></div>
+      <div id="delDialogVerify" class="confirm-dialog-verify" hidden>
+        <label for="delConfirmInput">请输入完整节点名称 <code id="delExpectedName"></code> 以确认永久删除：</label>
+        <input id="delConfirmInput" class="sub-input" type="text" placeholder="输入节点名称…" autocomplete="off">
+      </div>
+      <div class="confirm-dialog-actions">
+        <button id="delDialogCancel" class="button ghost" type="button">取消</button>
+        <button id="delDialogConfirm" class="button danger" type="submit">确认删除</button>
+      </div>
+    </form>
+  </dialog>
+
   <script type="module" src="/nodes.js"></script>
 </body>
 </html>

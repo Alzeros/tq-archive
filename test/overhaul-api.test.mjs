@@ -13,12 +13,15 @@ test('改版增量接口契约：dashboard/compare/stats/report-detail 与 /char
   const directory = await mkdtemp(join(tmpdir(), 'tq-overhaul-'));
   const html = await readFile(new URL('./fixtures/report.html', import.meta.url), 'utf8');
   const store = createStore(directory);
-  store.sync([{ id: 'hk', name: '香港-测试', region: 'HK' }]);
+  store.sync([{ id: 'hk', name: '香港-测试', region: 'HK' }, { id: 'arch-empty', name: '退役空节点', region: 'US' }, { id: 'arch-data', name: '退役带数据', region: 'US' }]);
 
   const old = parseReport(html, 'https://tcpquality.ibsgss.uk/r/overhaul-old');
   old.testedAt = '2026-11-17T09:30:00+08:00';
   old.identity = 'AS100 Old Host    IP: 156.239.13.146';
   const prev = store.insert('hk', old, html);
+
+  const doomedRep = store.insert('arch-data', { ...old, testedAt: '2026-11-16T08:00:00+08:00', fingerprint: 'doomed-fp', sourceUrl: 'https://tcpquality.ibsgss.uk/r/doomed' }, html);
+  store.sync([{ id: 'hk', name: '香港-测试', region: 'HK' }]);
 
   const next = structuredClone(old);
   next.testedAt = '2026-11-18T21:30:00+08:00';
@@ -125,4 +128,29 @@ test('改版增量接口契约：dashboard/compare/stats/report-detail 与 /char
   const chartsRes = await fetch(`${base}/charts.js`, { headers });
   assert.equal(chartsRes.status, 200);
   assert.match(chartsRes.headers.get('content-security-policy') || '', /style-src 'self'/);
+
+  // 6. 已移除节点手动删除与级联删除权限边界
+  // 未登录拒绝删除与批量清理
+  assert.equal((await fetch(`${base}/api/nodes/arch-empty`, { method: 'DELETE' })).status, 401);
+  assert.equal((await fetch(`${base}/api/nodes/prune-archived`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status, 401);
+
+  // 仍在探针中的活跃节点拒绝删除
+  const activeDel = await fetch(`${base}/api/nodes/hk?cascade=1`, { method: 'DELETE', headers });
+  assert.equal(activeDel.status, 400);
+
+  // 有报告节点不传 cascade=1 时拒绝删除，传 cascade=1 后连同报告一并删除
+  const blockedDel = await fetch(`${base}/api/nodes/arch-data`, { method: 'DELETE', headers });
+  assert.equal(blockedDel.status, 400);
+  const cascadeDel = await fetch(`${base}/api/nodes/arch-data?cascade=1`, { method: 'DELETE', headers });
+  assert.equal(cascadeDel.status, 200);
+  const cascadeBody = await cascadeDel.json();
+  assert.equal(cascadeBody.removedReports, 1);
+  assert.equal((await fetch(`${base}/api/reports/${doomedRep.id}`, { headers })).status, 404);
+
+  // 批量清理无报告的已移除节点
+  const pruned = await fetch(`${base}/api/nodes/prune-archived`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: '{}' });
+  assert.equal(pruned.status, 200);
+  const prunedBody = await pruned.json();
+  assert.deepEqual(prunedBody.removedIds, ['arch-empty']);
+  assert.deepEqual(prunedBody.nodes.map(n => n.id), ['hk']);
 });

@@ -387,6 +387,20 @@ const server = http.createServer(async (request, response) => {
       if (!Array.isArray(ids) || !ids.length || typeof enabled !== 'boolean') throw businessError('参数不正确');
       return send(response, 200, { nodes: store.setNodesEnabled(ids.map(String), enabled) });
     }
+    if (request.method === 'POST' && url.pathname === '/api/nodes/prune-archived') {
+      let payload;
+      try { payload = await body(request); } catch { throw businessError('请求参数格式错误'); }
+      const ids = Array.isArray(payload?.ids) ? payload.ids : null;
+      return send(response, 200, store.removeEmptyArchivedNodes(ids));
+    }
+    const nodeDeleteMatch = request.method === 'DELETE' ? url.pathname.match(/^\/api\/nodes\/([^/]+)$/) : null;
+    if (nodeDeleteMatch) {
+      let nodeId;
+      try { nodeId = decodeURIComponent(nodeDeleteMatch[1]); } catch { throw businessError('节点 ID 无效'); }
+      if (!nodeId) throw businessError('节点不存在，可能已被删除');
+      const cascade = url.searchParams.get('cascade') === '1';
+      return send(response, 200, store.removeNode(nodeId, { cascade }));
+    }
     if (request.method === 'POST' && url.pathname === '/api/preview') {
       if (importing) throw businessError('正在解析另一份报告，请稍候');
       importing = true;
